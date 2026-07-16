@@ -1,0 +1,565 @@
+# iklo-tour.losh
+#
+# One file exhibiting the complete intended language.
+# Anything absent is presumed unnecessary until proven otherwise.
+
+# comments start with `# ` and go till the end of line
+
+### binding namespaces:
+
+# form-var        (dynamic scope)
+# ^type-var       (dynamic scope)
+# $plain-var      (dynamic scope)
+
+# /module-alias   (lexical scope)
+# :val            (lexical scope)
+
+### Reference and Dereference Operators
+
+# &word           (the "var quote" operator - same as `ref :x`   - gets the var object instead of the value it contains. useful for e.g. passing forms as values. usage: &form, &^type, &$var)
+# *word           (the deref word operator  - same as `deref :x` - resolve value for singleton-container/lazy objects)
+
+### Iklo Var Types
+
+# Clojure | Iklo                                        | mutable state description
+# Vars    | Bound (or Basic) Vars, BVars, BVs           | root + per-thread bound isolation. default for forms, ^types and $plain-vars
+# Atoms   | Element Var, Elements, EVars, EVs           | shared synchronous independent state
+# Agents  | Reactive Vars, Reactors, Relays, RVars, RVs | shared reactive independent asynchronous changes through actions
+# Refs    | Transaction Vars, TVars, TVs                | shared software transaction memory: coordinated synchronous changes
+
+# "vars" are always mutable
+# but "vals" are usually constant (can be made mutable with `set`)
+
+# :val.method
+# :val:property
+# :val$setting
+# $var.method
+# $var:property
+# $var$setting
+# or `.:` and `.$`, if you prefer
+
+# literals - self-represented values - cannot be rebound
+
+# \c                        characters, same clojure syntax   \a \b \c \newline etc.
+# 'word
+# "string"
+# [ a list ]
+# { a vector }
+# `[ a list template ]
+# `{ a vector template }
+# `"a string template"
+# --option                  similar to Lisp keywords          
+# //module/path             absolute path to a module         (global static scope - cannot rebind)
+# #!annotation              assignable metadata               (global static scope - cannot rebind)
+
+
+# """
+#   a
+#   multi
+#   line
+#   string
+# """
+
+# Iklo limits side-effects through `surfaces`
+# every side-effect based code must be flagged as such through the `over <surface>` snippet
+# blocks, functions, records, IO, etc.
+
+# when a module acts over externally defined surfaces in its initialisation section,
+# or by all its exported forms, then it must add an `over` section, mentioning the affected
+# surfaces.
+
+# self-contained changes must be flagged as well: one single time, using the `state` pseudo-surface
+
+module //user/Iklo-tour
+over
+  state   # this module changes its own state
+  stdout  # otherwise `print` wouldn't be allowed
+  turtle  # the `turtle surface` represents the interface the turtle uses to draw graphics
+exports
+  start   # a single public form. `start` is also *the* entrypoint form name
+is
+  # `let` is used to bind values to words...
+  # most of the time, we will use it for binding "vals" (lexical constant values)
+  # but it can also be used
+  # - to bind forms and types (lexically),
+  # - and *in a limited scope* to bind new values to pre-existing vars (dynamically)
+
+  let :answer be 42
+  let :ratio be 3.14159
+  let :active be --true
+  let :nothing be --nil
+  let :there be --light
+  let :it be [dum dum dum dum]
+
+  let :greeting be "Hello, Iklo"
+  print :greeting
+
+  let :raw-text be """
+  Strings may span lines
+  without escape ceremonies.
+  """
+
+  # 'turtle is a word
+  let :name be 'turtle
+
+  # --verbose is an option
+  let :option be --verbose
+  
+  let :ls be [a list of words]    # == '[a list of words] == ['a 'list 'of 'words] == '['a 'list 'of 'words]
+  let :vs be {a vector of words}  # == '{a vector of words} == {'a 'vector 'of 'words} == '{'a 'vector 'of 'words}
+
+  let :numbers be [1 2 3 4 5]
+
+  # :person has type ^data, the type for all custom user types
+  # you can use it as a "anonymous record type"
+
+  let :person be new ^data with
+
+    # between `with` and `end` you can put *any* initialisation code
+    # but in order to set any internal state, use `let .<data-member>`
+
+    let .:name be "Ada"
+    let .:age be 36
+    
+    # `let .` is only required for anonymous types
+    # because it's the only way of distinguishing data-members from initialisation local vals
+  end
+
+  # let can have explicit scope
+  let :temp be 5 in
+    # string interpolation
+    print `":temp is ~:temp, but just here."
+  end
+
+  # Bindings are (usually) lexical, and immutable by default.
+
+  let :doubled be :numbers
+    |> map form :n is :n * 2 end
+    |> filter form :n is [:n > 5] # fundamental block syntax is [ ... ] - code blocks ARE lists
+  
+  # other ways of using let
+
+  let ^my-number be ^number           # a simple "typedef"
+
+  let ^executable be ^trait with      # a new trait
+    to execute
+  end
+
+  # `be also` to *add* a type definition (and, here, a trait implementation) to a pre-existing type
+  let ^my-number be also ^executable with  
+    to execute is
+      print "executed!"
+    end
+  end
+
+  # a simple form definition - notice that `sum` has no sigil (it's using the forms binding namespace)
+  let sum be form :x :y is :x + :y end
+
+  # forms declare their readable call pattern.
+  # they are like functions in other languages, but with named patterns between arguments
+  # one limitation: either 0 or 1 word before 1st argument (not multiple words = no spaces)
+
+  to clamp :value between :low and :high is
+    max(:low, min(:value, :high))
+  end
+
+  # we can do the same with `let`, but `let` knows nothing about call patterns - they are defined via `form`
+  # this is the same (or better, the *actual*) definition of `clamp` - `to` is just a sugar-form
+  let clamp be form :value between :low and :high is
+    max(:low, min(:value, :high))
+  end
+
+  # something `let` can do and `to` can't - explicitly scope-limited function definition
+  let my-fleeting-form be form is print "I only work inside this block" end in
+    my-fleeting-form
+  end
+
+  # `my-fleeting-form` is out of scope here and cannot be called anymore
+
+  # a single `let` can be used for multiple definitions
+  let :a be 10 :b be 20     # scope for this line is *the whole module*
+  let :x be 5, :y be 6 in   # scope here is just the next line
+    print :a :b :x :y
+  end
+
+  to add :left to :right is
+    :left + :right
+  end
+
+  to square :x is
+    :x * :x
+  end
+
+  # remember: `use-many-words` must not have spaces because `let` does not accept spaces, only `form`
+
+  to use-many-words :you can only use spaces after the first :argument is
+    print "bit strange but it works!"
+  end
+
+  # equivalent to
+  # let use-many-words be form :you can only use spaces after the first :argument is ... end
+
+  let :i be "a programmer"
+  use-many-words :i can only use spaces after the first ":i"
+
+  let :nine be square 3
+  let :seven be add 3 to 4
+  let :bounded be clamp 20 between 0 and 10
+
+  # Parentheses explicitly delimit a call (if you prefer using C-Style function calls)
+
+  let :nested be square(add 6 to 30)
+
+  # Or you can also use "Lisp-Style" calls, if you will
+
+  to like :something is
+    (print "I like " + :something)
+  end
+
+  let :Iklo be (like :lisp-sometimes)
+
+  # Forms are values and close over lexical bindings.
+
+  to multiplier :factor is
+    form :value is
+      :value * :factor
+    end
+  end
+
+  let :triple be multiplier 3
+  let :twelve be apply :triple 4
+
+  # `alias` can be used to define new forms based on pre-existing behaviour
+  # it is pretty much like `to`, but there's no `end`: it takes a single expression as body
+  # also, `alias` generates distinct metadata, so we diferentiate aliases from regular forms
+
+  alias imprimer :a is print :a
+  alias triple :x is apply (multiplier 3) :x
+  let :douze be triple 4
+
+  # Some forms are built in, and all forms are expressions
+
+  let :description be
+    if :answer > 40 then
+      "large"
+    else-if :answer = 40 then # we require `else-if` to avoid extra indentation and `end`
+      "just -right
+    else
+      "small"
+    end
+
+  # type definitions can be like records
+
+  let ^point be ^data of :x :y end
+
+  let :destination be ^point [ :x 3, :y 4 ]      # base-form
+  let :origin be ^point of :x 0 :y 0 end         # sugar-form
+
+  let :some-point be ^point with
+    # no need to use `let .:x be 1` here
+    # `:x` and `:y` are known members, and seen as such by default
+    let :x be 1
+    let :y be 1
+  end
+
+  to get-distance-from :a and :b is     # :a and :b are points (duck typing)
+    let :dx be :a:x - :b:x in
+      let :dy be :a:y - :b:y in
+        sqrt square :dx + square :dy
+      end
+    end
+  end
+
+  # Behaviour is defined separately from representation.
+
+  let ^drawable be ^trait with
+    to draw :value
+  end
+
+  let ^point be ^drawable with
+    to draw :value is
+      turtle/move-to :value:x :value:y
+    end
+  end
+
+  trait ^distance-able is
+    to get-distance-from :p1 and :p2
+  end
+
+  make ^point be ^distance-able with
+    to get-distance-from :p1 and :p2 is
+      # Iklo has no PEMDAS, so use parentheses whenever in doubt
+      # but if you want to use parens as little as possible,
+      # try to think like an old-school, non-scientific calculator
+      (sqrt :p2.x - :p1.x ^ 2 + (:p2.y - :p1.y ^ 2))
+    end
+  end
+
+  draw :destination
+
+  let :length be get-distance-from :origin and :destination
+
+  # attention:
+  # 
+  # all forms have internal IDs. their IDs are generated with this rule:
+  #
+  # - replace all whitespace with `-`
+  # - replace all argument names with `?`
+  # - add `/` + the form cardinality number as a sufix
+  #
+  # so, the previous form internal ID would be
+  #   `use-many-words-?-can-only-use-spaces-after-the-first-?/2`
+  #
+  # it is a compile time error having multiple forms with the same ID
+  #
+  # the ID works as a the function signature
+  # but notice that types are *not* part of the forms IDs
+  #
+  # in spite of that, we *can* do the following
+
+  to my-overloaded :x complex form with two :y arguments is
+    # hack hack hack
+  end
+  
+  to my-overloaded ^number :x complex form with two :y arguments is
+    # hack hack hack
+  end
+  
+  to my-overloaded ^number :x complex form with two ^string :y arguments is
+    # hack hack hack
+  end
+
+  # but that's just sugar - internally there is *one single form*,
+  # plus *conditional branching based on argument types*
+
+  # Pattern matching provides decomposition and branching.
+
+  to describe :value is
+    match :value against
+      --nil                      -> "nothing"
+      --true                     -> "true"
+      ^point [ 0 0 ]             -> "the origin"
+      ^point of .x :x, .y :y end -> `"point at ~:x, ~:y"
+      `[:head, _:tail]           -> `"a non-empty list beginning with ~:head"
+      :_                         -> "something else"
+    end
+  end
+
+  # Repetition is ordinary iteration over values.
+
+  for :number in :numbers do
+    print :number
+  end
+
+  let :squares be for :number in :numbers do
+    yield square :number
+  end
+
+  ### Mutable state
+
+  # Exists, but it's handled very differently
+
+  # 1) use `set`, not `let`, to initialize mutable state
+  set :counter to 0
+
+  # and 2) we still need to flag it with `over`, whenever its state is changed after its initialisation
+
+  # :counter is a (very small) "side-effect surface"
+  over :counter do
+    repeat 3 times
+      set :counter to :counter + 1  # base-form
+      :counter = :counter + 1       # sugar-form
+      :counter += 1                 # yet another sugar-form
+    end
+  end
+
+  # here, counter is still "changed" (hint: it's value is actually 9)
+  print :counter
+
+  # but it cannot be changed *further*
+  # unless another `over` block is used for it
+
+  ### Dynamic Values
+
+  # Dynamic bindings provide scoped context, not ordinary state.
+
+  # Declaration
+  set $output-format to --plain
+
+  to report :value is
+    match $output-format against
+      --plain -> print :value
+      --debug -> show :value
+    end
+  end
+
+  # will call `print :person`
+  report :person
+
+  # will call `show :person` instead
+  let $output-format be --debug in
+    report :person
+  end
+
+  # and here it will call `print :person` again
+  report :person
+
+  # attention: this might look kinda like lexical scope, but don't be fooled
+  # the way `let $output-format be ...` works respect dynamic binding rules
+  # meaning `$output-format` can be queryed *globally*, but it will be
+  # *temporarily* set to `--debug` in runtime
+
+  ### Types
+
+  # Types are optional runtime constraints (not a "separate language".)
+
+  to typed-distance-from ^point :a to ^point :b -> ^number is
+    get-distance-from :a and :b
+  end
+
+  let ^number :measured be typed-distance-from :destination to origin
+
+  ### Errors
+  
+  # Errors are values: Iklo has no invisible second control-flow system.
+
+  to divide :numerator by :denominator -> ^number or ^error is
+    if :denominator == 0 then
+      return error "division by zero"
+    end
+
+    :numerator / :denominator
+  end
+
+  to show ^error :e is
+    print :e.problem
+    --nil   # just to be explicit (`print` would return `--nil` already)
+  end
+
+  let :quotient be
+    match divide 10 by 2 against
+      ^number :x -> :x
+      ^error  :e ->  :err.problem
+    end
+
+  # `try` propagates an error result from the current procedure.
+
+  to reciprocal-sum :a and :b -> ^number or ^error is
+    let :left be tr divide 1 by :a
+    let :right be try divide 1 by :b
+
+    :left + :right
+  end
+
+  ### Metaprogramming
+
+  # Programs and syntax use the same structural values.
+
+  let :expression be syntax
+    add ~:answer to 1
+  end
+
+  let :computed be eval :expression
+
+  # macro-forms can receive syntax rather than evaluated arguments.
+  # Same pattern model as basic-forms.
+
+  #!MACRO
+  to unless :condition-expr do :body end is
+    syntax
+      if ~:condition-expr then
+        nil
+      else
+        ~:body
+      end
+    end
+  end
+
+  #!MACRO
+  to do-twice :body is
+    let :temporary be gen-word
+
+    syntax
+      let ~:temporary be ~:body
+      ~:body
+      ~:temporary
+    end
+  end
+
+  unless empty? :numbers do
+    print "The list contains values."
+  end
+
+  # `syntax` itself is a macro, roughly equivalent to this
+
+  #!MACRO
+  to syntax :body end is
+    syntax! `[_:body]
+  end
+
+  # `syntax!` is an internal special-form, and its usage should be avoided though
+  # (Like all forms ending with `!`)
+
+  ### Packages, Imports & Exports
+
+  # Imports are explicit. Qualified names always work.
+
+  from //math get --all into /m
+  from //collections get [map filter reduce] 
+
+  print /m/sin 180
+
+  to draw-polygon :sides with size :size is
+    repeat :sides times
+      from //turtle in
+        forward :size
+      end
+
+      //turtle/right 360 / :sides
+    end
+  end
+
+  ### Annotations
+
+  # They define metadata over code constructs
+  # And that metadata can be queried over later on
+
+  # annotation definition
+  #!NOTE
+  to my-annotation :arg1 :arg2 :argn :block is
+    # TODO
+  end
+
+  # usage
+
+  # apply annotation to a whole form
+
+  #!my-annotation 1 2 3
+  to some-form is
+    # TODO
+  end
+
+  # apply annotation to a form argument
+
+  to some-other-form :a :b #!my-annotation(4 5 6) :c is
+    # could also use
+    #     to some-other-form :a :b #!(my-annotation 4 5 6) :c is ...
+    # but NOT
+    #     to some-other-form :a :b #!my-annotation 4 5 6 :c is ...
+    # because parser would not know when the "annotation expression" ends
+
+    # TODO
+  end
+
+  ### Program Start Entrypoint
+
+  # `start` is the default entrypoint.
+  # must be exported/public (see it at the beginning of this file).
+
+  to start is
+    report :greeting
+    report `"distance: ~:length"
+    draw :destination
+    draw-polygon 5 with size 80
+  end
+end
