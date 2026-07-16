@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "crates/iklo-ast",
+    "crates/iklo-lexer",
+    "crates/iklo-parser",
+    "crates/iklo-runtime",
+    "crates/iklo-cli",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "MIT"
+

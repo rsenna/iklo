@@ -1,0 +1,14 @@
+[package]
+name = "iklo-runtime"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+iklo-ast = { path = "../iklo-ast" }
+
+[dev-dependencies]
+iklo-parser = { path = "../iklo-parser" }
+
+[lib]
+path = "src/lib.rs"

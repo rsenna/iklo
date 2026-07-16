@@ -1,0 +1,13 @@
+[package]
+name = "iklo-lexer"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+iklo-ast = { path = "../iklo-ast" }
+logos = "0.14"
+
+[lib]
+path = "src/lib.rs"
+
