@@ -4,9 +4,9 @@
 **Audience:** Language designers, interpreter implementers, AI agents reasoning about language semantics.
 **Status:** Actively maintained. Much of the material below is aspirational (**TBI**/**TBD**/**BET**); see [AGENTS.md](AGENTS.md) for what's actually implemented today.
 **Cross-refs:**
-- Repo/workflow spec — [SPEC.md](SPEC.md)
+- Repo/workflow spec — [spec/SPEC.md](spec/SPEC.md)
 - Agent operating guide — [AGENTS.md](AGENTS.md)
-- Design decisions — [`design/decisions/`](design/decisions/)
+- Design decisions — [`spec/decisions/`](spec/decisions/)
 - Bugs — filed as [GitHub Issues](https://github.com/rsenna/iklo/issues) (label `bug`); when you notice an unrelated defect mid-task, open an issue instead of losing it.
 ---
 # Iklo Language Reference
@@ -696,7 +696,7 @@ Note: `do ... end` enforcement was borrowed from Elixir.
 > **Status (2025):** design-only. Iklo currently runs on the tree-walking
 > interpreter in `crates/iklo-runtime`. Adopting VDBE as a compilation target
 > is deferred pending an `ImageStore` capability boundary that keeps semantics
-> reversible — see [ADR-0001](design/decisions/ADR-0001-turso-vdbe-image-store.md).
+> reversible — see [ADR-0001](spec/decisions/ADR-0001-turso-vdbe-image-store.md).
 
 - [ ] TODO: Let's use **VDBE**
   - [If it is good enough for Doom](https://github.com/tursodatabase/turso-vdbe-doom-example), then it's good enough 

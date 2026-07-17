@@ -4,9 +4,9 @@ This file tells any AI agent (or new human contributor) how to work on Iklo.
 It is intentionally short and factual. For everything else:
 
 - **What Iklo *is* as a language** → [LANGUAGE.md](LANGUAGE.md) (the reference; much of it is aspirational, marked **TBI**/**TBD**/**BET**).
-- **How this repo is built, tested, and evolved** → [SPEC.md](SPEC.md).
-- **Why we made the load-bearing decisions** → [`design/decisions/`](design/decisions/).
-- **What we're actively building next** → [`spec/`](spec/) (per-epic specs) and [`tasks/`](tasks/) (active plan/todo).
+- **How this repo is built, tested, and evolved** → [spec/SPEC.md](spec/SPEC.md).
+- **Why we made the load-bearing decisions** → [`spec/decisions/`](spec/decisions/).
+- **What we're actively building next** → [`spec/`](spec/) (per-epic specs) and [`spec/tasks/`](spec/tasks/) (active plan/todo).
 
 ## What Iklo is, in one paragraph
 
@@ -65,13 +65,13 @@ There are no plugins yet; the Makefile is deliberately thin.
 
 ## Working discipline (spec-driven)
 
-We follow the spec-driven workflow described in [SPEC.md § Workflow](SPEC.md#workflow):
+We follow the spec-driven workflow described in [spec/SPEC.md § Workflow](spec/SPEC.md#workflow):
 `/spec` → `/plan` → `/build` → `/review` → `/ship`. One epic is active at a
 time; when switching epics, replace `tasks/plan.md` + `tasks/todo.md` in a
 commit whose subject contains `CLEANING_TASKS`.
 
 For any change big enough to be architecturally load-bearing, write an ADR
-under `design/decisions/` before touching code.
+under `spec/decisions/` before touching code.
 
 ## Commit rules
 
@@ -90,14 +90,16 @@ under `design/decisions/` before touching code.
 ```
 AGENTS.md              → this file
 LANGUAGE.md            → language reference (aspirational + implemented)
-SPEC.md                → repo-level spec + spec-driven workflow
 README.md              → short outward-facing overview
+Makefile               → thin cargo wrapper
 crates/                → Rust workspace (lexer, ast, parser, runtime, cli)
 examples/              → runnable .iklo programs
 examples/planned/      → .iklo programs that showcase syntax not yet implemented
-design/decisions/      → ADRs (ADR-NNNN, never deleted; superseded/amended)
-spec/                  → per-epic specs (spec-driven development)
-tasks/                 → active epic's plan.md + todo.md
-refs/                  → reference material (UCBLogo, NetLogo) — not code
-AGENTS.old.md, README.old.md, tour.old.iklo → historical snapshots; do not edit
+spec/                  → single source of truth for specs, decisions, and tasks
+  SPEC.md              → repo-level spec + spec-driven workflow
+  <epic>/SPEC.md       → per-epic specs (objective + success criteria)
+  decisions/           → ADRs (ADR-NNNN, never deleted; superseded/amended)
+  tasks/               → active epic's plan.md + todo.md
+refs/                  → reference material (UCBLogo, NetLogo) + historical snapshots
+                         (AGENTS.old.md, README.old.md, tour.old.iklo — do not edit)
 ```

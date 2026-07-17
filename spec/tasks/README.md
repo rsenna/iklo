@@ -1,4 +1,4 @@
-# `tasks/` — active epic plan & todo list
+# `spec/tasks/` — active epic plan & todo list
 
 This directory holds the **currently active** epic's implementation plan and
 task list. Only one epic is in flight at a time.
@@ -6,7 +6,7 @@ task list. Only one epic is in flight at a time.
 ## Layout
 
 ```
-tasks/
+spec/tasks/
   README.md   → this file
   plan.md     → technical implementation plan for the active epic
   todo.md     → ordered task list with acceptance criteria
@@ -23,12 +23,12 @@ tasks/
 ## Recovering a previous plan
 
 ```bash
-git log --grep=CLEANING_TASKS               # find task-reset boundaries
-git show <commit>^:tasks/todo.md            # inspect the previous epic's todo
+git log --grep=CLEANING_TASKS                    # find task-reset boundaries
+git show <commit>^:spec/tasks/todo.md            # inspect the previous epic's todo
 ```
 
 ## Current epic
 
 _None active._ The next epic will be `image-store` (see
-[ADR-0001](../design/decisions/ADR-0001-turso-vdbe-image-store.md)); its
+[ADR-0001](../decisions/ADR-0001-turso-vdbe-image-store.md)); its
 `spec/image-store/SPEC.md` has not been authored yet.
