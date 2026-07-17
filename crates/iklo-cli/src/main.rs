@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use iklo_parser::parse;
+use iklo_parser::{parse, ParseError};
 use iklo_runtime::RuntimeImage;
 
 fn main() {
@@ -27,14 +27,17 @@ fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_repl() {
     println!("iklo IK0 REPL");
-    println!("commands: :quit, :revision, :env\n");
+    println!("commands (at empty prompt): :quit, :revision, :env");
+    println!("(incomplete input continues on the next line; a blank line cancels)\n");
 
     let mut image = RuntimeImage::new();
     let stdin = io::stdin();
+    let mut buffer = String::new();
     let mut line = String::new();
 
     loop {
-        print!("iklo> ");
+        let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
+        print!("{prompt}");
         if io::stdout().flush().is_err() {
             break;
         }
@@ -45,33 +48,56 @@ fn run_repl() {
             break;
         };
         if count == 0 {
-            break;
-        }
-
-        let input = line.trim();
-        if input.is_empty() {
-            continue;
-        }
-        if input == ":quit" {
-            break;
-        }
-        if input == ":revision" {
-            println!("{}", image.revision());
-            continue;
-        }
-        if input == ":env" {
-            for (k, v) in image.bindings() {
-                println!("{k} = {v}");
+            if !buffer.is_empty() {
+                eprintln!("(discarding incomplete input)");
             }
-            continue;
+            break;
         }
 
-        match parse(input) {
-            Ok(program) => match image.eval_in_tx(&program) {
-                Ok(value) => println!("{value}"),
-                Err(err) => eprintln!("error: {err}"),
-            },
-            Err(err) => eprintln!("parse error: {err}"),
+        if buffer.is_empty() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed == ":quit" {
+                break;
+            }
+            if trimmed == ":revision" {
+                println!("{}", image.revision());
+                continue;
+            }
+            if trimmed == ":env" {
+                for (k, v) in image.bindings() {
+                    println!(":{k} = {v}");
+                }
+                continue;
+            }
+            buffer.push_str(&line);
+        } else {
+            if line.trim().is_empty() {
+                buffer.clear();
+                continue;
+            }
+            buffer.push_str(&line);
+        }
+
+        match parse(&buffer) {
+            Ok(program) => {
+                if !program.is_empty() {
+                    match image.eval_in_tx(&program) {
+                        Ok(value) => println!("{value}"),
+                        Err(err) => eprintln!("error: {err}"),
+                    }
+                }
+                buffer.clear();
+            }
+            Err(ParseError::UnexpectedEof) => {
+                // Incomplete input — keep buffer and re-prompt with continuation.
+            }
+            Err(err) => {
+                eprintln!("parse error: {err}");
+                buffer.clear();
+            }
         }
     }
 }
