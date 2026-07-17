@@ -22,7 +22,7 @@ Logo is a language built around the idea that programming should be exploratory 
 - **IntelliJ plugin** — syntax highlighting and bracket matching for `.ls` files.
 - **LogoShell dialect** — the `logosh` binary runs Iklo as an interactive Unix shell: external commands, pipelines (`|`), redirections (`>`, `>>`, `<`, `2>&1`), `NAME=value` env prefixes, and `$status`.
 
-[`refs/ucblogo/summary.md`](refs/ucblogo/summary.md) is the reference we consult first — but it is a *baseline for
+[`refs/ucblogo/summary.md`](ucblogo/summary.md) is the reference we consult first — but it is a *baseline for
 comparison*, not a fallback specification. Where Iklo is silent, the behaviour is
 **undecided**, not inherited ([ADR-0008](design/decisions/ADR-0008-ucblogo-is-inspiration-not-a-compatibility-target.md)).
 
@@ -167,13 +167,13 @@ iklo/
 
 ## Documentation
 
-- **Language reference** — [`AGENTS.md`](AGENTS.md) is the canonical spec: main distinctions from UCBLogo, evaluation model, sigils, block syntax, and the full [Primitive Reference](AGENTS.md#primitive-reference) with per-primitive status tags.
-- **UCBLogo comparison baseline** — [`refs/ucblogo/summary.md`](refs/ucblogo/summary.md). Iklo does **not** inherit from it; where Iklo is silent the behaviour is *undecided* ([ADR-0008](design/decisions/ADR-0008-ucblogo-is-inspiration-not-a-compatibility-target.md)). Primary sources and licensing: [`refs/README.md`](refs/README.md).
+- **Language reference** — [`AGENTS.md`](../AGENTS.md) is the canonical spec: main distinctions from UCBLogo, evaluation model, sigils, block syntax, and the full [Primitive Reference](../AGENTS.md#primitive-reference) with per-primitive status tags.
+- **UCBLogo comparison baseline** — [`refs/ucblogo/summary.md`](ucblogo/summary.md). Iklo does **not** inherit from it; where Iklo is silent the behaviour is *undecided* ([ADR-0008](design/decisions/ADR-0008-ucblogo-is-inspiration-not-a-compatibility-target.md)). Primary sources and licensing: [`refs/README.md`](README.md).
 - **Design & planning hub** — [`design/`](design/) collects design navigation and records; start at [`design/README.md`](design/README.md), which routes to each document.
 
 ## Status & roadmap
 
-Iklo uses **spec-driven development**. The repo-level [`SPEC.md`](SPEC.md) holds the cross-cutting spec (commands, structure, style, testing, boundaries, and the `/spec` → `/plan` → `/build` workflow); each epic has its own spec under [`spec/`](spec/):
+Iklo uses **spec-driven development**. The repo-level [`SPEC.md`](../SPEC.md) holds the cross-cutting spec (commands, structure, style, testing, boundaries, and the `/spec` → `/plan` → `/build` workflow); each epic has its own spec under [`spec/`](spec/):
 
 - [`spec/backlog.md`](spec/backlog.md): the current backlog (§0 doc/code drift, §1–§12 language design & primitives, §15 build order, §16 infrastructure). Status is cross-checked against the source rather than the spec's (sometimes stale) tags.
 - [`spec/grammar-2.0/SPEC.md`](spec/grammar-2.0/SPEC.md): the unified Iklo/LogoShell reader (§13; folds in the former Grammar 2.0 design record).
