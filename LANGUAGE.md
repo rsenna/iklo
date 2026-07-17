@@ -695,8 +695,8 @@ Note: `do ... end` enforcement was borrowed from Elixir.
 
 > **Status (2025):** design-only. Iklo currently runs on the tree-walking
 > interpreter in `crates/iklo-runtime`. Adopting VDBE as a compilation target
-> is deferred pending an `ImageStore` capability boundary that keeps semantics
-> reversible — see [ADR-0001](spec/decisions/ADR-0001-turso-vdbe-image-store.md).
+> is deferred pending a `Substrate` capability boundary that keeps semantics
+> reversible — see [ADR-0001](spec/decisions/ADR-0001-substrate-boundary.md).
 
 - [ ] TODO: Let's use **VDBE**
   - [If it is good enough for Doom](https://github.com/tursodatabase/turso-vdbe-doom-example), then it's good enough 

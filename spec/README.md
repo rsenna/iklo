@@ -40,5 +40,5 @@ Optional, if the epic genuinely diverges from the repo spec:
 
 ## Current epics
 
-_None yet._ The Turso/`ImageStore` epic will be the first — see
-[ADR-0001](decisions/ADR-0001-turso-vdbe-image-store.md).
+_None yet._ The Turso/`Substrate` epic will be the first — see
+[ADR-0001](decisions/ADR-0001-substrate-boundary.md).

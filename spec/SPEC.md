@@ -19,7 +19,7 @@ for the full language reference.
 - **Success (overall):** Iklo runs as a language, a shell, and an in-process
   database — all sharing one grammar — with the transactional live image
   backed by a real storage/VM substrate (initial candidate: Turso/VDBE, see
-  [ADR-0001](decisions/ADR-0001-turso-vdbe-image-store.md)).
+  [ADR-0001](decisions/ADR-0001-substrate-boundary.md)).
 
 ## Tech Stack
 
@@ -35,8 +35,9 @@ for the full language reference.
 
 Future crates (not yet in the workspace, expected as epics land):
 
-- `iklo-image` — the `ImageStore` capability boundary planned in [ADR-0001](decisions/ADR-0001-turso-vdbe-image-store.md).
-- `iklo-vdbe`  — VDBE codegen backend, once (and only if) the image store is proven.
+- `iklo-substrate` — the `Substrate` capability boundary planned in [ADR-0001](decisions/ADR-0001-substrate-boundary.md); defines the trait plus an in-memory implementation.
+- `iklo-substrate-turso` — Turso-backed `Substrate` implementation, once (and only if) the boundary is proven.
+- `iklo-vdbe`  — VDBE codegen backend; a later, separate decision (see ADR-0001).
 - `iklo-shell` — shell-mode front-end sharing the parser.
 
 ## Commands

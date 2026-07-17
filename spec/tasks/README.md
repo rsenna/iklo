@@ -29,6 +29,6 @@ git show <commit>^:spec/tasks/todo.md            # inspect the previous epic's t
 
 ## Current epic
 
-_None active._ The next epic will be `image-store` (see
-[ADR-0001](../decisions/ADR-0001-turso-vdbe-image-store.md)); its
-`spec/image-store/SPEC.md` has not been authored yet.
+_None active._ The next epic will be `substrate` (see
+[ADR-0001](../decisions/ADR-0001-substrate-boundary.md)); its
+`spec/substrate/SPEC.md` has not been authored yet.
