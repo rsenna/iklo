@@ -1,5 +1,5 @@
-use iklo_ast::{BinOp, Expr, Program, Span, Spanned, Stmt};
-use iklo_lexer::{tokenize, LexError, Token, TokenKind};
+use iklo_ast::{BinOp, Expr, Program, Span, Spanned};
+use iklo_lexer::{tokenize, LexError, Lexeme, LexemeKind};
 
 #[derive(Debug)]
 pub enum ParseError {
@@ -41,27 +41,27 @@ impl From<LexError> for ParseError {
 }
 
 pub fn parse(source: &str) -> Result<Program, ParseError> {
-    let tokens = tokenize(source)?;
-    Parser::new(tokens).parse_program()
+    let lexemes = tokenize(source)?;
+    Parser::new(lexemes).parse_program()
 }
 
 struct Parser {
-    tokens: Vec<Token>,
+    lexemes: Vec<Lexeme>,
     pos: usize,
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+    fn new(lexemes: Vec<Lexeme>) -> Self {
+        Self { lexemes, pos: 0 }
     }
 
     fn parse_program(&mut self) -> Result<Program, ParseError> {
         let mut out = Vec::new();
         while !self.is_eof() {
-            out.push(self.parse_stmt()?);
-            if self.match_kind(|k| matches!(k, TokenKind::Semi)) {
+            out.push(self.parse_expr(0)?);
+            if self.match_kind(|k| matches!(k, LexemeKind::Semi)) {
                 self.advance();
-                while self.match_kind(|k| matches!(k, TokenKind::Semi)) {
+                while self.match_kind(|k| matches!(k, LexemeKind::Semi)) {
                     self.advance();
                 }
             } else if !self.is_eof() {
@@ -71,29 +71,14 @@ impl Parser {
         Ok(out)
     }
 
-    fn parse_stmt(&mut self) -> Result<Stmt, ParseError> {
-        if self.match_kind(|k| matches!(k, TokenKind::Let)) {
-            self.advance();
-            let name = match self.advance_kind()? {
-                TokenKind::Ident(s) => s,
-                other => return Err(self.err_expected_token(other, "identifier")),
-            };
-            self.expect(|k| matches!(k, TokenKind::Eq), "'='")?;
-            let expr = self.parse_expr(0)?;
-            return Ok(Stmt::Let { name, expr });
-        }
-
-        Ok(Stmt::Expr(self.parse_expr(0)?))
-    }
-
     fn parse_expr(&mut self, min_bp: u8) -> Result<Spanned<Expr>, ParseError> {
         let mut lhs = self.parse_prefix()?;
 
         loop {
-            let Some(op_tok) = self.peek().cloned() else {
+            let Some(op_lex) = self.peek().cloned() else {
                 break;
             };
-            let Some((l_bp, r_bp, op)) = infix_binding_power(&op_tok.kind) else {
+            let Some((l_bp, r_bp, op)) = infix_binding_power(&op_lex.kind) else {
                 break;
             };
             if l_bp < min_bp {
@@ -122,22 +107,47 @@ impl Parser {
     }
 
     fn parse_prefix(&mut self) -> Result<Spanned<Expr>, ParseError> {
-        let tok = self.advance_token()?;
-        match tok.kind {
-            TokenKind::Number(n) => Ok(Spanned::new(Expr::Number(n), tok.span)),
-            TokenKind::Ident(name) => Ok(Spanned::new(Expr::TokenRef(name), tok.span)),
-            TokenKind::LParen => {
+        let lex = self.advance_lexeme()?;
+        match lex.kind {
+            LexemeKind::Number(n) => Ok(Spanned::new(Expr::Number(n), lex.span)),
+            LexemeKind::ColonName(name) => Ok(Spanned::new(Expr::LexRef(name), lex.span)),
+            LexemeKind::Let => self.parse_let(lex.span),
+            LexemeKind::LParen => {
                 let expr = self.parse_expr(0)?;
-                self.expect(|k| matches!(k, TokenKind::RParen), "')'")?;
+                self.expect(|k| matches!(k, LexemeKind::RParen), "')'")?;
                 Ok(expr)
             }
-            other => Err(self.err_expected_token(other, "expression")),
+            other => Err(self.err_expected_lexeme(other, "expression")),
         }
+    }
+
+    fn parse_let(&mut self, let_span: Span) -> Result<Spanned<Expr>, ParseError> {
+        let name = match self.advance_kind()? {
+            LexemeKind::ColonName(s) => s,
+            other => {
+                return Err(self.err_expected_lexeme(other, "':name' after 'let'"));
+            }
+        };
+        self.expect(|k| matches!(k, LexemeKind::Be), "'be'")?;
+        let value = self.parse_expr(0)?;
+        let span = Span::new(
+            let_span.start,
+            value.span.end,
+            let_span.line,
+            let_span.col,
+        );
+        Ok(Spanned::new(
+            Expr::Let {
+                name,
+                value: Box::new(value),
+            },
+            span,
+        ))
     }
 
     fn expect<F>(&mut self, pred: F, expected: &str) -> Result<(), ParseError>
     where
-        F: Fn(&TokenKind) -> bool,
+        F: Fn(&LexemeKind) -> bool,
     {
         if self.match_kind(pred) {
             self.advance();
@@ -149,49 +159,49 @@ impl Parser {
 
     fn match_kind<F>(&self, pred: F) -> bool
     where
-        F: Fn(&TokenKind) -> bool,
+        F: Fn(&LexemeKind) -> bool,
     {
         self.peek().map(|t| pred(&t.kind)).unwrap_or(false)
     }
 
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
+    fn peek(&self) -> Option<&Lexeme> {
+        self.lexemes.get(self.pos)
     }
 
-    fn advance(&mut self) -> Option<Token> {
-        let tok = self.tokens.get(self.pos).cloned();
-        if tok.is_some() {
+    fn advance(&mut self) -> Option<Lexeme> {
+        let lex = self.lexemes.get(self.pos).cloned();
+        if lex.is_some() {
             self.pos += 1;
         }
-        tok
+        lex
     }
 
-    fn advance_token(&mut self) -> Result<Token, ParseError> {
+    fn advance_lexeme(&mut self) -> Result<Lexeme, ParseError> {
         self.advance().ok_or(ParseError::UnexpectedEof)
     }
 
-    fn advance_kind(&mut self) -> Result<TokenKind, ParseError> {
-        Ok(self.advance_token()?.kind)
+    fn advance_kind(&mut self) -> Result<LexemeKind, ParseError> {
+        Ok(self.advance_lexeme()?.kind)
     }
 
     fn is_eof(&self) -> bool {
-        self.pos >= self.tokens.len()
+        self.pos >= self.lexemes.len()
     }
 
     fn err_here(&self, expected: &str) -> ParseError {
-        if let Some(tok) = self.peek() {
+        if let Some(lex) = self.peek() {
             ParseError::Unexpected {
-                found: format!("{:?}", tok.kind),
+                found: format!("{:?}", lex.kind),
                 expected: expected.to_string(),
-                line: tok.span.line,
-                col: tok.span.col,
+                line: lex.span.line,
+                col: lex.span.col,
             }
         } else {
             ParseError::UnexpectedEof
         }
     }
 
-    fn err_expected_token(&self, found: TokenKind, expected: &str) -> ParseError {
+    fn err_expected_lexeme(&self, found: LexemeKind, expected: &str) -> ParseError {
         let (line, col) = self
             .peek()
             .map(|t| (t.span.line, t.span.col))
@@ -205,12 +215,12 @@ impl Parser {
     }
 }
 
-fn infix_binding_power(kind: &TokenKind) -> Option<(u8, u8, BinOp)> {
+fn infix_binding_power(kind: &LexemeKind) -> Option<(u8, u8, BinOp)> {
     match kind {
-        TokenKind::Plus => Some((1, 2, BinOp::Add)),
-        TokenKind::Minus => Some((1, 2, BinOp::Sub)),
-        TokenKind::Star => Some((3, 4, BinOp::Mul)),
-        TokenKind::Slash => Some((3, 4, BinOp::Div)),
+        LexemeKind::Plus => Some((1, 2, BinOp::Add)),
+        LexemeKind::Minus => Some((1, 2, BinOp::Sub)),
+        LexemeKind::Star => Some((3, 4, BinOp::Mul)),
+        LexemeKind::Slash => Some((3, 4, BinOp::Div)),
         _ => None,
     }
 }
@@ -220,10 +230,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_let_and_expr() {
-        let src = "let x = 1 + 2 * 3; x";
+    fn parse_let_and_ref() {
+        let src = "let :x be 1 + 2 * 3; :x";
         let program = parse(src).expect("parse");
         assert_eq!(program.len(), 2);
+    }
+
+    #[test]
+    fn let_is_an_expression() {
+        let src = "let :x be 40 + 2";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 1);
+        matches!(program[0].node, Expr::Let { .. });
+    }
+
+    #[test]
+    fn colon_name_reads_binding() {
+        let src = ":answer";
+        let program = parse(src).expect("parse");
+        matches!(program[0].node, Expr::LexRef(_));
     }
 }
 

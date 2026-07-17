@@ -22,10 +22,12 @@ cargo run -p iklo-cli -- examples/hello.iklo
 ## Language subset (IK0)
 
 - number literals: `1`, `2.5`
-- arithmetic: `+ - * /`
-- token binding: `let x = 40 + 2`
-- token read: `x`
-- multiple statements with `;`
+- arithmetic: `+ - * /` (whitespace required around infix operators)
+- lexical value binding: `let :x be 40 + 2`
+- lexical value read: `:x`
+- expressions separated by `;` (statement terminator; newline handling coming next)
+
+`let` is an expression — it evaluates to the value it bound.
 
 ## Transaction model
 

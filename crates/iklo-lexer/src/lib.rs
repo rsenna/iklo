@@ -4,12 +4,17 @@ use logos::Logos;
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\r\n]+")]
 #[logos(skip r"#[^\n]*")]
-pub enum TokenKind {
+pub enum LexemeKind {
     #[token("let")]
     Let,
+    #[token("be")]
+    Be,
 
     #[regex(r"[0-9]+(\.[0-9]+)?", |lex| lex.slice().parse::<f64>().ok())]
     Number(f64),
+
+    #[regex(r":[a-zA-Z_][a-zA-Z0-9_-]*", |lex| lex.slice()[1..].to_string())]
+    ColonName(String),
 
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_-]*", |lex| lex.slice().to_string())]
     Ident(String),
@@ -33,8 +38,8 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
+pub struct Lexeme {
+    pub kind: LexemeKind,
     pub span: Span,
 }
 
@@ -70,8 +75,8 @@ fn line_col_at(src: &str, byte_offset: usize) -> (usize, usize) {
     (line, col)
 }
 
-pub fn tokenize(src: &str) -> Result<Vec<Token>, LexError> {
-    let mut lexer = TokenKind::lexer(src);
+pub fn tokenize(src: &str) -> Result<Vec<Lexeme>, LexError> {
+    let mut lexer = LexemeKind::lexer(src);
     let mut out = Vec::new();
 
     while let Some(next) = lexer.next() {
@@ -80,7 +85,7 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LexError> {
         let span = Span::new(range.start, range.end, line, col);
 
         match next {
-            Ok(kind) => out.push(Token { kind, span }),
+            Ok(kind) => out.push(Lexeme { kind, span }),
             Err(_) => {
                 return Err(LexError {
                     message: "invalid token".to_string(),

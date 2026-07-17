@@ -40,7 +40,11 @@ pub enum BinOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Number(f64),
-    TokenRef(String),
+    LexRef(String),
+    Let {
+        name: String,
+        value: Box<Spanned<Expr>>,
+    },
     Binary {
         op: BinOp,
         left: Box<Spanned<Expr>>,
@@ -48,11 +52,5 @@ pub enum Expr {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
-    Let { name: String, expr: Spanned<Expr> },
-    Expr(Spanned<Expr>),
-}
-
-pub type Program = Vec<Stmt>;
+pub type Program = Vec<Spanned<Expr>>;
 

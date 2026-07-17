@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use iklo_ast::{BinOp, Expr, Program, Spanned, Stmt};
+use iklo_ast::{BinOp, Expr, Program, Spanned};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -96,31 +96,25 @@ impl Transaction {
 
     fn eval_program(&mut self, program: &Program) -> Result<Value, RuntimeError> {
         let mut last = Value::Number(0.0);
-        for stmt in program {
-            last = self.eval_stmt(stmt)?;
+        for expr in program {
+            last = self.eval_expr(expr)?;
         }
         Ok(last)
-    }
-
-    fn eval_stmt(&mut self, stmt: &Stmt) -> Result<Value, RuntimeError> {
-        match stmt {
-            Stmt::Let { name, expr } => {
-                let value = self.eval_expr(expr)?;
-                self.bindings.insert(name.clone(), value.clone());
-                Ok(value)
-            }
-            Stmt::Expr(expr) => self.eval_expr(expr),
-        }
     }
 
     fn eval_expr(&mut self, expr: &Spanned<Expr>) -> Result<Value, RuntimeError> {
         match &expr.node {
             Expr::Number(n) => Ok(Value::Number(*n)),
-            Expr::TokenRef(name) => self
+            Expr::LexRef(name) => self
                 .bindings
                 .get(name)
                 .cloned()
-                .ok_or_else(|| RuntimeError::new(format!("undefined token '{name}'"))),
+                .ok_or_else(|| RuntimeError::new(format!("undefined :{name}"))),
+            Expr::Let { name, value } => {
+                let v = self.eval_expr(value)?;
+                self.bindings.insert(name.clone(), v.clone());
+                Ok(v)
+            }
             Expr::Binary { op, left, right } => {
                 let left = self.eval_expr(left)?;
                 let right = self.eval_expr(right)?;
@@ -158,10 +152,10 @@ mod tests {
     #[test]
     fn rollback_keeps_image_unchanged() {
         let mut image = RuntimeImage::new();
-        let setup = parse("let x = 10").expect("parse");
+        let setup = parse("let :x be 10").expect("parse");
         image.eval_in_tx(&setup).expect("eval");
 
-        let bad = parse("let y = x / 0").expect("parse");
+        let bad = parse("let :y be :x / 0").expect("parse");
         let err = image.eval_in_tx(&bad).expect_err("must fail");
         assert!(err.message.contains("division by zero"));
 
@@ -169,5 +163,12 @@ mod tests {
         assert!(image.bindings().get("y").is_none());
         assert_eq!(image.bindings().get("x"), Some(&Value::Number(10.0)));
     }
-}
 
+    #[test]
+    fn let_returns_bound_value() {
+        let mut image = RuntimeImage::new();
+        let program = parse("let :answer be 40 + 2").expect("parse");
+        let v = image.eval_in_tx(&program).expect("eval");
+        assert_eq!(v, Value::Number(42.0));
+    }
+}
