@@ -27,7 +27,7 @@ fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_repl() {
     println!("iklo IK0 REPL");
-    println!("commands (at empty prompt): :quit, :revision, :env");
+    println!("commands (at empty prompt): .quit, .revision, .env");
     println!("(incomplete input continues on the next line; a blank line cancels)\n");
 
     let mut image = RuntimeImage::new();
@@ -59,14 +59,14 @@ fn run_repl() {
             if trimmed.is_empty() {
                 continue;
             }
-            if trimmed == ":quit" {
+            if trimmed == ".quit" {
                 break;
             }
-            if trimmed == ":revision" {
+            if trimmed == ".revision" {
                 println!("{}", image.revision());
                 continue;
             }
-            if trimmed == ":env" {
+            if trimmed == ".env" {
                 for (k, v) in image.bindings() {
                     println!(":{k} = {v}");
                 }
