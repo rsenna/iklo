@@ -48,25 +48,27 @@ pub fn parse(source: &str) -> Result<Program, ParseError> {
 struct Parser {
     lexemes: Vec<Lexeme>,
     pos: usize,
+    paren_depth: usize,
 }
 
 impl Parser {
     fn new(lexemes: Vec<Lexeme>) -> Self {
-        Self { lexemes, pos: 0 }
+        Self {
+            lexemes,
+            pos: 0,
+            paren_depth: 0,
+        }
     }
 
     fn parse_program(&mut self) -> Result<Program, ParseError> {
         let mut out = Vec::new();
+        self.skip_separators();
         while !self.is_eof() {
             out.push(self.parse_expr(0)?);
-            if self.match_kind(|k| matches!(k, LexemeKind::Semi)) {
-                self.advance();
-                while self.match_kind(|k| matches!(k, LexemeKind::Semi)) {
-                    self.advance();
-                }
-            } else if !self.is_eof() {
-                return Err(self.err_here("';' or end of input"));
+            if !self.at_separator() && !self.is_eof() {
+                return Err(self.err_here("';', newline, or end of input"));
             }
+            self.skip_separators();
         }
         Ok(out)
     }
@@ -75,6 +77,10 @@ impl Parser {
         let mut lhs = self.parse_prefix()?;
 
         loop {
+            // Inside parens, newlines are noise; outside, they terminate.
+            if self.paren_depth > 0 {
+                self.skip_newlines();
+            }
             let Some(op_lex) = self.peek().cloned() else {
                 break;
             };
@@ -107,14 +113,18 @@ impl Parser {
     }
 
     fn parse_prefix(&mut self) -> Result<Spanned<Expr>, ParseError> {
+        self.skip_newlines();
         let lex = self.advance_lexeme()?;
         match lex.kind {
             LexemeKind::Number(n) => Ok(Spanned::new(Expr::Number(n), lex.span)),
             LexemeKind::ColonName(name) => Ok(Spanned::new(Expr::LexRef(name), lex.span)),
             LexemeKind::Let => self.parse_let(lex.span),
             LexemeKind::LParen => {
+                self.paren_depth += 1;
                 let expr = self.parse_expr(0)?;
+                self.skip_newlines();
                 self.expect(|k| matches!(k, LexemeKind::RParen), "')'")?;
+                self.paren_depth -= 1;
                 Ok(expr)
             }
             other => Err(self.err_expected_lexeme(other, "expression")),
@@ -122,12 +132,14 @@ impl Parser {
     }
 
     fn parse_let(&mut self, let_span: Span) -> Result<Spanned<Expr>, ParseError> {
+        self.skip_newlines();
         let name = match self.advance_kind()? {
             LexemeKind::ColonName(s) => s,
             other => {
                 return Err(self.err_expected_lexeme(other, "':name' after 'let'"));
             }
         };
+        self.skip_newlines();
         self.expect(|k| matches!(k, LexemeKind::Be), "'be'")?;
         let value = self.parse_expr(0)?;
         let span = Span::new(
@@ -186,6 +198,22 @@ impl Parser {
 
     fn is_eof(&self) -> bool {
         self.pos >= self.lexemes.len()
+    }
+
+    fn skip_newlines(&mut self) {
+        while self.match_kind(|k| matches!(k, LexemeKind::Newline)) {
+            self.pos += 1;
+        }
+    }
+
+    fn at_separator(&self) -> bool {
+        self.match_kind(|k| matches!(k, LexemeKind::Newline | LexemeKind::Semi))
+    }
+
+    fn skip_separators(&mut self) {
+        while self.at_separator() {
+            self.pos += 1;
+        }
     }
 
     fn err_here(&self, expected: &str) -> ParseError {
@@ -249,6 +277,55 @@ mod tests {
         let src = ":answer";
         let program = parse(src).expect("parse");
         matches!(program[0].node, Expr::LexRef(_));
+    }
+
+    #[test]
+    fn newline_terminates_when_expression_is_valid() {
+        let src = "let :x be 1\nlet :y be 2\n:x + :y";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 3);
+    }
+
+    #[test]
+    fn trailing_operator_continues_expression_across_newline() {
+        let src = "let :x be 1 +\n  2";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 1);
+    }
+
+    #[test]
+    fn newline_after_let_continues_to_name() {
+        let src = "let\n  :x be\n  40 + 2";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 1);
+    }
+
+    #[test]
+    fn parens_swallow_newlines() {
+        let src = "(1 +\n 2\n * 3)";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 1);
+    }
+
+    #[test]
+    fn semicolon_forces_termination() {
+        let src = "let :x be 1; :x";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 2);
+    }
+
+    #[test]
+    fn multiple_blank_lines_between_expressions() {
+        let src = "\n\nlet :x be 1\n\n\n:x\n";
+        let program = parse(src).expect("parse");
+        assert_eq!(program.len(), 2);
+    }
+
+    #[test]
+    fn missing_operator_across_newline_is_two_expressions() {
+        // `1 + 2` is valid, so newline ends it; `* 3` then fails to parse.
+        let src = "1 + 2\n* 3";
+        assert!(parse(src).is_err());
     }
 }
 

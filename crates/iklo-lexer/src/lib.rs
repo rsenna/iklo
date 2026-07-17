@@ -2,7 +2,7 @@ use iklo_ast::Span;
 use logos::Logos;
 
 #[derive(Logos, Debug, Clone, PartialEq)]
-#[logos(skip r"[ \t\r\n]+")]
+#[logos(skip r"[ \t]+")]
 #[logos(skip r"#[^\n]*")]
 pub enum LexemeKind {
     #[token("let")]
@@ -35,6 +35,8 @@ pub enum LexemeKind {
     RParen,
     #[token(";")]
     Semi,
+    #[regex(r"\r?\n")]
+    Newline,
 }
 
 #[derive(Debug, Clone, PartialEq)]
