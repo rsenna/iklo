@@ -40,7 +40,7 @@ description: "Task list for substrate capability boundary"
 
 **⚠️ CRITICAL**: No user story implementation can begin until this phase is complete.
 
-- [ ] **T002** [US2] Define `Substrate` + `Transaction` traits and `SubstrateError` in `crates/iklo-substrate/src/lib.rs`. Signatures per [plan.md § Trait shape](plan.md#trait-shape-starting-point-subject-to-t2-refinement). Include doc comments on the public trait explaining the transaction contract and revision semantics. Implementation methods can be `todo!()` at this stage — the goal is compilation of the trait surface. Also investigate whether `iklo-cli`'s `.env` command needs `&HashMap` or just an iterator; note the decision in the commit message. **Acceptance**: `cargo build -p iklo-substrate` succeeds; trait signatures compile; investigation result recorded.
+- [ ] **T002** [US2] Define `Substrate` + `Transaction` traits and `SubstrateError` in `crates/iklo-substrate/src/lib.rs`. Signatures per [plan.md § Trait shape](plan.md#trait-shape-settled-after-pr-1-review--no-openclose): no `open` / `close` methods (creation via each impl's constructor; teardown via `Drop`); `snapshot(&self) -> HashMap<String, Self::Value>`. Include doc comments on the public trait explaining the transaction contract, the revision semantics, and the compile-time exclusion property of `begin(&mut self) -> Tx<'_>`. Implementation methods can be `todo!()` at this stage — the goal is compilation of the trait surface. **Acceptance**: `cargo build -p iklo-substrate` succeeds; trait signatures compile.
 
 **Checkpoint**: Foundation ready — user story implementation can begin.
 
@@ -54,11 +54,11 @@ description: "Task list for substrate capability boundary"
 
 ### Tests for User Story 2 (write FIRST, ensure they FAIL) ⚠️
 
-- [ ] **T003** [US2] Add the 7 contract tests to `crates/iklo-substrate/src/memory.rs` (or a `#[cfg(test)] mod tests` at the bottom): `revision_starts_at_zero`, `commit_increments_revision`, `rollback_does_not_increment_revision`, `get_after_set_inside_tx_sees_value`, `get_after_rollback_does_not_see_value`, `get_after_commit_sees_value_from_fresh_tx`, `snapshot_returns_only_committed_state`. Tests instantiate `InMemorySubstrate::<i64>::new()` (a concrete `V` proves generics work). Tests must FAIL because `InMemorySubstrate` does not yet exist. **Acceptance**: `cargo test -p iklo-substrate` shows 7 failing tests with compile errors on the missing type.
+- [ ] **T003** [US2] Add the 7 contract cases in `crates/iklo-substrate/src/contract.rs` as a **generic function** `pub fn run_contract_suite<S: Substrate<Value = i64>>(make: impl Fn() -> S)` covering: `revision_starts_at_zero`, `commit_increments_revision`, `rollback_does_not_increment_revision`, `get_after_set_inside_tx_sees_value`, `get_after_rollback_does_not_see_value`, `get_after_commit_sees_value_from_fresh_tx`, `snapshot_returns_only_committed_state`. The suite body must drive **only** the `Substrate` / `Transaction` trait surface — no reference to `InMemorySubstrate` inside the cases. In `#[cfg(test)] mod tests` add a thin harness: one `#[test]` per scenario (or a single `#[test]` that calls `run_contract_suite(InMemorySubstrate::<i64>::new)` if the scenarios are asserted inside the generic function) — the harness is the *only* place `InMemorySubstrate` appears. Cases must be RED at this stage. **Acceptance**: `cargo test -p iklo-substrate` **fails to compile** because `InMemorySubstrate` (and the trait impls it needs) do not yet exist; the compile error identifies the missing item, and no test bodies reference `InMemorySubstrate` directly. This is the RED state; T004 turns it green.
 
 ### Implementation for User Story 2
 
-- [ ] **T004** [US2] Implement `memory::InMemorySubstrate<V>` in `crates/iklo-substrate/src/memory.rs`: `bindings: HashMap<String, V>`, `revision: u64`. Its `Tx<'a>` clones bindings on `begin`; `commit(self)` writes back and increments `revision`; `rollback(self)` drops. `get` reads from the tx's clone; `set` writes to it; `snapshot()` returns only committed state (from the substrate's own `bindings`, not any open tx). Declare `pub mod memory;` in `lib.rs`. **Acceptance**: all 7 contract tests from T003 pass. `cargo test -p iklo-substrate` — 7 passed, 0 failed.
+- [ ] **T004** [US2] Implement `memory::InMemorySubstrate<V>` in `crates/iklo-substrate/src/memory.rs`: `bindings: HashMap<String, V>`, `revision: u64`. Its `Tx<'a>` clones bindings on `begin`; `commit(self)` writes back and increments `revision`; `rollback(self)` drops. `get` reads from the tx's clone; `set` writes to it; `snapshot()` returns only committed state (an owned `HashMap<String, V>`, not a reference — see FR-007 and plan.md § bindings() decision). Declare `pub mod memory;` in `lib.rs`. **Acceptance**: `cargo test -p iklo-substrate` — 7 passed, 0 failed (the harness now compiles because `InMemorySubstrate` exists and satisfies the trait).
 
 **Checkpoint**: User Story 2 fully functional — the boundary is real and validated.
 
@@ -79,7 +79,7 @@ description: "Task list for substrate capability boundary"
 - [ ] **T006** [US1] Refactor `crates/iklo-runtime/src/lib.rs`:
   - Add `iklo-substrate = { path = "../iklo-substrate" }` to `crates/iklo-runtime/Cargo.toml`.
   - Replace `RuntimeImage`'s internal `HashMap` with `InMemorySubstrate<Value>`. Consider a `type IkloSubstrate = iklo_substrate::memory::InMemorySubstrate<Value>;` alias if signatures get noisy.
-  - Public methods (`new`, `revision`, `bindings`, `eval_in_tx`) keep their current signatures; internally they delegate to the substrate.
+  - Public methods (`new`, `revision`, `eval_in_tx`) keep their current signatures; internally they delegate to the substrate. `bindings()` changes return type from `&HashMap<String, Value>` to owned `HashMap<String, Value>` (per FR-007 and plan.md § bindings() decision) — existing tests using `image.bindings().get("x")` compile unchanged because the temporary lives to statement's end.
   - Replace the internal `Transaction` struct's `HashMap` with a substrate `Tx`. `eval_expr`'s `LexRef` and `Let` arms call `.get` / `.set` on the tx.
   - `eval_in_tx` opens a tx via `substrate.begin()`, runs the program, calls `tx.commit()` on success or `tx.rollback()` on error.
   - Add `impl From<SubstrateError> for RuntimeError` (or a `RuntimeError::Substrate(SubstrateError)` variant).

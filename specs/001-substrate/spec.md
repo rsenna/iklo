@@ -51,13 +51,14 @@ can be added without touching `iklo-runtime`, we've failed the intent.
 
 **Independent Test**: A reviewer reading only `crates/iklo-substrate/src/lib.rs`
 can list the operations a backend must implement, the transaction contract,
-and the revision semantics. Contract tests in `iklo-substrate` reference only
-the trait — never a concrete implementation type by name.
+and the revision semantics. The contract test suite is written against the
+`Substrate` trait; a small harness at the boundary selects the concrete
+implementation under test.
 
 **Acceptance Scenarios**:
 
 1. **Given** the `iklo-substrate` crate as shipped, **When** a reader inspects `Cargo.toml`, **Then** it depends on **nothing** from `iklo-runtime`, `iklo-parser`, `iklo-ast`, or `iklo-lexer`.
-2. **Given** the contract tests in `iklo-substrate`, **When** they run against `InMemorySubstrate<V>`, **Then** all pass; **When** the same tests are (in principle) reused against a hypothetical `TursoSubstrate`, **Then** no test source needs to change — only the type under test.
+2. **Given** the contract test suite in `iklo-substrate` (a generic function over `S: Substrate<Value = i64>`), **When** it is instantiated with `InMemorySubstrate<i64>`, **Then** all cases pass; **When** the same suite is (in principle) instantiated with a hypothetical `TursoSubstrate<i64>`, **Then** no case body needs to change — only the harness that supplies the implementation.
 
 ---
 
@@ -83,30 +84,30 @@ storage code after the refactor, the boundary is leaky.
 ### Edge Cases
 
 - **What happens on rollback failure?** The substrate's `rollback(self)` consumes the transaction; it cannot itself fail in the in-memory case (dropping cloned state). If a future backend can fail on rollback, the trait signature already returns `Result<(), SubstrateError>` (see design notes).
-- **What happens if two transactions are begun concurrently?** Out of scope for v1 — the tree-walker is single-threaded, and `Substrate::begin(&mut self)` requires exclusive access, statically preventing overlap.
-- **What happens when `snapshot()` is called mid-transaction?** It returns *committed* state only; the open transaction's writes are not visible until commit. The in-memory implementation must preserve this even though its transaction is a clone.
+- **What happens if two transactions are begun concurrently?** Statically prevented by the borrow checker: `Substrate::begin(&mut self)` returns a `Tx<'_>` that reborrows the substrate, so a second `begin` won't compile while the first is live.
+- **What happens when `snapshot()` is called mid-transaction?** Not permitted. `begin` takes `&mut self` and `snapshot` takes `&self`; calling `snapshot` while a transaction is open won't compile. This is a feature, not a bug — it makes "am I reading committed or uncommitted state?" a compile-time question instead of a runtime hazard. Callers who want a pre-transaction view snapshot *before* calling `begin`.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: A new crate `iklo-substrate` MUST exist in the workspace and MUST depend on **nothing** from `iklo-runtime`, `iklo-parser`, `iklo-ast`, or `iklo-lexer`.
-- **FR-002**: `iklo-substrate` MUST expose a `Substrate` trait with methods covering: image lifecycle (`open`, `close` or equivalent), transaction lifecycle (`begin`, `commit`, `rollback`), revision observation, and a snapshot of committed bindings.
+- **FR-002**: `iklo-substrate` MUST expose a `Substrate` trait with methods covering: transaction lifecycle (`begin`, `commit`, `rollback`), revision observation, and a snapshot of committed bindings. Creation is via concrete constructors on each implementation (not a trait method); teardown is via the `Drop` trait (not a `close` method) — both idiomatic Rust and per reviewer feedback from gemini-code-assist on PR #1.
 - **FR-003**: `iklo-substrate` MUST expose a `Transaction` associated trait with `get(name)`, `set(name, value)`, `commit(self)`, and `rollback(self)`.
 - **FR-004**: `iklo-substrate` MUST ship an `InMemorySubstrate<V>` implementation, generic over the value type, behaviourally identical to today's `Env`.
 - **FR-005**: `iklo-substrate` MUST expose a `SubstrateError` type used by all fallible trait methods; it MUST NOT depend on `RuntimeError`.
 - **FR-006**: `iklo-runtime` MUST NOT contain direct storage types (`HashMap`/`Vec<HashMap>`/`RefCell<HashMap>`) that hold binding state; all binding state MUST live behind `Substrate`.
-- **FR-007**: `iklo-runtime` MUST preserve its current public API surface (`RuntimeImage::new`, `.revision()`, `.eval_in_tx(&Program)`, `.bindings()`) so that `iklo-cli` and future consumers are unaffected.
+- **FR-007**: `iklo-runtime` MUST preserve its current public API surface (`RuntimeImage::new`, `.revision()`, `.eval_in_tx(&Program)`, `.bindings()`) so that `iklo-cli` and future consumers are unaffected. **`.bindings()`'s return type changes from `&HashMap<String, Value>` to owned `HashMap<String, Value>`** — materialised on the fly from the substrate's `snapshot()`. Existing tests using `image.bindings().get("x")` continue to compile because the temporary lives until the end of the expression.
 - **FR-008**: `RuntimeError` MUST gain a variant (or `From` impl) that wraps `SubstrateError`.
-- **FR-009**: The revision counter contract MUST be preserved: revision starts at 0, increments on commit, does not increment on rollback, and is observable at any time.
-- **FR-010**: A contract test suite MUST live in `iklo-substrate` and MUST validate the trait against any implementation (not just the in-memory one), so a future Turso backend can reuse it.
+- **FR-009**: The revision counter contract MUST be preserved: revision starts at 0, increments on commit, does not increment on rollback, and is observable at any time (outside of an open transaction — see edge cases).
+- **FR-010**: A contract test suite MUST live in `iklo-substrate` written **generically over the `Substrate` trait** (a function `run_contract_suite<S: Substrate<Value = i64>>(make: impl Fn() -> S)` or equivalent). Only a thin harness (the `#[test]` functions themselves) references a concrete implementation. This is what makes the suite reusable for a future Turso backend.
 - **FR-011**: `make test`, `make build`, and `make release` MUST all succeed after the refactor.
 - **FR-012**: No Turso dependency MAY be added and no VDBE code MAY be written in this epic; both are explicitly deferred.
 
 ### Key Entities
 
 - **Substrate**: The capability boundary hiding *where* the image lives. Generic over an associated `Value` type (bounded on `Clone + Debug`) so it never sees Iklo `Value`.
-- **Transaction**: A short-lived handle representing an in-progress mutation of the image. Owned by-value so that `commit(self)` / `rollback(self)` statically prevent reuse.
+- **Transaction**: A short-lived handle representing an in-progress mutation of the image. Owned by-value so that `commit(self)` / `rollback(self)` statically prevent reuse. Reborrows the substrate mutably (`Tx<'_>`) so no second transaction can start while it lives.
 - **Image**: The runtime state (bindings, revision) that a substrate holds. Not a type — a concept realised by whatever `Substrate` implementation is active.
 - **InMemorySubstrate\<V\>**: The reference implementation. HashMap + revision counter. Transactions clone bindings and write back on commit.
 - **SubstrateError**: The trait's error type. Runtime errors wrap substrate errors, never the other way around.
@@ -127,6 +128,6 @@ storage code after the refactor, the boundary is leaky.
 
 - The `Substrate` trait is generic over an associated `Value` type; `iklo-runtime` plugs its own `Value` in. `iklo-substrate` never sees Iklo `Value`.
 - The in-memory implementation lives inside `iklo-substrate` as a `memory` module. Extracting to `iklo-substrate-memory` is speculative until a second implementation justifies it.
-- Transaction ownership is a runtime check (via `self`-consuming methods), not a type-level guarantee involving lifetimes. Type-level enforcement is a future refinement, not a v1 requirement.
+- Transaction safety is enforced at **compile time**, not runtime: `commit(self)` / `rollback(self)` are self-consuming (so double-finalisation won't compile), and `begin(&mut self) -> Tx<'_>` mutably borrows the substrate (so a second `begin` or any `&self` method — including `snapshot` and `revision` — won't compile while a transaction is live). No lifetime tricks beyond this are required.
 - The trait is synchronous. Async lands only if a future backend forces it, which is an ADR for that day.
 - The mutable engines beyond `lexical` (`graph`, `dynamic`, `reactive`, `sync`) get trait *surface* only — no populated implementations. `let` on `lexical` is the only exercised path today.

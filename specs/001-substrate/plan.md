@@ -97,16 +97,20 @@ crate — extracting later is cheap; splitting speculatively is not.
 
 Not part of the Constitution Check but useful for future readers:
 
-### Trait shape (starting point, subject to T2 refinement)
+### Trait shape (settled after PR #1 review — no `open`/`close`)
 
 ```rust
 pub trait Substrate {
     type Value: Clone + std::fmt::Debug;
     type Tx<'a>: Transaction<Value = Self::Value> where Self: 'a;
 
+    // Creation is via each impl's own constructor (e.g. `InMemorySubstrate::new()`),
+    // not a trait method — different backends need different parameters.
+    // Teardown is via `Drop`, not a `close` method — guaranteed cleanup on panic.
+
     fn begin(&mut self) -> Self::Tx<'_>;
     fn revision(&self) -> u64;
-    fn snapshot(&self) -> Vec<(String, Self::Value)>;
+    fn snapshot(&self) -> HashMap<String, Self::Value>;
 }
 
 pub trait Transaction {
@@ -118,13 +122,41 @@ pub trait Transaction {
 }
 ```
 
-### `bindings()` signature question
+Compile-time safety properties (per FR-002, FR-009, and the spec's edge-cases
+section):
 
-T2 must investigate whether `iklo-cli`'s `.env` truly needs `&HashMap<String, Value>`
-or just an iterator. If iterator-shaped, change `RuntimeImage::bindings()` to
-return `impl Iterator<Item = (&str, &Value)>` and delegate to `snapshot()`. If
-`HashMap`-shaped, materialise once per call. Decision recorded in T2's commit
-message.
+- `commit(self)` / `rollback(self)` consume the transaction — double-finalise
+  won't compile.
+- `begin(&mut self) -> Tx<'_>` reborrows the substrate mutably — a second
+  `begin`, `snapshot`, or `revision` call won't compile while the tx is live.
+  Callers who want a pre-transaction snapshot take it before calling `begin`.
+
+### `bindings()` signature — decided (owned `HashMap`)
+
+`RuntimeImage::bindings()` returns owned `HashMap<String, Value>`, materialised
+on demand from `substrate.snapshot()`. This closes the T2 investigation
+without leaking in-memory storage details (a future Turso-backed substrate
+cannot return a reference to an internal HashMap it does not hold). Existing
+runtime tests using `image.bindings().get("x")` continue to compile
+**unchanged in source**, satisfying SC-001: the temporary map lives until the
+end of the statement.
+
+Decided via reviewer feedback from `gemini-code-assist` on PR #1.
+
+### Contract-test shape — decided (trait-generic)
+
+Contract tests live behind a generic function:
+
+```rust
+pub fn run_contract_suite<S: Substrate<Value = i64>>(make: impl Fn() -> S) {
+    // ... the 7 named scenarios, driven only through the trait surface.
+}
+```
+
+Each `#[test]` in `iklo-substrate` is a two-line harness calling
+`run_contract_suite(InMemorySubstrate::<i64>::new)`. A future
+`iklo-substrate-turso` adds its own harness alongside; the contract cases
+themselves are reused verbatim. This satisfies FR-010 in a checkable way.
 
 ### Risk: `Value` generic virusing signatures
 
