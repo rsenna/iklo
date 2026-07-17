@@ -1,2 +1,1 @@
-let :x be 21 * 2;
-:x
+let :x be 21 * 2

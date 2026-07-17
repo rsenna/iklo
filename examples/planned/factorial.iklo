@@ -1,0 +1,12 @@
+# Recursive factorial
+to factorial :n [
+    # `do .. end` is syntax sugar for a code block, like elixir
+    # but in Iklo code blocks can also be written as a list, using square brackets
+    if :n == 0 do
+        return 1
+    end
+
+    :n * factorial :n - 1
+]
+
+print factorial 10        # 3628800

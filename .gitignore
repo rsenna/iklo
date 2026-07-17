@@ -1,3 +1,16 @@
-/target
-**/*.rs.bk
+# Java/Kotlin specific (Iklo plugin)
+.gradle/
+.idea/
+.intellijPlatform/
+build/
+gradle/
+# end
 
+/.claude/
+/.idea/
+/target/
+
+.DS_Store
+.iklo_history
+Cargo.lock
+!/AGENTS.md

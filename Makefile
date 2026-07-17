@@ -1,0 +1,17 @@
+# Iklo — top-level Makefile
+#
+# Thin wrapper over cargo. See SPEC.md § Commands for the full list.
+
+.PHONY: build release test clean
+
+build:
+	cargo build
+
+release:
+	cargo build --release
+
+test:
+	cargo test
+
+clean:
+	cargo clean
