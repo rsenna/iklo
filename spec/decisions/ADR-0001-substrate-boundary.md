@@ -122,7 +122,7 @@ observations make that premature:
 
 ## Follow-ups
 
-- Author [`spec/substrate/SPEC.md`](../substrate/SPEC.md) — the first epic
+- Author [`specs/001-substrate/spec.md`](../../specs/001-substrate/spec.md) — the first epic
   under the new spec-driven workflow.
 - Do not write any VDBE code, or add Turso as a dependency, until the
   `substrate` epic has shipped and been exercised.

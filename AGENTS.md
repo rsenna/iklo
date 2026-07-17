@@ -4,9 +4,9 @@ This file tells any AI agent (or new human contributor) how to work on Iklo.
 It is intentionally short and factual. For everything else:
 
 - **What Iklo *is* as a language** → [LANGUAGE.md](LANGUAGE.md) (the reference; much of it is aspirational, marked **TBI**/**TBD**/**BET**).
-- **How this repo is built, tested, and evolved** → [spec/SPEC.md](spec/SPEC.md).
+- **The principles that govern every change** → [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
 - **Why we made the load-bearing decisions** → [`spec/decisions/`](spec/decisions/).
-- **What we're actively building next** → [`spec/`](spec/) (per-epic specs) and [`spec/tasks/`](spec/tasks/) (active plan/todo).
+- **What we're actively building next** → [`specs/`](specs/) (one directory per feature, spec-kit format).
 
 ## What Iklo is, in one paragraph
 
@@ -63,15 +63,25 @@ There are no plugins yet; the Makefile is deliberately thin.
 - Public APIs get doc comments; internal helpers usually don't.
 - Test additions live inline as `#[cfg(test)] mod tests` per crate.
 
-## Working discipline (spec-driven)
+## Working discipline (spec-driven, GitHub Spec Kit)
 
-We follow the spec-driven workflow described in [spec/SPEC.md § Workflow](spec/SPEC.md#workflow):
-`/spec` → `/plan` → `/build` → `/review` → `/ship`. One epic is active at a
-time; when switching epics, replace `tasks/plan.md` + `tasks/todo.md` in a
-commit whose subject contains `CLEANING_TASKS`.
+We use [GitHub Spec Kit](https://github.com/github/spec-kit) v0.12+.
+Slash-command workflow — one epic in flight at a time:
 
+1. `/speckit.specify <feature>` — drafts `specs/NNN-<slug>/spec.md` and
+   creates branch `NNN-<slug>`.
+2. `/speckit.plan` — writes `specs/NNN-<slug>/plan.md` (technical approach,
+   structure decisions, complexity tracking against the constitution).
+3. `/speckit.tasks` — writes `specs/NNN-<slug>/tasks.md` (ordered,
+   TDD-shaped, one commit per task, phased by user story).
+4. `/speckit.implement` — executes the tasks.
+
+Optional enhancers: `/speckit.clarify`, `/speckit.checklist`,
+`/speckit.analyze`, `/speckit.converge`, `/speckit.taskstoissues`.
+
+Governing principles live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
 For any change big enough to be architecturally load-bearing, write an ADR
-under `spec/decisions/` before touching code.
+under [`spec/decisions/`](spec/decisions/) before touching code.
 
 ## Commit rules
 
@@ -95,11 +105,16 @@ Makefile               → thin cargo wrapper
 crates/                → Rust workspace (lexer, ast, parser, runtime, cli)
 examples/              → runnable .iklo programs
 examples/planned/      → .iklo programs that showcase syntax not yet implemented
-spec/                  → single source of truth for specs, decisions, and tasks
-  SPEC.md              → repo-level spec + spec-driven workflow
-  <epic>/SPEC.md       → per-epic specs (objective + success criteria)
-  decisions/           → ADRs (ADR-NNNN, never deleted; superseded/amended)
-  tasks/               → active epic's plan.md + todo.md
+.specify/              → Spec Kit scaffolding
+  memory/constitution.md    → governing principles
+  templates/                → spec/plan/tasks templates
+  scripts/, workflows/      → automation
+specs/                 → per-feature specs (Spec Kit layout)
+  NNN-<slug>/               → one directory per feature, auto-numbered
+    spec.md                     → what & why (from /speckit.specify)
+    plan.md                     → how (from /speckit.plan)
+    tasks.md                    → executable list (from /speckit.tasks)
+spec/decisions/        → ADRs (ADR-NNNN, never deleted; superseded/amended)
 refs/                  → reference material (UCBLogo, NetLogo) + historical snapshots
                          (AGENTS.old.md, README.old.md, tour.old.iklo — do not edit)
 ```

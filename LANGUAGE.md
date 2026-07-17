@@ -4,7 +4,8 @@
 **Audience:** Language designers, interpreter implementers, AI agents reasoning about language semantics.
 **Status:** Actively maintained. Much of the material below is aspirational (**TBI**/**TBD**/**BET**); see [AGENTS.md](AGENTS.md) for what's actually implemented today.
 **Cross-refs:**
-- Repo/workflow spec — [spec/SPEC.md](spec/SPEC.md)
+- Governing principles — [`.specify/memory/constitution.md`](.specify/memory/constitution.md)
+- Active specs — [`specs/`](specs/)
 - Agent operating guide — [AGENTS.md](AGENTS.md)
 - Design decisions — [`spec/decisions/`](spec/decisions/)
 - Bugs — filed as [GitHub Issues](https://github.com/rsenna/iklo/issues) (label `bug`); when you notice an unrelated defect mid-task, open an issue instead of losing it.
