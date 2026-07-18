@@ -1,0 +1,16 @@
+name: iklo
+version: 0.0.1
+description: a shell, programming language, and lisp-like machine
+author: Roger Senna
+targets:
+- claude
+- codex
+- copilot
+- opencode
+dependencies:
+  apm: []
+  mcp:
+  - io.github.zereight/gitlab-mcp
+  - io.github.github/github-mcp-server
+includes: auto
+scripts: {}

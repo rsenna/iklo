@@ -10,9 +10,6 @@ node_modules/
 package-lock.json
 
 # Local tool configs (not for the repo)
-.codex/
-.vscode/mcp.json
-apm.yml
 goals/
 opencode.jsonc
 package.json

@@ -1,0 +1,13 @@
+[mcp_servers.gitlab-mcp]
+command = "npx"
+args = ["-y", "@zereight/mcp-gitlab"]
+id = ""
+
+[mcp_servers.gitlab-mcp.env]
+
+[mcp_servers.github-mcp-server]
+command = "unknown"
+args = []
+id = ""
+
+[mcp_servers.github-mcp-server.env]
