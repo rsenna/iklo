@@ -4,13 +4,23 @@
 .intellijPlatform/
 build/
 gradle/
-# end
 
-/.claude/
+# JavaScript
+node_modules/
+package-lock.json
+
+# Local tool configs (not for the repo)
+goals/
+opencode.jsonc
+package.json
+settings.local.json
+
+!/.claude/
 /.idea/
 /target/
 
 .DS_Store
 .iklo_history
+apm.lock.yaml
 Cargo.lock
-!/AGENTS.md
+

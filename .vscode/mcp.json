@@ -1,0 +1,119 @@
+{
+  "servers": {
+    "io.github.zereight/gitlab-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@zereight/mcp-gitlab"
+      ],
+      "env": {
+        "GITLAB_PERSONAL_ACCESS_TOKEN": "${input:gitlab-personal-access-token}",
+        "GITLAB_JOB_TOKEN": "${input:gitlab-job-token}",
+        "GITLAB_AUTH_COOKIE_PATH": "${input:gitlab-auth-cookie-path}",
+        "GITLAB_API_URL": "${input:gitlab-api-url}",
+        "GITLAB_ALLOWED_PROJECT_IDS": "${input:gitlab-allowed-project-ids}",
+        "GITLAB_READ_ONLY_MODE": "${input:gitlab-read-only-mode}",
+        "USE_GITLAB_WIKI": "${input:use-gitlab-wiki}",
+        "GITLAB_TOOLSETS": "${input:gitlab-toolsets}",
+        "GITLAB_TOOLS": "${input:gitlab-tools}",
+        "GITLAB_DENIED_TOOLS_REGEX": "${input:gitlab-denied-tools-regex}",
+        "GITLAB_TOOL_POLICY_APPROVE": "${input:gitlab-tool-policy-approve}",
+        "GITLAB_TOOL_POLICY_HIDDEN": "${input:gitlab-tool-policy-hidden}",
+        "NODE_TLS_REJECT_UNAUTHORIZED": "${input:node-tls-reject-unauthorized}",
+        "GITLAB_CA_CERT_PATH": "${input:gitlab-ca-cert-path}"
+      }
+    },
+    "io.github.github/github-mcp-server": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {}
+    }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "gitlab-personal-access-token",
+      "description": "GitLab personal access token for local stdio use. Create a token with the GitLab scopes needed by the tools you plan to use, such as api or read_api.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-job-token",
+      "description": "Optional GitLab CI job token to use instead of a personal access token when running inside GitLab CI.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-auth-cookie-path",
+      "description": "Optional path to a GitLab authentication cookie file for cookie-based authentication.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-api-url",
+      "description": "GitLab API base URL. Use https://gitlab.com/api/v4 for GitLab.com or your self-managed GitLab API URL.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-allowed-project-ids",
+      "description": "Optional comma-separated list of GitLab project IDs that this server is allowed to access.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-read-only-mode",
+      "description": "Set to true to expose only read-only tools and block write operations.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "use-gitlab-wiki",
+      "description": "Set to true to enable GitLab wiki tools.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-toolsets",
+      "description": "Optional comma-separated list of toolsets to enable, such as projects, issues, merge_requests, pipelines, releases, users, groups, wiki, or search.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-tools",
+      "description": "Optional comma-separated list of individual tool names to add on top of enabled toolsets.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-denied-tools-regex",
+      "description": "Optional regular expression used to hide matching tools from the server.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-tool-policy-approve",
+      "description": "Optional comma-separated list of tool names that require explicit approval before execution.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-tool-policy-hidden",
+      "description": "Optional comma-separated list of tool names to hide from tools/list.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "node-tls-reject-unauthorized",
+      "description": "Set to 0 only when you intentionally need to connect to a GitLab instance with invalid or self-signed TLS certificates.",
+      "password": true
+    },
+    {
+      "type": "promptString",
+      "id": "gitlab-ca-cert-path",
+      "description": "Optional path to a custom CA certificate file for self-managed GitLab instances.",
+      "password": true
+    }
+  ]
+}

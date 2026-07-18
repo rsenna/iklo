@@ -26,6 +26,7 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 - **AST** (`crates/iklo-ast`) — `Program = Vec<Spanned<Expr>>`; expressions include `Number`, `LexRef`, `Let`, `Binary`.
 - **Parser** (`crates/iklo-parser`) — Pratt precedence; whitespace-sensitive infix ops (so `x-1` stays one identifier); newline is a soft terminator (terminates only when the current expression is complete and can't be continued); `;` is a hard terminator; newlines are swallowed inside parens. Supports `let :name be <expr>` as an expression.
 - **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `Env` supports `begin`/`commit`/`rollback` and a revision counter. `let` and `set` update the image transactionally per top-level expression.
+- **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Currently scaffold-only; will gain an in-memory impl, then a Turso-backed one behind a feature flag (per ADR-0001).
 - **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `.`-prefixed (`.quit`, `.revision`, `.env`) and only recognized at a fresh prompt.
 
 ## Non-negotiable syntax rules
@@ -87,10 +88,11 @@ under [`spec/decisions/`](spec/decisions/) before touching code.
 
 - **Always commit before ending a task that changed code.**
 - Conventional-commit-ish subjects (`feat:`, `fix:`, `chore:`, `syntax:`, `cli:`, `docs:`) — short imperative summary.
-- Include the Copilot co-author trailer on agent-authored commits:
+- Include a co-author trailer on agent-authored commits identifying which agent
+  made the change (e.g. Copilot, Codex, OpenCode, Claude). Format:
 
   ```
-  Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+  Co-authored-by: AgentName <email-or-handle>
   ```
 
 - Never rewrite pushed history without asking.
