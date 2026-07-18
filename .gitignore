@@ -1,3 +1,7 @@
+#
+### ignore rules
+#
+
 # Java/Kotlin specific (Iklo plugin)
 .gradle/
 .idea/
@@ -15,7 +19,6 @@ opencode.jsonc
 package.json
 settings.local.json
 
-!/.claude/
 /.idea/
 /target/
 
@@ -23,4 +26,12 @@ settings.local.json
 .iklo_history
 apm.lock.yaml
 Cargo.lock
+node_modules/
+
+#
+### reenable from global ignore
+#
+
+!/.claude/
+!/AGENTS.md
 

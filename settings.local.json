@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build *)",
+      "Bash(cargo test *)",
+      "Bash(cargo run *)",
+      "Bash(cargo clippy *)",
+      "Bash(cargo search *)",
+      "Bash(cargo info *)",
+      "Bash(make build *)",
+      "Bash(make test *)",
+      "Bash(make release *)",
+      "Bash(git mv *)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git status *)",
+      "Bash(git check-ignore *)",
+      "Bash(gh pr *)",
+      "Bash(gh issue *)",
+      "Bash(gh repo *)",
+      "Bash(gh label *)",
+      "Bash(gh api *)",
+      "Bash(gh auth *)",
+      "Bash(echo *)",
+      "Bash(python3 -c ' *)",
+      "Bash(awk *)",
+      "Bash(grep *)",
+      "Bash(sed -i '' *)",
+      "Bash(sort *)",
+      "Bash(cd *)",
+      "Bash(GIT_EDITOR=true git rebase --continue)",
+      "Read(//Users/rogerio.senna/.claude/plugins/**)"
+    ]
+  }
+}

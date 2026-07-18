@@ -1,0 +1,65 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "AGENTS.md",
+    "UCBLOGO.md",
+    "design/TODO.md",
+    ".github/instructions/common.instructions.md"
+  ],
+  "references": {
+    "logoscript": {
+      "path": ".",
+      "description": "LogoScript language implementation (Rust workspace)"
+    },
+    "design": {
+      "path": "design",
+      "description": "Language design docs: grammar-2.0.md, agents.md, TODO.md"
+    }
+  },
+  "agent": {
+    "logoscript": {
+      "model": "opencode/big-pickle",
+      "mode": "subagent",
+      "description": "Expert on LogoScript interpreter (lexer, parser, AST, interpreter, CLI)",
+      "permission": {
+        "edit": "deny",
+        "bash": "ask"
+      }
+    },
+    "explore": {
+      "model": "opencode/big-pickle",
+      "mode": "subagent",
+      "description": "Fast codebase exploration and search",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      }
+    }
+  },
+  "lsp": {
+  },
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "permission": {
+    "edit": "deny",
+    "bash": { "cargo *": "allow", "make *": "allow", "git *": "allow", "*": "ask" },
+    "external_directory": { "~/REPO/ME/LogoScript/**": "allow", "*": "deny" }
+  },
+  "plugin": [
+    "opencode-conductor",
+    "opencode-goal-plugin",
+    "opencode-notificator",
+    "opencode-notifier",
+    "opencode-notify",
+    "opencode-scheduler",
+    "opencode-shell-strategy",
+    "opencode-skillfull",
+
+    // websearch-cited should be the LAST plugin. See https://github.com/ghoulr/opencode-websearch-cited
+    "opencode-websearch-cited@1.2.0"
+  ],
+  "provider": {
+    "opencode": {}
+  }
+}
