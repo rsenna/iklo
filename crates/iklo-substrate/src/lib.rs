@@ -11,8 +11,6 @@ use std::fmt;
 /// this with I/O and persistence errors.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SubstrateError {
-    /// The transaction was already finalised (double commit or double rollback).
-    AlreadyFinalised,
     /// A binding operation failed (details depend on the backend).
     BindingFailed(String),
 }
@@ -20,7 +18,6 @@ pub enum SubstrateError {
 impl fmt::Display for SubstrateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SubstrateError::AlreadyFinalised => write!(f, "transaction already finalised"),
             SubstrateError::BindingFailed(msg) => write!(f, "binding failed: {msg}"),
         }
     }
@@ -46,8 +43,9 @@ impl std::error::Error for SubstrateError {}
 ///    working copy back, incrementing the revision counter.
 /// 4. [`rollback`](Transaction::rollback) consumes the transaction and drops the
 ///    working copy — the substrate is unchanged.
-/// 5. Both `commit` and `rollback` consume `self`, so double-finalise is a
-///    compile-time error.
+/// 5. Both `commit` and `rollback` consume `self`, so the same transaction
+///    cannot be finalised twice.  (If `Tx` implements `Clone`, this guarantee
+///    no longer holds at compile time — implementations should avoid that.)
 ///
 /// # Revision semantics
 ///
@@ -89,10 +87,10 @@ pub trait Substrate {
 /// Obtained from [`Substrate::begin`].  Holds a working copy of the bindings;
 /// reads see uncommitted writes.  Consumed by [`commit`](Transaction::commit)
 /// or [`rollback`](Transaction::rollback) — both consume `self`, so only one
-/// finalisation is possible (compile-time guarantee).
+/// finalisation is possible per transaction value.
 pub trait Transaction {
     /// The value type stored in bindings.
-    type Value;
+    type Value: Clone;
 
     /// Read a binding by name from the working copy.
     ///
@@ -108,7 +106,9 @@ pub trait Transaction {
     /// Finalise the transaction, writing the working copy back to the
     /// substrate and incrementing the revision counter.
     ///
-    /// Consumes `self` — the transaction cannot be reused.
+    /// Consumes `self` — the transaction cannot be reused.  On error the
+    /// substrate state is unchanged; the caller should start a new transaction
+    /// to retry.
     fn commit(self) -> Result<(), SubstrateError>;
 
     /// Discard the working copy without touching the substrate.
