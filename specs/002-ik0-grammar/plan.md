@@ -6,103 +6,68 @@
 
 ## Summary
 
-Formalize the Level 0.0 syntax as a W3C EBNF grammar (`grammar.ebnf`) with a derived-forms appendix. This is a documentation-only epic — no code changes. The grammar is derived by reading the existing lexer and parser source code and expressing their combined behaviour in standard W3C EBNF notation.
+Replace the hand-written Pratt parser with a LALRPOP-generated grammar that is both the formal specification and the parser implementation. The grammar.lalrpop file becomes the single source of truth for Level 0.0 syntax.
 
 ## Technical Context
 
 **Language/Version**: Rust 1.86+ (from `mise.toml`)
-**Primary Dependencies**: None (documentation only)
+**Primary Dependencies**: `lalrpop` 0.22 (build), `lalrpop-util` 0.22 (runtime)
 **Storage**: N/A
-**Testing**: `cargo test -p iklo-parser && cargo test -p iklo-lexer` (must pass unchanged)
-**Target Platform**: N/A (documentation)
-**Project Type**: Documentation epic
-**Performance Goals**: N/A
-**Constraints**: Grammar must be accurate to the existing parser/lexer; no code changes allowed
-**Scale/Scope**: Single file (`grammar.ebnf`) with ~200 lines of EBNF
-
-## Constitution Check
-
-- **I. Test-First**: N/A — no code changes. Verification is: existing tests pass unchanged, grammar matches source.
-- **II. One Epic In Flight**: ✅ — 001-substrate is shipped, this is the next.
-- **III. Substrate Before Feature**: ✅ — grammar is documentation, not a feature that depends on substrate.
-- **IV. Kebab-Case Iklo / Idiomatic Rust**: N/A — no code.
-- **V. Comments Justify Themselves**: The grammar file uses EBNF comments (`(* ... *)`) to explain non-obvious decisions (e.g., newline handling).
-- **VI. Load-Bearing Decisions → ADRs**: No ADR needed — this is documenting what exists, not making new design decisions.
-- **VII. No Workarounds Left Standing**: N/A.
+**Testing**: `cargo test --workspace`
+**Target Platform**: All Rust targets
+**Project Type**: Parser implementation
+**Constraints**: All existing tests must continue to pass
 
 ## Approach
 
-### Source Material
-
-The grammar is derived from three sources:
-
-1. **Lexer** (`crates/iklo-lexer/src/lib.rs`) — `LexemeKind` enum with logos attributes defines token patterns
-2. **Parser** (`crates/iklo-parser/src/lib.rs`) — Pratt parser with precedence climbing defines expression structure
-3. **AST** (`crates/iklo-ast/src/lib.rs`) — `Expr` enum defines the core forms
-
-### Grammar Structure
+### Architecture
 
 ```
-grammar.ebnf
-├── §1 Lexical Grammar
-│   ├── §1.1 Input elements (whitespace, comments, tokens)
-│   ├── §1.2 Tokens
-│   ├── §1.3 Keywords (let, be)
-│   ├── §1.4 Literals (number)
-│   ├── §1.5 Names (colon_name, identifier)
-│   ├── §1.6 Operators (+, -, *, /)
-│   ├── §1.7 Punctuation ((, ), ;)
-│   └── §1.8 Newlines
-├── §2 Syntactic Grammar
-│   ├── §2.1 Program structure (separator, program)
-│   ├── §2.2 Expressions (Pratt precedence)
-│   ├── §2.3 Numeric literals
-│   ├── §2.4 Lexical references
-│   ├── §2.5 Let expressions
-│   └── §2.6 Parenthesized expressions
-├── Appendix A: Derived Forms
-│   ├── A.1 Mutation (set — reserved)
-│   └── A.2 Reserved tokens (=, identifiers)
-└── Appendix B: Examples
+iklo-lexer (Logos) → token.rs (TokenStream adapter + newline filtering) → LALRPOP parser (grammar.lalrpop) → AST
 ```
 
 ### Key Design Decisions
 
-1. **Newline handling**: The grammar expresses newline-as-soft-terminator via the `program` production and a prose explanation. A purely structural EBNF cannot capture the parser's contextual newline logic, so the rule is documented in comments and the `separator` production covers both newline and `;`.
-
-2. **Derived forms**: Only `set` is listed (reserved, not implemented). This establishes the pattern for future entries.
-
-3. **Reserved tokens**: `=` and bare identifiers are documented as reserved but not part of the syntactic grammar.
-
-### Verification Strategy
-
-- Each `LexemeKind` variant → lexical production
-- Each parser code path → syntactic production
-- Each `Expr` variant → documented in core forms section
-- Existing tests pass unchanged
-- Examples in Appendix B are valid under the grammar
+1. **`let :name be` is statement-level**: Placed at lowest precedence (like C's `=`) inside `Statement`, not `Expr`. This eliminates LALRPOP LR ambiguity.
+2. **Newline filtering in token stream**: Lexer wrapper drops newlines based on previous token. Grammar sees only meaningful newlines.
+3. **`@L`/`@R` for locations**: LALRPOP's location extraction used for span information.
+4. **Named terminals**: All extern terminals must be named (not anonymous) to mix with `@L`/`@R`.
 
 ## Project Structure
 
-### Documentation (this feature)
+### Source Code
 
 ```text
-specs/002-ik0-grammar/
-├── spec.md       # Feature specification
-├── plan.md       # This file
-├── grammar.ebnf    # The W3C EBNF grammar (primary deliverable)
-└── tasks.md      # Task list (created by /speckit.tasks)
+crates/iklo-parser/
+├── grammar.lalrpop          # Authoritative grammar (LALRPOP)
+├── build.rs                 # LALRPOP build script
+└── src/
+    ├── token.rs             # Token enum, TokenStream adapter
+    └── lib.rs               # Parser entry point + tests
 ```
 
-### Source Code (repository root)
+## What was implemented
 
-No source code changes in this epic. Files referenced:
+### Completed
 
-```text
-crates/
-├── iklo-lexer/src/lib.rs    # Source of lexical grammar
-├── iklo-parser/src/lib.rs   # Source of syntactic grammar
-└── iklo-ast/src/lib.rs      # Source of core form definitions
-```
+1. **LALRPOP grammar** (`grammar.lalrpop`):
+   - Program → Separator* (Statement Separator*)*
+   - Statement → LetStmt | Expr
+   - LetStmt → "let" colon_name "be" Expr
+   - Expr → AddExpr
+   - AddExpr → MulExpr ("+" | "-") AddExpr | MulExpr
+   - MulExpr → Atom ("*" | "/") MulExpr | Atom
+   - Atom → ParenExpr | NumberExpr | LexRefExpr
 
-**Structure Decision**: Documentation-only epic. No new source files.
+2. **Token stream adapter** (`token.rs`):
+   - Token enum (14 variants matching LALRPOP extern)
+   - TokenStream implementing Iterator with newline filtering
+   - Newlines dropped when prev is +, -, *, /, let, be, or :name when next is be
+
+3. **Build script** (`build.rs`):
+   - Uses `Configuration::new().set_in_dir().set_out_dir().process_file()` because LALRPOP defaults to `cwd/src`
+   - Grammar compiles to `grammar.rs` in OUT_DIR
+
+4. **Parser wrapper** (`lib.rs`):
+   - `parse(source) -> Result<Program, ParseError>`
+   - 10 tests covering all core syntax

@@ -1,0 +1,100 @@
+use iklo_ast::{BinOp, Expr, Span, Spanned};
+use crate::token::{Token, LexicalError};
+
+grammar;
+
+pub Program: Vec<Spanned<Expr>> = {
+    <seps:Separator*> <stmts:(<Statement> <Separator*>)*> => {
+        stmts.into_iter().map(|(s, _)| s).collect()
+    }
+};
+
+Separator: () = {
+    "newline" => (),
+    ";" => (),
+};
+
+Statement: Spanned<Expr> = {
+    <LetStmt>,
+    <Expr>,
+};
+
+LetStmt: Spanned<Expr> = {
+    <start:@L> <_l:"let"> <name:"colon_name"> <_b:"be"> <v:Expr> <end:@R> => {
+        Spanned::new(Expr::Let { name, value: Box::new(v) }, Span::new(start, end, 0, 0))
+    },
+};
+
+Expr: Spanned<Expr> = {
+    <AddExpr>
+};
+
+AddExpr: Spanned<Expr> = {
+    <l:MulExpr> <_op:"+"> <r:AddExpr> => {
+        let span = Span::new(l.span.start, r.span.end, l.span.line, l.span.col);
+        Spanned::new(Expr::Binary { op: BinOp::Add, left: Box::new(l), right: Box::new(r) }, span)
+    },
+    <l:MulExpr> <_op:"-"> <r:AddExpr> => {
+        let span = Span::new(l.span.start, r.span.end, l.span.line, l.span.col);
+        Spanned::new(Expr::Binary { op: BinOp::Sub, left: Box::new(l), right: Box::new(r) }, span)
+    },
+    <MulExpr>,
+};
+
+MulExpr: Spanned<Expr> = {
+    <l:Atom> <_op:"*"> <r:MulExpr> => {
+        let span = Span::new(l.span.start, r.span.end, l.span.line, l.span.col);
+        Spanned::new(Expr::Binary { op: BinOp::Mul, left: Box::new(l), right: Box::new(r) }, span)
+    },
+    <l:Atom> <_op:"/"> <r:MulExpr> => {
+        let span = Span::new(l.span.start, r.span.end, l.span.line, l.span.col);
+        Spanned::new(Expr::Binary { op: BinOp::Div, left: Box::new(l), right: Box::new(r) }, span)
+    },
+    <Atom>,
+};
+
+Atom: Spanned<Expr> = {
+    <ParenExpr>,
+    <NumberExpr>,
+    <LexRefExpr>,
+};
+
+NumberExpr: Spanned<Expr> = {
+    <start:@L> <n:"number"> <end:@R> => {
+        Spanned::new(Expr::Number(n), Span::new(start, end, 0, 0))
+    },
+};
+
+LexRefExpr: Spanned<Expr> = {
+    <start:@L> <n:"colon_name"> <end:@R> => {
+        Spanned::new(Expr::LexRef(n), Span::new(start, end, 0, 0))
+    },
+};
+
+ParenExpr: Spanned<Expr> = {
+    <start:@L> <_lp:"("> <e:Expr> <_rp:")"> <end:@R> => {
+        Spanned::new(e.node, Span::new(start, end, 0, 0))
+    },
+};
+
+extern {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "let" => Token::T_Let,
+        "be" => Token::T_Be,
+        "number" => Token::T_Number(<f64>),
+        "colon_name" => Token::T_ColonName(<String>),
+        "ident" => Token::T_Ident(<String>),
+        "=" => Token::T_Eq,
+        "+" => Token::T_Plus,
+        "-" => Token::T_Minus,
+        "*" => Token::T_Star,
+        "/" => Token::T_Slash,
+        "(" => Token::T_LParen,
+        ")" => Token::T_RParen,
+        ";" => Token::T_Semi,
+        "newline" => Token::T_Newline,
+    }
+}
