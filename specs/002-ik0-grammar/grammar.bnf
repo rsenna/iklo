@@ -1,0 +1,358 @@
+# IK0 Grammar — Level 0.0
+
+(*
+  Iklo Level 0.0 Grammar — W3C EBNF Notation
+
+  This is the FIRST formal grammar for Iklo. It is expected to change
+  as the language evolves.
+
+  Grammar is the source of truth. The parser follows this grammar,
+  not vice versa. If the parser disagrees with this grammar, the
+  parser is wrong and must be fixed.
+
+  Level 0.0 = complete core language implementation, excluding
+  stdlib and syntax sugar. This covers: numeric literals, lexical
+  references (:name), let bindings, binary arithmetic, parenthesized
+  expressions, semicolons as hard terminators, and newline as soft
+  terminator.
+*)
+
+(* ═══════════════════════════════════════════════════════════════════
+   §1  Lexical Grammar
+   ═══════════════════════════════════════════════════════════════════ *)
+
+(* The lexical grammar defines valid tokens. Each production corresponds
+   to a LexemeKind variant in crates/iklo-lexer/src/lib.rs. *)
+
+(* ── §1.1  Input elements ──────────────────────────────────────── *)
+
+(* Iklo source is a sequence of input elements: whitespace, comments,
+   and tokens. Whitespace and comments are ignored (skipped) by the
+   lexer and do not appear in the token stream. *)
+
+input          = { whitespace | comment | token } ;
+
+whitespace     = { ' ' | '\t' } ;
+
+comment        = '#' , { ? any char except newline ? } ;
+
+(* ── §1.2  Tokens ──────────────────────────────────────────────── *)
+
+token          = keyword
+               | number
+               | colon_name
+               | identifier
+               | operator
+               | punctuation
+               | newline ;
+
+(* ── §1.3  Keywords ────────────────────────────────────────────── *)
+
+keyword        = 'let' | 'be' ;
+
+(* Reserved keywords for future use:
+   'set' — will introduce mutation (derived form: set :name be expr).
+   These are lexed as identifiers in Level 0.0 but will become
+   keywords in a future level. *)
+
+(* ── §1.4  Literals ────────────────────────────────────────────── *)
+
+number         = ? regex: [0-9]+(\.[0-9]+)? ? ;
+
+(* Integers and decimals. No leading sign (negation is unary minus —
+   not yet implemented in Level 0.0). No scientific notation.
+   Parsed as f64. *)
+
+(* ── §1.5  Names ───────────────────────────────────────────────── *)
+
+colon_name     = ? regex: :[a-zA-Z_][a-zA-Z0-9_-]* ? ;
+
+(* Lexical reference. The colon prefix distinguishes bound names from
+   identifiers. The name includes everything after the colon.
+   Example: `:x` → name "x", `:my-fn` → name "my-fn". *)
+
+identifier     = ? regex: [a-zA-Z_][a-zA-Z0-9_-]* ? ;
+
+(* Bare identifiers are currently unused in Level 0.0 syntax.
+   They are lexed but not consumed by any syntactic production.
+   Reserved for future use: function names, command names, shell
+   paths, etc. *)
+
+(* ── §1.6  Operators ───────────────────────────────────────────── *)
+
+operator       = '+' | '-' | '*' | '/' ;
+
+(* Binary operators. Whitespace on both sides is REQUIRED for
+   disambiguation: `x-1` is one identifier, `x - 1` is subtraction.
+   The lexer tokenizes these regardless of surrounding whitespace;
+   the parser enforces the whitespace requirement via the grammar. *)
+
+(* Reserved for future use:
+   '=' — will be used for assignment or definition.
+   Currently lexed as a token but not consumed by any syntactic
+   production in Level 0.0. *)
+
+(* ── §1.7  Punctuation ─────────────────────────────────────────── *)
+
+punctuation    = '(' | ')' | ';' ;
+
+(* '(' and ')' — grouping. May span multiple lines; newlines inside
+   parentheses are ignored by the parser (treated as whitespace).
+
+   ';' — hard terminator. Forces the current expression to end.
+   Parse error if the expression is incomplete at ';'. *)
+
+(* ── §1.8  Newlines ────────────────────────────────────────────── *)
+
+newline        = ? regex: \r?\n ? ;
+
+(* Newlines are lexed as tokens but handled specially by the parser:
+   they act as SOFT TERMINATORS (see §2.1). Inside parentheses,
+   newlines are skipped (treated as whitespace). *)
+
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   §2  Syntactic Grammar
+   ═══════════════════════════════════════════════════════════════════ *)
+
+(* The syntactic grammar defines how tokens combine into valid
+   programs. Each production corresponds to a parsing path in
+   crates/iklo-parser/src/lib.rs.
+
+   Core forms map directly to AST nodes (Expr variants in
+   crates/iklo-ast/src/lib.rs):
+     Number(f64)        ← numeric_literal
+     LexRef(String)     ← colon_name (lexical reference)
+     Let { name, value } ← let_expression
+     Binary { op, left, right } ← binary_expression *)
+
+(* ── §2.1  Program structure ───────────────────────────────────── *)
+
+(* A program is a sequence of expressions, each terminated by a
+   separator (newline or semicolon).
+
+   NEWLINE AS SOFT TERMINATOR:
+   A newline ends the current expression ONLY when that expression
+   is already complete AND the next line cannot continue it.
+   Concretely: the parser continues to the next line if the current
+   token is an infix operator (+, -, *, /) that can bind to the
+   preceding expression. If the expression is complete and no
+   operator follows, the newline terminates it.
+
+   Semicolons are HARD TERMINATORS: they always force the current
+   expression to end, regardless of whether the next line could
+   continue it. A semicolon after an incomplete expression is a
+   parse error.
+
+   Inside parentheses (paren_depth > 0), newlines are treated as
+   whitespace and skipped. *)
+
+program        = { separator } , [ expression , { separator , expression } ] , { separator } ;
+
+separator      = newline | ';' ;
+
+(* ── §2.2  Expressions ─────────────────────────────────────────── *)
+
+(* Expressions are parsed with Pratt precedence (operator-precedence
+   parsing). Precedence levels are expressed as separate productions
+   (standard EBNF technique for operator precedence):
+
+     additive_expr      — lowest precedence (binding power 1/2)
+     multiplicative_expr — highest precedence (binding power 3/4)
+
+   This means:
+     1 + 2 * 3   ->   1 + (2 * 3)       (* binds tighter *)
+     1 * 2 + 3   ->   (1 * 2) + 3       (* left-associative *)
+     1 + 2 + 3   ->   (1 + 2) + 3       (* left-associative *)
+     1 * 2 * 3   ->   (1 * 2) * 3       (* left-associative *)
+
+   All infix operators are left-associative in Level 0.0.
+
+   Newlines are skipped before prefix expressions and after infix
+   operators (the parser calls skip_newlines() in these positions),
+   allowing multi-line expressions:
+     1 +
+       2 + 3
+
+   But newlines terminate an expression when the expression is
+   complete and the next token is not an infix operator. *)
+
+expression     = additive_expr ;
+
+additive_expr  = multiplicative_expr , { ('+' | '-') , ws , multiplicative_expr } ;
+
+multiplicative_expr = postfix , { ('*' | '/') , ws , postfix } ;
+
+postfix        = ws , prefix ;
+
+prefix         = numeric_literal
+               | lexical_reference
+               | let_expression
+               | paren_expression ;
+
+(* ws represents optional whitespace including newlines.
+   The parser skips newlines in specific positions (before prefix
+   expressions, after infix operators, inside parens). We model
+   this by inserting ws at those points. *)
+ws             = { whitespace | newline } ;
+
+(* ── §2.3  Numeric literals ────────────────────────────────────── *)
+
+numeric_literal = number ;
+
+(* Produces Expr::Number(f64). *)
+
+(* ── §2.4  Lexical references ──────────────────────────────────── *)
+
+lexical_reference = colon_name ;
+
+(* Produces Expr::LexRef(String). The colon is consumed by the lexer;
+   only the name is stored. The name must be bound (via let) before
+   use -- referencing an unbound name is a runtime error, not a parse
+   error. *)
+
+(* ── §2.5  Let expressions ─────────────────────────────────────── *)
+
+(* The let expression introduces a new binding. It is itself an
+   expression that returns the bound value.
+
+   Syntax: let :name be expression
+
+   The 'let' keyword, ':name', and 'be' keyword may be separated
+   by newlines (the parser skips newlines between them). Newlines
+   after 'be' are also skipped before parsing the value expression.
+
+   'let' introduces a NEW binding, even if a previous binding with
+   the same name exists (shadowing). 'set' (not in Level 0.0) will
+   mutate an existing binding.
+
+   Produces Expr::Let { name: String, value: Box<Expr> }. *)
+
+let_expression = 'let' , ws , colon_name , ws , 'be' , ws , expression ;
+
+(* ── §2.6  Parenthesized expressions ───────────────────────────── *)
+
+(* Parentheses group sub-expressions and control precedence.
+
+   Newlines inside parentheses are IGNORED (treated as whitespace),
+   allowing multi-line expressions:
+     (1 +
+      2 *
+      3)
+
+   Produces the expression inside the parentheses (no AST node
+   for the parentheses themselves). *)
+
+paren_expression = '(' , { ws } , expression , { ws } , ')' ;
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   Appendix A: Derived Forms
+   ═══════════════════════════════════════════════════════════════════ *)
+
+(* Derived forms are syntactic sugar that expand to core forms.
+   In Level 0.0, the only derived form is set (planned, not yet
+   implemented). This appendix establishes the pattern for future
+   derived forms.
+
+   Each entry documents:
+   - Surface syntax (what the user writes)
+   - Expansion (what it desugars to)
+   - AST node(s) produced (after expansion)
+   - Status (implemented / reserved / planned) *)
+
+(* ── A.1  Mutation (reserved) ──────────────────────────────────── *)
+
+(* Surface syntax:
+     set :name be expression
+
+   Expansion:
+     This will mutate an existing binding. Unlike 'let', which always
+     introduces a new binding (shadowing), 'set' will update the value
+     of an existing binding. If ':name' is not bound, 'set' is a
+     runtime error.
+
+   Status: RESERVED. 'set' is lexed as an identifier in Level 0.0.
+   It will become a keyword in a future level. The 'be' keyword
+   is shared with 'let' for consistency.
+
+   AST node: TBD (not Expr::Let — that's for 'let' specifically).
+   Likely Expr::Set { name, value }.
+
+   Implementation note: 'set' should only reach the mutable engines
+   (graph, dynamic, reactive, synchronized). 'set' on a plain lexical
+   binding is an error. *)
+
+(* ── A.2  Reserved tokens ──────────────────────────────────────── *)
+
+(* The following tokens are lexed in Level 0.0 but not consumed by
+   any syntactic production. They are reserved for future use:
+
+   '='  — Assignment or definition. Will be used for something
+          (details TBD). Currently lexed as Eq token.
+
+   Bare identifiers — Will be used for function names, command names,
+          shell paths, etc. Currently lexed as Ident token but not
+          consumed by the syntactic grammar. *)
+
+
+(* ═══════════════════════════════════════════════════════════════════
+   Appendix B: Examples
+   ═══════════════════════════════════════════════════════════════════ *)
+
+(* These examples illustrate Level 0.0 syntax. Each example is a
+   valid program under this grammar. *)
+
+(* ── B.1  Simple binding and reference ─────────────────────────── *)
+
+(* let :x be 42
+   :x
+
+   Parses as two expressions:
+   1. Let { name: "x", value: Number(42.0) }
+   2. LexRef("x") *)
+
+(* ── B.2  Arithmetic ───────────────────────────────────────────── *)
+
+(* let :x be 21 * 2
+   :x
+
+   Parses as two expressions:
+   1. Let { name: "x", value: Binary { op: Mul, left: Number(21.0), right: Number(2.0) } }
+   2. LexRef("x") *)
+
+(* ── B.3  Semicolon separates expressions on one line ──────────── *)
+
+(* let :x be 1; :x
+
+   Parses as two expressions:
+   1. Let { name: "x", value: Number(1.0) }
+   2. LexRef("x") *)
+
+(* ── B.4  Newline as soft terminator ───────────────────────────── *)
+
+(* let :x be 1 +
+   2
+
+   The '+' at the end of line 1 means the expression is incomplete;
+   the newline is NOT a terminator. Parses as one expression:
+   1. Let { name: "x", value: Binary { op: Add, left: Number(1.0), right: Number(2.0) } } *)
+
+(* ── B.5  Parentheses suppress newlines ────────────────────────── *)
+
+(* (1 +
+ 2
+ * 3)
+
+   Newlines inside parentheses are skipped. Parses as one expression:
+   1. Binary { op: Mul, left: Binary { op: Add, left: Number(1.0), right: Number(2.0) }, right: Number(3.0) } *)
+
+(* ── B.6  Blank lines are fine ─────────────────────────────────── *)
+
+(*
+let :x be 1
+
+:x
+
+   Blank lines between expressions are just separators. Parses as two expressions. *)
