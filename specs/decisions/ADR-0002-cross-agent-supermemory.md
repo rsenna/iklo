@@ -130,5 +130,6 @@ Two structural facts shaped the fix:
 - Replicate steps 2–3 on any other machine used for Iklo.
 - When github/copilot-cli ships per-repo MCP config, replace Copilot's advisory
   instruction with an enforced repo-local `x-sm-project` header and note it here.
-- Reconcile the `spec/decisions/` vs `specs/decisions/` path referenced in
-  AGENTS.md and the constitution (this ADR lives in `specs/decisions/`).
+- ~~Reconcile the `spec/decisions/` vs `specs/decisions/` path referenced in
+  AGENTS.md and the constitution~~ — done in this PR: all live docs now point at
+  the real `specs/decisions/` directory (`refs/*.old.md` snapshots left as-is).

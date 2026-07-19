@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: Introduce a `Substrate` trait in a new `iklo-substrate` crate, refactor `iklo-runtime` to access all image state through it, and ship an in-memory implementation that preserves today's tree-walking interpreter behaviour exactly. Ground: [ADR-0001](../../spec/decisions/ADR-0001-substrate-boundary.md).
+**Input**: Introduce a `Substrate` trait in a new `iklo-substrate` crate, refactor `iklo-runtime` to access all image state through it, and ship an in-memory implementation that preserves today's tree-walking interpreter behaviour exactly. Ground: [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md).
 
 ## User Scenarios & Testing *(mandatory)*
 

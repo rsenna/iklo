@@ -111,7 +111,7 @@ status: shipped-partial
 **Purpose**: Documentation and epic closure.
 
 - [ ] **T009** [P] Update `AGENTS.md` "What is actually implemented today" section: add `iklo-substrate` (trait + in-memory implementation); note that `RuntimeImage` is now a façade over `InMemorySubstrate<Value>`.
-- [ ] **T010** [P] Update `LANGUAGE.md`'s "Transactional VDBE and live image runtime" section: add a note that as of this epic the runtime image lives behind a `Substrate` trait (in `iklo-substrate`); the active implementation is in-memory; Turso is deferred per [ADR-0001](../../spec/decisions/ADR-0001-substrate-boundary.md).
+- [ ] **T010** [P] Update `LANGUAGE.md`'s "Transactional VDBE and live image runtime" section: add a note that as of this epic the runtime image lives behind a `Substrate` trait (in `iklo-substrate`); the active implementation is in-memory; Turso is deferred per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md).
 - [ ] **T011** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
 - [ ] **T012** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria-mandatory) as ✅ complete in the commit that closes the epic. Open a PR from `001-substrate` → `main`.
 
