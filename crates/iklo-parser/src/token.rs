@@ -1,5 +1,15 @@
 use iklo_lexer::{tokenize, LexError, LexemeKind};
 
+/// Source position used as the LALRPOP `Location` type. Carries the byte
+/// offset alongside the lexer's real line/column so spans and parse errors
+/// keep accurate coordinates.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub struct Position {
+    pub offset: usize,
+    pub line: usize,
+    pub col: usize,
+}
+
 #[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Token {
@@ -133,14 +143,22 @@ impl TokenStream {
 }
 
 impl Iterator for TokenStream {
-    type Item = Result<(usize, Token, usize), LexicalError>;
+    type Item = Result<(Position, Token, Position), LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             let lex = self.lexemes.get(self.pos)?;
             let token = convert_kind(&lex.kind)?;
-            let start = lex.span.start;
-            let end = lex.span.end;
+            let start = Position {
+                offset: lex.span.start,
+                line: lex.span.line,
+                col: lex.span.col,
+            };
+            let end = Position {
+                offset: lex.span.end,
+                line: lex.span.line,
+                col: lex.span.col,
+            };
             self.pos += 1;
 
             match &token {

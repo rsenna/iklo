@@ -50,21 +50,21 @@ pub fn parse(source: &str) -> Result<Program, ParseError> {
         lalrpop_util::ParseError::InvalidToken { .. } => ParseError::UnexpectedEof,
         lalrpop_util::ParseError::UnrecognizedEof { .. } => ParseError::UnexpectedEof,
         lalrpop_util::ParseError::UnrecognizedToken {
-            token: (_start, tok, _end),
+            token: (start, tok, _end),
             expected,
         } => ParseError::Unexpected {
             found: format!("{:?}", tok),
             expected: expected.join(", "),
-            line: 0,
-            col: 0,
+            line: start.line,
+            col: start.col,
         },
         lalrpop_util::ParseError::ExtraToken {
-            token: (_start, tok, _end),
+            token: (start, tok, _end),
         } => ParseError::Unexpected {
             found: format!("{:?}", tok),
             expected: "end of input".to_string(),
-            line: 0,
-            col: 0,
+            line: start.line,
+            col: start.col,
         },
         lalrpop_util::ParseError::User { error } => ParseError::Lex(error),
     })
@@ -73,7 +73,7 @@ pub fn parse(source: &str) -> Result<Program, ParseError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use iklo_ast::Expr;
+    use iklo_ast::{BinOp, Expr};
 
     #[test]
     fn parse_let_and_ref() {
@@ -143,5 +143,79 @@ mod tests {
     fn missing_operator_across_newline_is_two_expressions() {
         let src = "1 + 2\n* 3";
         assert!(parse(src).is_err());
+    }
+
+    #[test]
+    fn subtraction_is_left_associative() {
+        // `10 - 3 - 2` must parse as `(10 - 3) - 2`, i.e. the outer node's
+        // right operand is the literal 2, not the sub-expression `3 - 2`.
+        let program = parse("10 - 3 - 2").expect("parse");
+        assert_eq!(program.len(), 1);
+        match &program[0].node {
+            Expr::Binary {
+                op: BinOp::Sub,
+                left,
+                right,
+            } => {
+                assert!(matches!(right.node, Expr::Number(n) if n == 2.0));
+                assert!(matches!(
+                    left.node,
+                    Expr::Binary {
+                        op: BinOp::Sub,
+                        ..
+                    }
+                ));
+            }
+            other => panic!("expected top-level subtraction, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn division_is_left_associative() {
+        // `1 / 2 / 3` must parse as `(1 / 2) / 3`.
+        let program = parse("1 / 2 / 3").expect("parse");
+        match &program[0].node {
+            Expr::Binary {
+                op: BinOp::Div,
+                left,
+                right,
+            } => {
+                assert!(matches!(right.node, Expr::Number(n) if n == 3.0));
+                assert!(matches!(
+                    left.node,
+                    Expr::Binary {
+                        op: BinOp::Div,
+                        ..
+                    }
+                ));
+            }
+            other => panic!("expected top-level division, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn let_is_valid_in_nested_expression_position() {
+        // `let` is an expression, so it must parse inside parens and as the
+        // value of another `let`.
+        let parenthesised = parse("(let :x be 1)").expect("parse parenthesised let");
+        assert!(matches!(parenthesised[0].node, Expr::Let { .. }));
+
+        let nested = parse("let :x be let :y be 1").expect("parse nested let");
+        match &nested[0].node {
+            Expr::Let { value, .. } => {
+                assert!(matches!(value.node, Expr::Let { .. }));
+            }
+            other => panic!("expected outer let, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_error_reports_real_line_and_column() {
+        // `1\n* 2` is a syntax error on the second line; the reported
+        // position must reflect that rather than defaulting to 0:0.
+        match parse("1\n* 2") {
+            Err(ParseError::Unexpected { line, .. }) => assert_eq!(line, 2),
+            other => panic!("expected an Unexpected parse error on line 2, got {other:?}"),
+        }
     }
 }
