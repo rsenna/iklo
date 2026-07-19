@@ -126,3 +126,37 @@ observations make that premature:
   under the new spec-driven workflow.
 - Do not write any VDBE code, or add Turso as a dependency, until the
   `substrate` epic has shipped and been exercised.
+
+## Status note
+
+**Decision (2026-07):** The technical blockers above still hold — checked
+against Turso's own July 2026 positioning:
+
+- No public/stable API for hosting foreign bytecode. Turso says its VDBE
+  bytecode language "is not *exposed* or *specified*, nor is it modularized";
+  the [Doom demo](https://turso.tech/blog/running-unmodified-doom-in-the-sqlite-bytecode-language)
+  remains a *forked* proof-of-concept (a purpose-built C→VDBE compiler).
+- The VDBE is still SQL-shaped — "not a general purpose language like the JVM,
+  .NET or WASM" — though Turso now frames it aspirationally as
+  ["the LLVM of databases"](https://turso.tech/blog/a-new-modern-version-of-postgres-in-rust)
+  (a shared backend for many *SQL/DB* frontends, not general-purpose languages).
+- Turso itself is pre-release: "a foundation, not a finished product," with no
+  published packages yet (build-from-source only).
+
+**What changed is our appetite, not the facts.** Iklo is a research vehicle as
+much as a product, so the immaturity, the SQL-shaped VM, and even the prospect
+of *forking or upstreaming Turso* are now judged acceptable — and contributing
+changes back to Turso is viewed as a **plus**, not merely a cost. This tempers
+the original rejection of Alternative A: its cautions (premature commitment,
+coupling to someone else's roadmap) still apply, but the "months of
+infrastructure" and "someone else's roadmap" costs weigh less for a research
+tool that welcomes upstream contribution.
+
+**What still stands (unchanged):** the sequencing. The tree-walker remains the
+semantic reference; the `Substrate` boundary + in-memory impl come first; a
+Turso-backed `Substrate` — **not** the bytecode VM — is the next Turso milestone;
+and VDBE-as-compilation-target remains a separate, later ADR. This note does
+**not** authorise adding Turso as a dependency yet (see Follow-ups). Actually
+advancing the timeline — adopting a Turso-backed substrate before the substrate
+epic is exercised, or starting VDBE work — warrants its own ADR that supersedes
+the relevant commitments here.
