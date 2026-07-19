@@ -9,10 +9,12 @@
 ## Decision (one sentence)
 
 **Every agent tool that works on Iklo (OpenCode, Claude Code, Codex, GitHub
-Copilot) reads from and writes to a single per-project [Supermemory](https://supermemory.ai)
-container, canonicalised on OpenCode's tags `opencode_project_<remote-hash>` and
-`opencode_user_<email-hash>`, with each tool wired to that container through its
-own configuration mechanism.**
+Copilot) reads from and writes to shared [Supermemory](https://supermemory.ai)
+container tags, canonicalised on OpenCode's naming: one per-project tag
+`opencode_project_<remote-hash>` — remote-derived, so identical for every
+contributor — and one per-contributor tag `opencode_user_<email-hash>` — derived
+from each person's `git user.email`, so their own — with each tool wired to those
+tags through its own configuration mechanism.**
 
 Everything else in this ADR is the reasoning, the per-tool wiring, the
 alternatives rejected, and the follow-ups it commits us to.
@@ -26,8 +28,9 @@ alternatives rejected, and the follow-ups it commits us to.
 - **Deterministic hashes** — every integration derives the same two hashes for
   this repo: the **project** hash `845576da904ef1b9` (from the normalised git
   remote `rsenna/iklo`, so it is identical for every contributor) and the
-  **user** hash `36176195afe587d6` (from git `user.email`, so it is
-  per-contributor). Only the tag *prefix* differs between tools
+  **user** hash (from git `user.email`, so it is per-contributor —
+  `36176195afe587d6` is this ADR author's; yours differs). Only the tag *prefix*
+  differs between tools
   (`opencode_`, `codex_`, `claudecode_`, `repo_`).
 - **Prefix silo** — the failure mode this ADR removes: because each tool used
   its own prefix, four tools on the same project wrote to four disjoint
@@ -69,17 +72,24 @@ Two structural facts shaped the fix:
 
 ## What the decision commits us to
 
-1. **Canonical tags = OpenCode's.** The shared project container is
-   `opencode_project_845576da904ef1b9`; the shared user container is
-   `opencode_user_36176195afe587d6`. We canonicalise on OpenCode because it held
-   the most history and its tags are project-scoped (remote-derived). OpenCode
-   needs no change — it is the anchor.
-2. **Claude** — `.claude/.supermemory-claude/config.json` sets
-   `repoContainerTag` + `personalContainerTag` to the canonical tags. This file
-   embeds the per-user hash, so it is **git-ignored**
-   (`/.claude/.supermemory-claude/`), not committed.
-3. **Codex** — `~/.codex/supermemory.json` sets `projectContainerTag` +
-   `userContainerTag` to the canonical tags. (User-global file; not in the repo.)
+1. **Canonical naming = OpenCode's `opencode_` prefix** (chosen because OpenCode
+   held the most history). Two tags, with different sharing scopes:
+   - **Project tag** `opencode_project_845576da904ef1b9` — remote-derived, so
+     identical for every contributor. This is the one concrete tag hard-coded
+     across the repo (it is safe to commit).
+   - **User tag** `opencode_user_<email-hash>` — derived from each contributor's
+     `git user.email`. It unifies one contributor's *own* memory across *their*
+     tools; it is **never** shared between contributors, and no contributor's
+     literal user hash is committed. Each person's setup derives it locally.
+
+   OpenCode needs no change — it is the anchor.
+2. **Claude** — `.claude/.supermemory-claude/config.json` sets `repoContainerTag`
+   to the shared project tag and `personalContainerTag` to *this contributor's
+   own* `opencode_user_<email-hash>`. Because it embeds a per-contributor hash,
+   the file is **git-ignored** (`/.claude/.supermemory-claude/`), not committed.
+3. **Codex** — `~/.codex/supermemory.json` sets `projectContainerTag` to the
+   shared project tag and `userContainerTag` to *this contributor's own*
+   `opencode_user_<email-hash>`. (User-global file; not in the repo.)
 4. **Copilot** — `.github/copilot-instructions.md` (committed; the project hash
    is remote-derived and identical for all contributors) instructs Copilot to
    pass `containerTag: "opencode_project_845576da904ef1b9"` on every supermemory
@@ -100,7 +110,7 @@ Two structural facts shaped the fix:
   cross-visibility but not a single writable pool, so "where did agent X save
   this" stays fragmented and every new tool multiplies the read list.
 - **C — Global `x-sm-project` header for Copilot.** Rejected: airtight but
-  pins every repo Copilot touches to Iklo's container — the exact per-project
+  pins every repo Copilot touches to Iklo's container, breaking the per-project
   separation we require. Revisit if/when the Copilot CLI gains per-repo MCP
   config.
 
@@ -127,7 +137,8 @@ Two structural facts shaped the fix:
 
 - Start a fresh Copilot session in this repo so `.github/copilot-instructions.md`
   loads; verify a Copilot store/search lands in the canonical container.
-- Replicate steps 2–3 on any other machine used for Iklo.
+- Replicate the Claude and Codex configurations (items 2 and 3) on any other
+  machine used for Iklo, deriving the user tag from that machine's `git user.email`.
 - When github/copilot-cli ships per-repo MCP config, replace Copilot's advisory
   instruction with an enforced repo-local `x-sm-project` header and note it here.
 - ~~Reconcile the `spec/decisions/` vs `specs/decisions/` path referenced in
