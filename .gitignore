@@ -35,3 +35,6 @@ node_modules/
 !/.claude/
 !/AGENTS.md
 
+# Supermemory local container-tag config (user-specific hashes)
+/.claude/.supermemory-claude/
+
