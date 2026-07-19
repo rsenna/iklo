@@ -1,6 +1,9 @@
 ---
 description: "Task list for substrate capability boundary"
+status: shipped-partial
 ---
+
+**Status**: Shipped (partial — T001–T002 completed; T003–T012 deferred to a future continuation of this epic).
 
 # Tasks: Substrate Capability Boundary
 
@@ -30,7 +33,7 @@ description: "Task list for substrate capability boundary"
 
 **Purpose**: Bring the new crate into the workspace so subsequent tasks have a home.
 
-- [ ] **T001** [US2] Scaffold `crates/iklo-substrate/` with `Cargo.toml` (edition 2021, workspace-inherited version) and empty `src/lib.rs`. Add the crate to `[workspace] members` in the root `Cargo.toml`. **Acceptance**: `cargo build -p iklo-substrate` succeeds; `make test` still green.
+- [x] **T001** [US2] Scaffold `crates/iklo-substrate/` with `Cargo.toml` (edition 2021, workspace-inherited version) and empty `src/lib.rs`. Add the crate to `[workspace] members` in the root `Cargo.toml`. **Acceptance**: `cargo build -p iklo-substrate` succeeds; `make test` still green.
 
 ---
 
@@ -40,7 +43,7 @@ description: "Task list for substrate capability boundary"
 
 **⚠️ CRITICAL**: No user story implementation can begin until this phase is complete.
 
-- [ ] **T002** [US2] Define `Substrate` + `Transaction` traits and `SubstrateError` in `crates/iklo-substrate/src/lib.rs`. Signatures per [plan.md § Trait shape](plan.md#trait-shape-settled-after-pr-1-review--no-openclose): no `open` / `close` methods (creation via each impl's constructor; teardown via `Drop`); `snapshot(&self) -> HashMap<String, Self::Value>`. Include doc comments on the public trait explaining the transaction contract, the revision semantics, and the compile-time exclusion property of `begin(&mut self) -> Tx<'_>`. Implementation methods can be `todo!()` at this stage — the goal is compilation of the trait surface. **Acceptance**: `cargo build -p iklo-substrate` succeeds; trait signatures compile.
+- [x] **T002** [US2] Define `Substrate` + `Transaction` traits and `SubstrateError` in `crates/iklo-substrate/src/lib.rs`. Signatures per [plan.md § Trait shape](plan.md#trait-shape-settled-after-pr-1-review--no-openclose): no `open` / `close` methods (creation via each impl's constructor; teardown via `Drop`); `snapshot(&self) -> HashMap<String, Self::Value>`. Include doc comments on the public trait explaining the transaction contract, the revision semantics, and the compile-time exclusion property of `begin(&mut self) -> Tx<'_>`. Implementation methods can be `todo!()` at this stage — the goal is compilation of the trait surface. **Acceptance**: `cargo build -p iklo-substrate` succeeds; trait signatures compile.
 
 **Checkpoint**: Foundation ready — user story implementation can begin.
 
