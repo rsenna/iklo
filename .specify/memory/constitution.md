@@ -2,7 +2,7 @@
 
 These are the principles that govern every spec, plan, and task in this repo.
 They supersede convenience. Amendments require an ADR under
-[`spec/decisions/`](../../spec/decisions/).
+[`specs/decisions/`](../../specs/decisions/).
 
 ## Core Principles
 
@@ -47,7 +47,7 @@ usually nothing on internal helpers. See
 
 Any decision that is expensive to reverse, that determines the shape of code
 across multiple crates, or that gets questioned a second time becomes an ADR
-under [`spec/decisions/`](../../spec/decisions/). ADRs are sequential
+under [`specs/decisions/`](../../specs/decisions/). ADRs are sequential
 (`ADR-NNNN`), never deleted, and superseded rather than edited. Lightweight
 inline `**Decision (date)**` notes are fine until they harden.
 
@@ -65,7 +65,7 @@ requires them.
 - **Rust**, edition 2021, workspace `resolver = "2"`. Toolchain pinned via
   [`mise.toml`](../../mise.toml).
 - **Storage:** the runtime image lives behind a `Substrate` boundary (see
-  [ADR-0001](../../spec/decisions/ADR-0001-substrate-boundary.md)). Only
+  [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md)). Only
   substrate implementations may hold binding state directly.
 - **Dependencies:** adding a workspace dependency or a new crate is an
   "ask first" change. Removing one usually isn't.

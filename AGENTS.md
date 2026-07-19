@@ -5,7 +5,7 @@ It is intentionally short and factual. For everything else:
 
 - **What Iklo *is* as a language** → [LANGUAGE.md](LANGUAGE.md) (the reference; much of it is aspirational, marked **TBI**/**TBD**/**BET**).
 - **The principles that govern every change** → [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
-- **Why we made the load-bearing decisions** → [`spec/decisions/`](spec/decisions/).
+- **Why we made the load-bearing decisions** → [`specs/decisions/`](specs/decisions/).
 - **What we're actively building next** → [`specs/`](specs/) (one directory per feature, spec-kit format).
 
 ## What Iklo is, in one paragraph
@@ -82,7 +82,7 @@ Optional enhancers: `/speckit.clarify`, `/speckit.checklist`,
 
 Governing principles live in [`.specify/memory/constitution.md`](.specify/memory/constitution.md).
 For any change big enough to be architecturally load-bearing, write an ADR
-under [`spec/decisions/`](spec/decisions/) before touching code.
+under [`specs/decisions/`](specs/decisions/) before touching code.
 
 ## Commit rules
 
@@ -116,7 +116,7 @@ specs/                 → per-feature specs (Spec Kit layout)
     spec.md                     → what & why (from /speckit.specify)
     plan.md                     → how (from /speckit.plan)
     tasks.md                    → executable list (from /speckit.tasks)
-spec/decisions/        → ADRs (ADR-NNNN, never deleted; superseded/amended)
+specs/decisions/       → ADRs (ADR-NNNN, never deleted; superseded/amended)
 refs/                  → reference material (UCBLogo, NetLogo) + historical snapshots
                          (AGENTS.old.md, README.old.md, tour.old.iklo — do not edit)
 ```
