@@ -48,7 +48,15 @@ impl rustyline::completion::Completer for ReplCompleter {
         if !is_repl_command_position(self.at_fresh_prompt.get(), line) {
             return Ok((pos, Vec::new()));
         }
-        let prefix = &line[1..pos.min(line.len())];
+        // Guard against a panic: pos can be 0 if the cursor was moved back
+        // to the start of the line (Home/Ctrl-A) before Tab — giving the
+        // invalid range 1..0 — and pos can in principle land on a non-UTF-8
+        // char boundary. Either way there's nothing sensible to complete.
+        let end = pos.min(line.len());
+        if end < 1 || !line.is_char_boundary(end) {
+            return Ok((pos, Vec::new()));
+        }
+        let prefix = &line[1..end];
         let matches: Vec<String> = REPL_COMMAND_NAMES
             .iter()
             .filter(|name| name.starts_with(prefix))
