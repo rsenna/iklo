@@ -46,7 +46,7 @@ Verified against [`.specify/memory/constitution.md`](../../.specify/memory/const
 - **III. Substrate Before Feature** ✅ — this epic *is* the substrate. It exists specifically to install the boundary before adding Turso (the second consumer).
 - **IV. Kebab-Case Iklo, Idiomatic Rust** ✅ — Rust code stays `snake_case`/`PascalCase`. Iklo syntax is unaffected.
 - **V. Comments Justify Themselves** ✅ — doc comments on the public trait; nothing added to internal helpers unless the *why* is non-obvious.
-- **VI. ADRs for Load-Bearing Decisions** ✅ — grounded in [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md). Any new load-bearing sub-decision during implementation becomes ADR-0003 (the next unused number; ADR-0002 records the cross-agent Supermemory setup).
+- **VI. ADRs for Load-Bearing Decisions** ✅ — grounded in [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md). Any new load-bearing sub-decision during implementation becomes the next unused ADR number (ADR-0002 records the cross-agent Supermemory setup; ADR-0003 is an exploratory queue-evaluation note — check `specs/decisions/` for the current next-free number before assigning).
 - **VII. No Workarounds Left Standing** ✅ — the refactor does not leave a scaffold behind; if the boundary doesn't hold on the first pass, we fix the boundary rather than papering over it in `iklo-runtime`.
 
 No violations; Complexity Tracking section left empty.
