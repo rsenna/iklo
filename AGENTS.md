@@ -27,7 +27,7 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 - **Parser** (`crates/iklo-parser`) — Pratt precedence; whitespace-sensitive infix ops (so `x-1` stays one identifier); newline is a soft terminator (terminates only when the current expression is complete and can't be continued); `;` is a hard terminator; newlines are swallowed inside parens. Supports `let :name be <expr>` as an expression.
 - **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `RuntimeImage` is a thin façade over `InMemorySubstrate<Value>` (from `iklo-substrate`); `let` and `set` update the image transactionally per top-level expression.
 - **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Ships with an in-memory implementation (`InMemorySubstrate`); Turso-backed impl deferred per [ADR-0001](specs/decisions/ADR-0001-substrate-boundary.md).
-- **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `.`-prefixed (`.quit`, `.revision`, `.env`) and only recognized at a fresh prompt.
+- **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `/`-prefixed (`/quit`, `/revision`, `/env`), recognized only at a fresh prompt, with tab-completion (per ADR-0004).
 
 ## Non-negotiable syntax rules
 
@@ -38,7 +38,7 @@ These are decided and shouldn't be casually revisited. If a change is needed, op
 - **`set` mutates an existing binding**; `let` introduces a new one (even if it shadows a previous name). `set` should only reach the mutable engines (graph / dynamic / reactive / synchronized); `set` on a plain lexical binding is an error.
 - **Newline is a soft terminator**: it ends the current expression only when that expression is already complete *and* the next line can't continue it. Newlines are ignored inside `( … )`.
 - **`;` is a hard terminator** and forces the current expression to end (parse error if incomplete).
-- **REPL commands use a leading `.`** (`.quit`, `.revision`, `.env`) to avoid colliding with `:name` and to keep `/paths` free for shell mode.
+- **REPL commands use a leading `/`** (`/quit`, `/revision`, `/env`) recognized only at a fresh prompt; tab-completion is backed by a shared gate function (per ADR-0004). `/` mid-line is division, not a command.
 - **`Lexeme`, not `Token`** — in Iklo code, `token` is a *value type* (the symbolic unit used for bindings). The lexer's output is called `Lexeme` to keep the two apart.
 
 ## Development commands
