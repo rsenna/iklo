@@ -85,6 +85,15 @@ comment plays for a stack machine. Iklo would need an equivalent — plausibly
 something the `stream` literal's existing "full-scan stream comparisons ...
 should generally be avoided" caveat is already circling.
 
+See [`refs/clock-calculus-summary.md`](../../refs/clock-calculus-summary.md)
+for the worked-out version of this, with a correction to the framing above:
+the actual mechanism is not an end-of-stream marker but a **per-instant
+presence bit** carried by every stream — strictly more general, since it
+composes across many concurrently-running streams at different rates rather
+than describing one stream's boundary. That file also covers the correctness
+theorem, the decidability trade-offs real implementations make, and a
+dedicated Iklo-relevance section.
+
 ## Non-decisions (explicit)
 
 To keep this from being mistaken for a plan:
@@ -141,6 +150,8 @@ already-chosen one (stack-based VDBE) for future comparison.
   commitments it changes, per Constitution §VI.
 - Further reading: Lucid (Wadge & Ashcroft — every variable is a stream, `fby`
   for feedback), Kahn process networks, Morrison's *Flow-Based Programming*,
-  Preiss et al. on queue-machine dataflow architectures, and the
-  synchronous-dataflow (Lustre) clock-calculus literature for the grouping
-  problem.
+  Preiss et al. on queue-machine dataflow architectures, and — for the
+  grouping problem specifically —
+  [`refs/clock-calculus-summary.md`](../../refs/clock-calculus-summary.md),
+  which also points to N-synchrony (Plateau, POPL'06) as the bounded-buffer
+  middle ground if the strict zero-buffering calculus proves too restrictive.
