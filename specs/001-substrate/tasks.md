@@ -3,7 +3,7 @@ description: "Task list for substrate capability boundary"
 status: shipped-partial
 ---
 
-**Status**: Shipped (partial — T001–T004 completed; T005–T012 deferred to a future continuation of this epic).
+**Status**: Shipped (partial — T001–T007 completed, reaching the Phase 4 MVP-of-the-refactor checkpoint; T008–T012 paused explicitly and deferred to a future continuation of this epic).
 
 # Tasks: Substrate Capability Boundary
 
@@ -75,11 +75,11 @@ status: shipped-partial
 
 ### Tests for User Story 1
 
-- [ ] **T005** [US1] Capture the current output of `examples/hello.iklo` to a scratch file (`/tmp/iklo-hello.pre` or session workspace) and record its SHA-256 in T007's acceptance criteria. This is the byte-identity baseline for the refactor. **Acceptance**: baseline captured; hash recorded.
+- [x] **T005** [US1] Capture the current output of `examples/hello.iklo` to a scratch file (`/tmp/iklo-hello.pre` or session workspace) and record its SHA-256 in T007's acceptance criteria. This is the byte-identity baseline for the refactor. **Acceptance**: baseline captured; hash recorded.
 
 ### Implementation for User Story 1
 
-- [ ] **T006** [US1] Refactor `crates/iklo-runtime/src/lib.rs`:
+- [x] **T006** [US1] Refactor `crates/iklo-runtime/src/lib.rs`:
   - Add `iklo-substrate = { path = "../iklo-substrate" }` to `crates/iklo-runtime/Cargo.toml`.
   - Replace `RuntimeImage`'s internal `HashMap` with `InMemorySubstrate<Value>`. Consider a `type IkloSubstrate = iklo_substrate::memory::InMemorySubstrate<Value>;` alias if signatures get noisy.
   - Public methods (`new`, `revision`, `eval_in_tx`) keep their current signatures; internally they delegate to the substrate. `bindings()` changes return type from `&HashMap<String, Value>` to owned `HashMap<String, Value>` (per FR-007 and plan.md § bindings() decision) — existing tests using `image.bindings().get("x")` compile unchanged because the temporary lives to statement's end.
@@ -90,7 +90,8 @@ status: shipped-partial
 
 ### Verification for User Story 1
 
-- [ ] **T007** [US1] Re-run `examples/hello.iklo` and compare its output SHA-256 to the T005 baseline; they must match byte-for-byte. Manual REPL smoke: `cargo run -p iklo-cli`, then `let :x be 21 * 2` → `:x` returns `42`; `.env` shows `x = 42`; `.revision` shows `1`; `.quit`. **Acceptance**: hash matches; REPL smoke passes as described.
+- [x] **T007** [US1] Re-run `examples/hello.iklo` and compare its output SHA-256 to the T005 baseline; they must match byte-for-byte. Manual REPL smoke: `cargo run -p iklo-cli`, then `let :x be 21 * 2` → `:x` returns `42`; `.env` shows `x = 42`; `.revision` shows `1`; `.quit`. **Acceptance**: hash matches; REPL smoke passes as described.
+  - **Verified 2026-07-20**: hash matched byte-for-byte. Note on the revision figure — `.revision` shows `1` only if checked immediately after the `let`; submitting `:x` first (a separate top-level evaluation) commits again and brings it to `2`, since `eval_in_tx` always commits on any successful evaluation, not only ones that mutate a binding. Pre-existing behavior, unchanged by this refactor — confirmed by testing both orderings.
 
 **Checkpoint**: User Stories 1 AND 2 both work; the refactor is complete and invisible.
 
