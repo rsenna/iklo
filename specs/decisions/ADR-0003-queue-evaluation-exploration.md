@@ -41,12 +41,18 @@ in front of it — which Iklo already has (`grammar.lalrpop` → `Spanned<Expr>`
 That is: the objection that sank pure queue-Forth ("you'd need a parser") is
 not an objection for Iklo.
 
-Three places in Iklo already gesture at this shape:
+This connects to three places in Iklo — two of them real today, one still
+hypothetical:
 
-1. **The shell is already a queue machine.** `cat | grep | sort` is
-   concatenative composition of stream transformers — FIFO data flowing
-   through a pipeline, not stack juggling. This is Iklo's queue-Forth, already
-   designed, just not named as such.
+1. **A future pipe-based shell would be a Kahn network — but that alone
+   wouldn't prove the point.** Iklo has no shell pipeline today: `iklo-lexer`
+   has no pipe lexeme, and `iklo-cli` only implements the REPL and file
+   runner (`AGENTS.md`, "What is actually implemented today"). If a
+   Unix-style `cat | grep | sort` pipeline is eventually built, FIFO
+   transport between processes makes it a Kahn network by construction —
+   but that is process-level IPC, not evidence that *expression evaluation*
+   inside Iklo uses queue/level-order discipline. Treat this as a plausible
+   future direction, not existing support for the thesis.
 2. **`stream` is already a first-class literal** (`LANGUAGE.md` §Types &
    Literals, `%[ a b c d ]` / `(stream 'a 'b 'c 'd)`), explicitly allowed to be
    infinite, with lazy semantics already specified elsewhere in the language
@@ -100,9 +106,12 @@ To keep this from being mistaken for a plan:
 
 - **[LANGUAGE.md](../../LANGUAGE.md)'s VDBE section is unchanged.** It still specifies a
   register + stack hybrid machine. This ADR does not propose replacing it,
-  only flags that a queue/stream model is a real alternative worth evaluating
-  *when* VDBE work actually starts (which [ADR-0001](ADR-0001-substrate-boundary.md)
-  gates on the `Substrate` epic shipping and semantics stabilising first).
+  only flags that a queue/stream model is a real alternative worth
+  evaluating *if* VDBE work ever starts — which [ADR-0001](ADR-0001-substrate-boundary.md)
+  gates behind the full sequence it already commits to: the `Substrate`
+  epic shipping and being exercised, *then* a Turso-backed `Substrate`
+  landing and proving out, *then* VDBE-as-compilation-target earning its
+  own separate ADR. None of that sequence is shortened or reordered here.
 - **No dependency, crate, or grammar change is authorised by this ADR.**
 - **The shell/language unification (scalar = singleton stream) is a hypothesis,
   not a design.** It has not been checked against Iklo's actual effect model
