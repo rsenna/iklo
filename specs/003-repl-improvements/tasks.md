@@ -1,6 +1,6 @@
 ---
 description: "Task list for REPL improvements (rustyline + slash commands)"
-status: in-progress (T001-T011 done, User Stories 1+2 complete; T012-T015 remaining)
+status: shipped
 ---
 
 # Tasks: REPL Improvements — rustyline & slash commands
@@ -96,10 +96,10 @@ status: in-progress (T001-T011 done, User Stories 1+2 complete; T012-T015 remain
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] **T012** [P] Update `AGENTS.md`: the REPL bullet under "Non-negotiable syntax rules" (currently `.quit`/`.revision`/`.env`, "to keep `/paths` free for shell mode") and the CLI description in "What is actually implemented today" — both need to describe `/`-prefixed commands, fresh-prompt-only, completion-backed, per ADR-0004.
-- [ ] **T013** [P] Update `README.md` if it references the REPL's `.`-commands anywhere.
-- [ ] **T014** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
-- [ ] **T015** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria) as ✅ complete in the commit that closes the epic. Open a PR from `003-repl-improvements` → `main`.
+- [x] **T012** [P] Update `AGENTS.md`: the REPL bullet under "Non-negotiable syntax rules" (currently `.quit`/`.revision`/`.env`, "to keep `/paths` free for shell mode") and the CLI description in "What is actually implemented today" — both need to describe `/`-prefixed commands, fresh-prompt-only, completion-backed, per ADR-0004.
+- [x] **T013** [P] Update `README.md` if it references the REPL's `.`-commands anywhere.
+- [x] **T014** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
+- [x] **T015** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria) as ✅ complete in the commit that closes the epic. Open a PR from `003-repl-improvements` → `main`.
 
 ---
 
