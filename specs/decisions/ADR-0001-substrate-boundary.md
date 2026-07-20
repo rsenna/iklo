@@ -126,6 +126,11 @@ observations make that premature:
   under the new spec-driven workflow.
 - Do not write any VDBE code, or add Turso as a dependency, until the
   `substrate` epic has shipped and been exercised.
+- If/when a Turso-backed `Substrate` or VDBE work gets its own ADR (per the
+  2026-07 note above), start from the sketched architecture in the
+  2026-07-20 note: fork + Iklo dialect with real opcode extensions,
+  form-redefinition-as-validated-transaction, and the memory/`ResultRow`
+  design points recorded there.
 
 ## Status note
 
@@ -160,3 +165,68 @@ and VDBE-as-compilation-target remains a separate, later ADR. This note does
 advancing the timeline — adopting a Turso-backed substrate before the substrate
 epic is exercised, or starting VDBE work — warrants its own ADR that supersedes
 the relevant commitments here.
+
+**Decision (2026-07-20):** The direction sharpens from "adopt Turso, accept
+its limitations" to a concrete architecture, framed by @rsenna as inverting
+Turso's own ambition — not **"the LLVM of databases,"** but **"the database
+of LLVMs."** Where Turso wants one VDBE core hosting many *SQL* frontends,
+Iklo wants one *transactional storage* core hosting a general-purpose
+language frontend, with code itself living as rows subject to the same
+commit/rollback discipline `RuntimeImage::eval_in_tx` already applies to
+expression evaluation. This is not a new claim on Iklo's part — this ADR's
+own Vocabulary section already defines the Image as including "compiled
+code" and "macro definitions" — this note records a concrete mechanism for
+actually building that on real ACID machinery.
+
+The sketched architecture:
+
+- **Fork Turso; add an Iklo dialect.** Not a frontend swap like the Postgres
+  dialect (same relational semantics, different SQL syntax) — Iklo's
+  semantics (`let`/`set`, closures, macro forms, general control flow) have
+  no existing VDBE opcodes, so this is opcode-set extension, not syntax
+  substitution. Scoping it as dialect-sized work would undersell it.
+- **Forking dissolves the "no public API" blocker above, but not the
+  "VDBE is SQL-shaped" one.** Owning the source removes the API problem by
+  fiat. It does nothing for the calling-convention/memory-model problem the
+  Doom demo paid for via `BlobRead`/`BlobWrite`/`get_byte`/`set_byte` and a
+  hand-rolled `Gosub` convention — that engineering cost is unchanged by the
+  decision to fork.
+- **Form redefinition as a validated transaction.** Replacing a form's
+  definition is a transaction that fails on (a) parse/reference invalidity
+  — cheap, an ordinary constraint check — and (b) breaking a caller's
+  dependency — the hard and genuinely novel part. Because forms and their
+  reference edges are rows, this is a recursive-CTE walk of the transitive
+  closure of dependents, checked at commit time. Smalltalk-style live images
+  do not do this — they let you redefine a method and leave callers broken
+  until next invoked. This is the sharpest technical argument for the whole
+  direction: the database's query power replaces a dependency-tracker the
+  runtime would otherwise have to hand-roll.
+- **Memory as table rows, not one blob** — distinct from Doom's
+  blob-of-bytes approach, in service of this ADR's original claim 3
+  (committed state queryable, backing graph/document/reactive workloads)
+  applied to raw memory itself. Honest cost: B-tree traversal per access
+  versus blob-byte-indexing's near-free arithmetic. Resolution: not a
+  universal discipline — a fourth storage tier alongside the three
+  `LANGUAGE.md`'s VDBE section already specifies (registers / operand stack
+  / heap), reserved for state that specifically wants to be queryable and
+  transactional.
+- **A design heuristic for the fork's future schema/opcode work**, prompted
+  by @rsenna's discomfort with one specific Doom-demo choice (animation
+  frames represented as `ResultRow`s): if it needs identity, random access,
+  or persistence, it is a table; if it is a transient stream out to a
+  caller, `ResultRow` is the right shape. Worth applying deliberately rather
+  than rediscovering by instinct each time.
+- **No separate "LINQ-like layer" is likely needed.** `stream` is already a
+  first-class Iklo literal with lazy-thunk semantics (`new`/`running`/
+  `forced`/`failed`) already specified in `LANGUAGE.md`. LINQ's actual
+  contribution — deferred/lazy enumeration, query-as-first-class-expression,
+  one syntax over heterogeneous sources — is close to what those two pieces
+  already point at once the backing store is a real query engine. Check
+  against the existing `stream` design before inventing new surface area.
+
+**What this note does not do:** authorise a fork, a Turso dependency, or any
+implementation work. The sequencing from the 2026-07 note above stands
+unchanged — tree-walker remains the semantic reference, the `Substrate`
+boundary and in-memory implementation land first, and this entire direction
+waits on that epic shipping and being exercised before a single line of fork
+code is written.
