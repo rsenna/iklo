@@ -25,8 +25,8 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 - **Lexer** (`crates/iklo-lexer`) — logos-based; produces `Lexeme` values (kebab-case identifiers, numbers, `:name` lexical refs, `+ - * /` operators, parens, `let`, `be`, `set`, newline, `;`).
 - **AST** (`crates/iklo-ast`) — `Program = Vec<Spanned<Expr>>`; expressions include `Number`, `LexRef`, `Let`, `Binary`.
 - **Parser** (`crates/iklo-parser`) — Pratt precedence; whitespace-sensitive infix ops (so `x-1` stays one identifier); newline is a soft terminator (terminates only when the current expression is complete and can't be continued); `;` is a hard terminator; newlines are swallowed inside parens. Supports `let :name be <expr>` as an expression.
-- **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `Env` supports `begin`/`commit`/`rollback` and a revision counter. `let` and `set` update the image transactionally per top-level expression.
-- **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Currently scaffold-only; will gain an in-memory impl, then a Turso-backed one behind a feature flag (per ADR-0001).
+- **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `RuntimeImage` is a thin façade over `InMemorySubstrate<Value>` (from `iklo-substrate`); `let` and `set` update the image transactionally per top-level expression.
+- **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Ships with an in-memory implementation (`InMemorySubstrate`); Turso-backed impl deferred per [ADR-0001](specs/decisions/ADR-0001-substrate-boundary.md).
 - **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `.`-prefixed (`.quit`, `.revision`, `.env`) and only recognized at a fresh prompt.
 
 ## Non-negotiable syntax rules
@@ -104,7 +104,7 @@ AGENTS.md              → this file
 LANGUAGE.md            → language reference (aspirational + implemented)
 README.md              → short outward-facing overview
 Makefile               → thin cargo wrapper
-crates/                → Rust workspace (lexer, ast, parser, runtime, cli)
+crates/                → Rust workspace (lexer, ast, parser, runtime, substrate, cli)
 examples/              → runnable .iklo programs
 examples/planned/      → .iklo programs that showcase syntax not yet implemented
 .specify/              → Spec Kit scaffolding

@@ -116,13 +116,13 @@ storage code after the refactor, the boundary is leaky.
 
 ### Measurable Outcomes
 
-- **SC-001**: `cargo test -p iklo-runtime` passes with both existing tests **unchanged in source**.
-- **SC-002**: `cargo test -p iklo-substrate` passes at least 7 contract tests covering: revision-starts-at-zero, commit-increments-revision, rollback-does-not-increment-revision, get-after-set-inside-tx-sees-value, get-after-rollback-does-not-see-value, get-after-commit-sees-value-from-fresh-tx, snapshot-returns-only-committed-state.
-- **SC-003**: `cargo tree -p iklo-substrate` shows zero workspace-internal dependencies (only stdlib and any third-party deps deliberately added).
-- **SC-004**: A `grep` for `HashMap|Vec<HashMap>|RefCell<HashMap>` in `crates/iklo-runtime/src/` returns no matches related to binding storage.
-- **SC-005**: `examples/hello.iklo` output byte-matches the pre-epic snapshot.
-- **SC-006**: `make test && make build && make release` all exit 0.
-- **SC-007**: LANGUAGE.md and AGENTS.md reflect the new state — a fresh reader learns nothing false about where the runtime image lives.
+- **SC-001** ✅: `cargo test -p iklo-runtime` passes with both existing tests **unchanged in source**.
+- **SC-002** ✅: `cargo test -p iklo-substrate` passes at least 7 contract tests covering: revision-starts-at-zero, commit-increments-revision, rollback-does-not-increment-revision, get-after-set-inside-tx-sees-value, get-after-rollback-does-not-see-value, get-after-commit-sees-value-from-fresh-tx, snapshot-returns-only-committed-state.
+- **SC-003** ✅: `cargo tree -p iklo-substrate` shows zero workspace-internal dependencies (only stdlib and any third-party deps deliberately added).
+- **SC-004** ✅: A `grep` for `HashMap|Vec<HashMap>|RefCell<HashMap>` in `crates/iklo-runtime/src/` returns no matches related to binding storage.
+- **SC-005** ✅: `examples/hello.iklo` output byte-matches the pre-epic snapshot.
+- **SC-006** ✅: `make test && make build && make release` all exit 0.
+- **SC-007** ✅: LANGUAGE.md and AGENTS.md reflect the new state — a fresh reader learns nothing false about where the runtime image lives.
 
 ## Assumptions
 
