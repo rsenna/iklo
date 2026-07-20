@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 iklo-parser = { path = "../iklo-parser" }
 iklo-runtime = { path = "../iklo-runtime" }
-rustyline = "18.0.0"
+rustyline = { version = "18.0.0", features = ["derive"] }
 
 [[bin]]
 name = "iklo"
