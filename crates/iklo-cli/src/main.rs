@@ -45,11 +45,21 @@ fn run_repl() {
         let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
         let line = match rl.readline(prompt) {
             Ok(line) => line,
-            Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
+            Err(ReadlineError::Eof) => {
                 if !buffer.is_empty() {
                     eprintln!("(discarding incomplete input)");
                 }
                 break;
+            }
+            Err(ReadlineError::Interrupted) => {
+                // Ctrl-C cancels the current multi-line input (like a blank
+                // line does) and reprompts — it must not exit and lose
+                // `image`'s defined bindings. Only Ctrl-D (Eof) exits.
+                if !buffer.is_empty() {
+                    eprintln!("(discarding incomplete input)");
+                    buffer.clear();
+                }
+                continue;
             }
             Err(_) => break,
         };
@@ -72,18 +82,13 @@ fn run_repl() {
                 }
                 continue;
             }
-            // rustyline strips the trailing newline readline() would otherwise
-            // include; re-add it so the parser sees the same source text across
-            // multi-line continuation as it did reading raw stdin.
-            buffer.push_str(&line);
-            buffer.push('\n');
+            push_repl_line(&mut buffer, &line);
         } else {
             if line.trim().is_empty() {
                 buffer.clear();
                 continue;
             }
-            buffer.push_str(&line);
-            buffer.push('\n');
+            push_repl_line(&mut buffer, &line);
         }
 
         match parse(&buffer) {
@@ -104,6 +109,45 @@ fn run_repl() {
                 buffer.clear();
             }
         }
+    }
+}
+
+/// Appends `line` (as returned by `rustyline::Editor::readline`, which has
+/// no trailing newline) to `buffer`, restoring the newline character the
+/// parser's soft-terminator and comment grammar rules depend on — matching
+/// exactly what `stdin.read_line()` would have included.
+fn push_repl_line(buffer: &mut String, line: &str) {
+    buffer.push_str(line);
+    buffer.push('\n');
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iklo_runtime::Value;
+
+    #[test]
+    fn push_repl_line_appends_a_real_newline() {
+        let mut buffer = String::new();
+        push_repl_line(&mut buffer, "let :x be 1 +");
+        push_repl_line(&mut buffer, "2");
+        assert_eq!(buffer, "let :x be 1 +\n2\n");
+    }
+
+    /// Regression test for the newline-restoration fix: a `#` comment only
+    /// stops at a real newline. If push_repl_line joined lines with a space
+    /// (or nothing) instead of '\n', the comment on the first line would
+    /// swallow the second line whole and this would fail to parse.
+    #[test]
+    fn multiline_continuation_preserves_newline_across_comment_boundary() {
+        let mut buffer = String::new();
+        push_repl_line(&mut buffer, "let :x be 1 +  # comment");
+        push_repl_line(&mut buffer, "2");
+
+        let program = parse(&buffer).expect("parse");
+        let mut image = RuntimeImage::new();
+        let value = image.eval_in_tx(&program).expect("eval");
+        assert_eq!(value, Value::Number(3.0));
     }
 }
 
