@@ -1,7 +1,78 @@
+use std::cell::Cell;
+
 use rustyline::error::ReadlineError;
+use rustyline::{
+    Completer as DeriveCompleter, Helper as DeriveHelper, Highlighter as DeriveHighlighter,
+    Hinter as DeriveHinter, Validator as DeriveValidator,
+};
 
 use iklo_parser::{parse, ParseError};
 use iklo_runtime::RuntimeImage;
+
+const REPL_COMMAND_NAMES: [&str; 3] = ["quit", "revision", "env"];
+
+/// Offers tab-completion for slash-commands, but only when
+/// `is_repl_command_position` confirms we're at a fresh (non-continuation)
+/// prompt with a leading `/` — gated via `at_fresh_prompt`, which
+/// `run_repl()` updates through `rl.helper_mut()` immediately before each
+/// `readline()` call (plan.md Key Design Decision 2), since
+/// `Completer::complete` only ever sees the current line, never the
+/// REPL's own buffer state. Does its own prefix-filtering over partial
+/// input rather than calling `parse_repl_command`, per Key Design
+/// Decision 1.
+struct ReplCompleter {
+    at_fresh_prompt: Cell<bool>,
+}
+
+impl ReplCompleter {
+    fn new() -> Self {
+        Self {
+            at_fresh_prompt: Cell::new(true),
+        }
+    }
+
+    fn set_fresh_prompt(&self, fresh: bool) {
+        self.at_fresh_prompt.set(fresh);
+    }
+}
+
+impl rustyline::completion::Completer for ReplCompleter {
+    type Candidate = String;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        _ctx: &rustyline::Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<String>)> {
+        if !is_repl_command_position(self.at_fresh_prompt.get(), line) {
+            return Ok((pos, Vec::new()));
+        }
+        // Guard against a panic: pos can be 0 if the cursor was moved back
+        // to the start of the line (Home/Ctrl-A) before Tab — giving the
+        // invalid range 1..0 — and pos can in principle land on a non-UTF-8
+        // char boundary. Either way there's nothing sensible to complete.
+        let end = pos.min(line.len());
+        if end < 1 || !line.is_char_boundary(end) {
+            return Ok((pos, Vec::new()));
+        }
+        let prefix = &line[1..end];
+        let matches: Vec<String> = REPL_COMMAND_NAMES
+            .iter()
+            .filter(|name| name.starts_with(prefix))
+            .map(|name| (*name).to_string())
+            .collect();
+        Ok((1, matches))
+    }
+}
+
+#[derive(DeriveCompleter, DeriveHinter, DeriveHighlighter, DeriveValidator, DeriveHelper)]
+struct ReplHelper {
+    #[rustyline(Completer)]
+    completer: ReplCompleter,
+}
+
+type ReplEditor = rustyline::Editor<ReplHelper, rustyline::history::DefaultHistory>;
 
 /// REPL input history, persisted in the current working directory.
 const HISTORY_FILE: &str = ".iklo_history";
@@ -30,16 +101,19 @@ fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 fn run_repl() {
     println!("iklo IK0 REPL");
-    println!("commands (at empty prompt): .quit, .revision, .env");
+    println!("commands (at empty prompt): /quit, /revision, /env");
     println!("(incomplete input continues on the next line; a blank line cancels)\n");
 
-    let mut rl = match rustyline::DefaultEditor::new() {
+    let mut rl: ReplEditor = match rustyline::Editor::new() {
         Ok(rl) => rl,
         Err(err) => {
             eprintln!("iklo: failed to start line editor: {err}");
             return;
         }
     };
+    rl.set_helper(Some(ReplHelper {
+        completer: ReplCompleter::new(),
+    }));
 
     let history_path = std::path::Path::new(HISTORY_FILE);
     // A missing OR unreadable/corrupt file both fail to load; either way we
@@ -54,6 +128,9 @@ fn run_repl() {
 
     loop {
         let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
+        if let Some(helper) = rl.helper_mut() {
+            helper.completer.set_fresh_prompt(buffer.is_empty());
+        }
         let line = match rl.readline(prompt) {
             Ok(line) => line,
             Err(ReadlineError::Eof) => {
@@ -80,21 +157,26 @@ fn run_repl() {
             if trimmed.is_empty() {
                 continue;
             }
-            if trimmed == ".quit" {
-                record_history_entry(&mut rl, &mut entries_added_this_session, line.as_str());
-                break;
-            }
-            if trimmed == ".revision" {
-                record_history_entry(&mut rl, &mut entries_added_this_session, line.as_str());
-                println!("{}", image.revision());
-                continue;
-            }
-            if trimmed == ".env" {
-                record_history_entry(&mut rl, &mut entries_added_this_session, line.as_str());
-                for (k, v) in image.bindings() {
-                    println!(":{k} = {v}");
+            if is_repl_command_position(buffer.is_empty(), &line) {
+                if let Some(command) = parse_repl_command(&line) {
+                    record_history_entry(&mut rl, &mut entries_added_this_session, line.as_str());
+                    match command {
+                        ReplCommand::Quit => break,
+                        ReplCommand::Revision => {
+                            println!("{}", image.revision());
+                            continue;
+                        }
+                        ReplCommand::Env => {
+                            for (k, v) in image.bindings() {
+                                println!(":{k} = {v}");
+                            }
+                            continue;
+                        }
+                    }
                 }
-                continue;
+                // Eligible position, but not a recognized command (e.g.
+                // unrecognized '/foo') — fall through to ordinary parsing,
+                // per FR-006.
             }
             // Ordinary expression input is NOT added to history line-by-line
             // here — a multi-line expression must recall as one unit (see
@@ -144,7 +226,7 @@ fn run_repl() {
 /// `true` only when rustyline confirms it was actually recorded (not
 /// silently ignored, e.g. as a duplicate of the previous entry).
 fn record_history_entry(
-    rl: &mut rustyline::DefaultEditor,
+    rl: &mut ReplEditor,
     entries_added_this_session: &mut bool,
     entry: &str,
 ) {
@@ -160,6 +242,39 @@ fn record_history_entry(
 fn push_repl_line(buffer: &mut String, line: &str) {
     buffer.push_str(line);
     buffer.push('\n');
+}
+
+/// A recognized REPL meta-command.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReplCommand {
+    Quit,
+    Revision,
+    Env,
+}
+
+/// The shared eligibility gate for slash-command territory: true iff the
+/// buffer is empty (a fresh, non-continuation prompt) and `/` is byte zero
+/// of the *untrimmed* line (so leading whitespace correctly returns
+/// `false`, per FR-003). Does NOT check whether the line is a complete
+/// command — used by both the Completer (which then prefix-filters
+/// whatever partial text follows `/`) and the submit-time dispatcher (which
+/// then requires an exact match via `parse_repl_command`). See plan.md Key
+/// Design Decision 1.
+fn is_repl_command_position(buffer_is_empty: bool, line: &str) -> bool {
+    buffer_is_empty && line.starts_with('/')
+}
+
+/// Exact-match parser for a complete, submitted REPL command line. Only
+/// meaningful after `is_repl_command_position` has confirmed eligibility;
+/// trims only the end (trailing whitespace/newline), never the start, so
+/// it never contradicts the eligibility gate's leading-whitespace check.
+fn parse_repl_command(line: &str) -> Option<ReplCommand> {
+    match line.trim_end() {
+        "/quit" => Some(ReplCommand::Quit),
+        "/revision" => Some(ReplCommand::Revision),
+        "/env" => Some(ReplCommand::Env),
+        _ => None,
+    }
 }
 
 /// Whether to call `save_history`: skip only when we didn't successfully
@@ -207,8 +322,73 @@ mod tests {
     }
 
     #[test]
+    fn is_repl_command_position_fresh_prompt_bare_slash() {
+        assert!(is_repl_command_position(true, "/"));
+    }
+
+    #[test]
+    fn is_repl_command_position_fresh_prompt_partial_command() {
+        // Partial input must still be eligible for completion — this is
+        // the exact case the earlier, since-corrected single-function
+        // design got wrong (see plan.md Key Design Decision 1).
+        assert!(is_repl_command_position(true, "/q"));
+    }
+
+    #[test]
+    fn is_repl_command_position_fresh_prompt_no_slash() {
+        assert!(!is_repl_command_position(true, "foo"));
+    }
+
+    #[test]
+    fn is_repl_command_position_continuation_rejected() {
+        assert!(!is_repl_command_position(false, "/quit"));
+    }
+
+    #[test]
+    fn is_repl_command_position_leading_whitespace_rejected() {
+        // '/' must be byte zero of the untrimmed line, per FR-003.
+        assert!(!is_repl_command_position(true, "  /quit"));
+    }
+
+    #[test]
+    fn parse_repl_command_quit() {
+        assert_eq!(parse_repl_command("/quit"), Some(ReplCommand::Quit));
+    }
+
+    #[test]
+    fn parse_repl_command_revision() {
+        assert_eq!(parse_repl_command("/revision"), Some(ReplCommand::Revision));
+    }
+
+    #[test]
+    fn parse_repl_command_env() {
+        assert_eq!(parse_repl_command("/env"), Some(ReplCommand::Env));
+    }
+
+    #[test]
+    fn parse_repl_command_unrecognized() {
+        assert_eq!(parse_repl_command("/foo"), None);
+    }
+
+    #[test]
+    fn parse_repl_command_division_expression() {
+        // Defensive: in practice is_repl_command_position already excludes
+        // this (no leading '/'), but parse_repl_command must be safe on
+        // its own too.
+        assert_eq!(parse_repl_command("10 / 2"), None);
+    }
+
+    #[test]
+    fn parse_repl_command_trailing_whitespace_tolerance() {
+        assert_eq!(parse_repl_command("/quit  \n"), Some(ReplCommand::Quit));
+    }
+
+    #[test]
     fn record_history_entry_flips_flag_on_success() {
-        let mut rl = rustyline::DefaultEditor::new().expect("editor");
+        let mut rl: ReplEditor = rustyline::Editor::new().expect("editor");
+        rl.set_helper(Some(ReplHelper {
+            completer: ReplCompleter::new(),
+        }));
         let mut entries_added_this_session = false;
         record_history_entry(&mut rl, &mut entries_added_this_session, "let :x be 1");
         assert!(entries_added_this_session);
