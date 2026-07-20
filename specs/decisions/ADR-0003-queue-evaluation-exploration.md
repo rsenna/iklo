@@ -11,11 +11,11 @@
 
 **We are not deciding anything yet — this records a design idea worth keeping
 on file: evaluate FIFO (queue) discipline as an alternative or complement to
-the stack discipline `LANGUAGE.md`'s VDBE section currently assumes, because
+the stack discipline [LANGUAGE.md](../../LANGUAGE.md)'s VDBE section currently assumes, because
 Iklo already has three places (VDBE, the shell, `stream` literals) where a
 queue-shaped machine might unify concepts that are currently separate.**
 
-This is a research note, not a commitment. See Constitution §VI: lightweight
+This is a research note, not a commitment. See [Constitution §VI](../../.specify/memory/constitution.md): lightweight
 `Decision (date)` notes are fine until they harden; this one hasn't.
 
 ## Context
@@ -51,7 +51,7 @@ Three places in Iklo already gesture at this shape:
    Literals, `%[ a b c d ]` / `(stream 'a 'b 'c 'd)`), explicitly allowed to be
    infinite, with lazy semantics already specified elsewhere in the language
    (thunks, `forced`/`failed` states, call-by-need).
-3. **VDBE is currently specified as a register + stack hybrid** (`LANGUAGE.md`
+3. **VDBE is currently specified as a register + stack hybrid** ([LANGUAGE.md](../../LANGUAGE.md)
    §VDBE, "Operand stack for expression composition"). That commitment
    predates this exploration and is **not changed by it** — see Non-decisions
    below.
@@ -61,7 +61,7 @@ a singleton stream.** Then `1 + 2` is `zip-with(+)` over two one-element
 streams, a shell pipeline stage is the same operator over longer streams, and
 "language mode" vs. "shell mode" stop being two semantics needing two
 evaluators — they become one machine at two stream lengths. That is a
-candidate mechanism for the "one grammar, three faces" claim in `AGENTS.md`,
+candidate mechanism for the "one grammar, three faces" claim in [AGENTS.md](../../AGENTS.md),
 not yet a design.
 
 Recursion in a pure FIFO model doesn't use call/return (that's intrinsically
@@ -98,7 +98,7 @@ dedicated Iklo-relevance section.
 
 To keep this from being mistaken for a plan:
 
-- **`LANGUAGE.md`'s VDBE section is unchanged.** It still specifies a
+- **[LANGUAGE.md](../../LANGUAGE.md)'s VDBE section is unchanged.** It still specifies a
   register + stack hybrid machine. This ADR does not propose replacing it,
   only flags that a queue/stream model is a real alternative worth evaluating
   *when* VDBE work actually starts (which [ADR-0001](ADR-0001-substrate-boundary.md)
@@ -125,7 +125,7 @@ already-chosen one (stack-based VDBE) for future comparison.
 
 - Does a level-order (queue) VDBE actually pay for its complexity in Iklo's
   case, given VDBE is *also* constrained by whatever Turso exposes (see
-  ADR-0001's 2026-07 status note) — or is "stack VDBE, queue shell, stream
+  [ADR-0001](ADR-0001-substrate-boundary.md)'s 2026-07 status note) — or is "stack VDBE, queue shell, stream
   literals bridge them at the value level" the more realistic target?
   - Fair to say the machine-model question (queue vs stack VDBE) is not just
     an Iklo research question but a genuinely open one in dataflow-architecture
@@ -147,7 +147,7 @@ already-chosen one (stack-based VDBE) for future comparison.
 - No action required. Revisit when shell-grammar work or VDBE work resumes.
 - If either of those efforts wants to build on this, promote the relevant
   parts to a proper "Accepted" ADR (new number) that supersedes the specific
-  commitments it changes, per Constitution §VI.
+  commitments it changes, per [Constitution §VI](../../.specify/memory/constitution.md).
 - Further reading: Lucid (Wadge & Ashcroft — every variable is a stream, `fby`
   for feedback), Kahn process networks, Morrison's *Flow-Based Programming*,
   Preiss et al. on queue-machine dataflow architectures, and — for the
