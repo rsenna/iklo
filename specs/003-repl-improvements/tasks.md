@@ -1,6 +1,6 @@
 ---
 description: "Task list for REPL improvements (rustyline + slash commands)"
-status: not-started
+status: in-progress (T001-T002 done; T003-T015 remaining)
 ---
 
 # Tasks: REPL Improvements — rustyline & slash commands
@@ -30,7 +30,7 @@ status: not-started
 
 **Purpose**: Bring `rustyline` into the workspace so subsequent tasks have it available.
 
-- [ ] **T001** [US1] Add `rustyline` (pin the current stable version — re-check via Context7 at implementation time, since this plan was written 2026-07-20) to `crates/iklo-cli/Cargo.toml`. **Acceptance**: `cargo build -p iklo-cli` succeeds; `make test` still green.
+- [x] **T001** [US1] Add `rustyline` (pin the current stable version — re-check via Context7 at implementation time, since this plan was written 2026-07-20) to `crates/iklo-cli/Cargo.toml`. **Acceptance**: `cargo build -p iklo-cli` succeeds; `make test` still green.
 
 ---
 
@@ -40,7 +40,7 @@ status: not-started
 
 **⚠️ CRITICAL**: No user-story-specific work (command dispatch, completion) can begin until this phase compiles and the REPL still runs via rustyline with zero behavior change beyond line editing.
 
-- [ ] **T002** [US1] Replace `io::stdin().read_line()` in `run_repl()` (`crates/iklo-cli/src/main.rs`) with `rustyline::DefaultEditor`. Preserve exact current behavior: `iklo> ` / `iklo. ` prompts, blank-line-cancels-continuation, EOF-exits. Do NOT yet touch `.quit`/`.revision`/`.env` dispatch — that's Phase 4. **Acceptance**: `cargo build -p iklo-cli` succeeds; manual smoke test confirms unchanged prompt/continuation/EOF behavior, now with arrow-key line editing.
+- [x] **T002** [US1] Replace `io::stdin().read_line()` in `run_repl()` (`crates/iklo-cli/src/main.rs`) with `rustyline::DefaultEditor`. Preserve exact current behavior: `iklo> ` / `iklo. ` prompts, blank-line-cancels-continuation, EOF-exits. Do NOT yet touch `.quit`/`.revision`/`.env` dispatch — that's Phase 4. **Acceptance**: `cargo build -p iklo-cli` succeeds; manual smoke test confirms unchanged prompt/continuation/EOF behavior, now with arrow-key line editing.
 
 **Checkpoint**: Foundation ready — rustyline is live, behavior is unchanged except for editing.
 

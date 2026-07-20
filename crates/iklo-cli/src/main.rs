@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use rustyline::error::ReadlineError;
 
 use iklo_parser::{parse, ParseError};
 use iklo_runtime::RuntimeImage;
@@ -30,29 +30,29 @@ fn run_repl() {
     println!("commands (at empty prompt): .quit, .revision, .env");
     println!("(incomplete input continues on the next line; a blank line cancels)\n");
 
+    let mut rl = match rustyline::DefaultEditor::new() {
+        Ok(rl) => rl,
+        Err(err) => {
+            eprintln!("iklo: failed to start line editor: {err}");
+            return;
+        }
+    };
+
     let mut image = RuntimeImage::new();
-    let stdin = io::stdin();
     let mut buffer = String::new();
-    let mut line = String::new();
 
     loop {
         let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
-        print!("{prompt}");
-        if io::stdout().flush().is_err() {
-            break;
-        }
-
-        line.clear();
-        let read = stdin.read_line(&mut line);
-        let Ok(count) = read else {
-            break;
-        };
-        if count == 0 {
-            if !buffer.is_empty() {
-                eprintln!("(discarding incomplete input)");
+        let line = match rl.readline(prompt) {
+            Ok(line) => line,
+            Err(ReadlineError::Eof) | Err(ReadlineError::Interrupted) => {
+                if !buffer.is_empty() {
+                    eprintln!("(discarding incomplete input)");
+                }
+                break;
             }
-            break;
-        }
+            Err(_) => break,
+        };
 
         if buffer.is_empty() {
             let trimmed = line.trim();
@@ -72,13 +72,18 @@ fn run_repl() {
                 }
                 continue;
             }
+            // rustyline strips the trailing newline readline() would otherwise
+            // include; re-add it so the parser sees the same source text across
+            // multi-line continuation as it did reading raw stdin.
             buffer.push_str(&line);
+            buffer.push('\n');
         } else {
             if line.trim().is_empty() {
                 buffer.clear();
                 continue;
             }
             buffer.push_str(&line);
+            buffer.push('\n');
         }
 
         match parse(&buffer) {
