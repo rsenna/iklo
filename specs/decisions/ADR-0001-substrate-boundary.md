@@ -127,7 +127,7 @@ observations make that premature:
 - Do not write any VDBE code, or add Turso as a dependency, until the
   `substrate` epic has shipped and been exercised.
 - If/when a Turso-backed `Substrate` or VDBE work gets its own ADR (per the
-  2026-07 note above), start from the sketched architecture in the
+  2026-07 note below), start from the sketched architecture in the
   2026-07-20 note: fork + Iklo dialect with real opcode extensions,
   form-redefinition-as-validated-transaction, and the memory/`ResultRow`
   design points recorded there.
