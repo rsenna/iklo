@@ -835,7 +835,7 @@ do
 Iklo language semantics are transactional, so VDBE must be (and indeed it is) transactional too.
 
 > **As of 001-substrate (2026):** The runtime image lives behind a
-> [`Substrate`](../crates/iklo-substrate/) trait that hides where state
+> [`Substrate`](crates/iklo-substrate/) trait that hides where state
 > resides. The active implementation is in-memory (`InMemorySubstrate`);
 > Turso-backed storage is deferred per
 > [ADR-0001](specs/decisions/ADR-0001-substrate-boundary.md).
