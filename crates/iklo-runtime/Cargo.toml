@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 iklo-ast = { path = "../iklo-ast" }
+iklo-substrate = { path = "../iklo-substrate" }
 
 [dev-dependencies]
 iklo-parser = { path = "../iklo-parser" }
