@@ -30,10 +30,9 @@ impl<V> Default for InMemorySubstrate<V> {
 
 impl<V: Clone + fmt::Debug> Substrate for InMemorySubstrate<V> {
     type Value = V;
-    type Tx<'a>
-        = InMemoryTx<'a, V>
+    type Tx<'a> = InMemoryTx<'a, V>
     where
-        V: 'a;
+        Self: 'a;
 
     fn begin(&mut self) -> Self::Tx<'_> {
         let working = self.bindings.clone();
@@ -55,6 +54,7 @@ impl<V: Clone + fmt::Debug> Substrate for InMemorySubstrate<V> {
 /// The [`Transaction`] returned by [`InMemorySubstrate::begin`]. Holds a
 /// working copy of the bindings, cloned at `begin` time; writes go to the
 /// clone until [`commit`](Transaction::commit) writes it back.
+#[derive(Debug)]
 pub struct InMemoryTx<'a, V> {
     substrate: &'a mut InMemorySubstrate<V>,
     working: HashMap<String, V>,
@@ -68,7 +68,7 @@ impl<'a, V: Clone + fmt::Debug> Transaction for InMemoryTx<'a, V> {
     }
 
     fn set(&mut self, name: &str, value: Self::Value) {
-        self.working.insert(name.to_string(), value);
+        self.working.insert(name.to_owned(), value);
     }
 
     fn commit(self) -> Result<(), SubstrateError> {
