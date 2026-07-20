@@ -156,7 +156,7 @@ tool that welcomes upstream contribution.
 semantic reference; the `Substrate` boundary + in-memory impl come first; a
 Turso-backed `Substrate` — **not** the bytecode VM — is the next Turso milestone;
 and VDBE-as-compilation-target remains a separate, later ADR. This note does
-**not** authorise adding Turso as a dependency yet (see Follow-ups). Actually
+**not** authorise adding Turso as a dependency yet (see [Follow-ups](#follow-ups)). Actually
 advancing the timeline — adopting a Turso-backed substrate before the substrate
 epic is exercised, or starting VDBE work — warrants its own ADR that supersedes
 the relevant commitments here.
