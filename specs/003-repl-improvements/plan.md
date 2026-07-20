@@ -16,7 +16,7 @@ Replace `iklo-cli`'s raw `io::stdin().read_line()` REPL loop with `rustyline`, a
 
 **Storage**: `.iklo_history` (plain text, cwd), already reserved in `.gitignore`.
 
-**Testing**: `cargo test -p iklo-cli` for the completer's dispatch-boundary logic (fresh-prompt-and-leading-slash gating); manual REPL smoke test for the interactive editing/completion UX itself (not practically unit-testable through rustyline's terminal I/O).
+**Testing**: `cargo test -p iklo-cli` for (a) the fresh-prompt-and-leading-slash eligibility gate and the exact-match command parser (both pure functions, see Key Design Decision 1), and (b) the history-save-or-skip predicate (Key Design Decision 5). Manual REPL smoke test for the interactive editing/completion UX itself (not practically unit-testable through rustyline's terminal I/O).
 
 **Target Platform**: Same as workspace (native, whatever `mise.toml` pins). rustyline supports Unix and Windows.
 
@@ -32,7 +32,7 @@ Replace `iklo-cli`'s raw `io::stdin().read_line()` REPL loop with `rustyline`, a
 
 Verified against [`.specify/memory/constitution.md`](../../.specify/memory/constitution.md):
 
-- **I. Test-First** ✅ — the fresh-prompt-and-leading-slash dispatch gate is genuinely unit-testable (pure function of buffer state + line content) and gets tests written first; the interactive rustyline UX itself is verified via manual REPL smoke test, same as the existing `.env`/`.revision`/`.quit` behavior was.
+- **I. Test-First** ✅ — the eligibility gate, the exact-match command parser, and the history-save-or-skip predicate are all pure, unit-testable functions and get RED tests written first; the interactive rustyline UX itself is verified via manual REPL smoke test, same as the existing `.env`/`.revision`/`.quit` behavior was.
 - **II. One Epic In Flight** ✅ — `001-substrate` is explicitly paused at its Phase 4 checkpoint (per its `tasks.md` status line) before this epic starts.
 - **III. Substrate Before Feature** N/A — this feature doesn't touch runtime image state.
 - **IV. Kebab-Case Iklo, Idiomatic Rust** ✅ — REPL commands (`/quit` etc.) are CLI meta-syntax, not Iklo-level identifiers; Rust code stays idiomatic.
@@ -69,10 +69,14 @@ crates/iklo-cli/
 
 ## Key Design Decisions
 
-1. **Two dispatch points share one gate, not one each.** The fresh-prompt-and-leading-slash condition governs both (a) rustyline's `Completer::complete` (interactive, as-you-type) and (b) the submit-time command dispatcher (on Enter). Both must independently agree a line qualifies before it's ever treated as a command — this is what makes FR-005 (division/mid-line `/` is untouched) actually safe rather than merely intended.
-2. **Buffer-continuation state must reach the Completer.** Rustyline's Completer::complete only sees the current line being edited — it has no notion of whether this REPL is mid multi-line continuation. The Helper struct's state can be updated directly by the outer REPL loop using rl.helper_mut() immediately before each rl.readline(...) call, mirroring today's buffer.is_empty() check.
+1. **Eligibility gate and exact-match parser are two separate functions, not one.** An earlier draft of this plan proposed one function serving both the Completer and the submit-time dispatcher, requiring an exact command match (e.g. `/quit`) to return a result. That's wrong: during live `/`+Tab completion the line is only `/` or a partial `/q` — an exact-match parser returns `None` for a partial line and could never authorize completion in the first place. The fix is two pure functions:
+   - `is_repl_command_position(buffer_is_empty: bool, line: &str) -> bool` — the shared **eligibility gate**: true iff the buffer is empty (fresh, non-continuation prompt) and `line.starts_with('/')`, checked against the **untrimmed** line so leading whitespace before the slash (e.g. `"  /quit"`) correctly returns `false`, per FR-003's "first character" requirement. Used by both call sites, but only to decide *whether to look further* — not to identify which command.
+   - `parse_repl_command(line: &str) -> Option<ReplCommand>` — the **exact-match parser**, called only by the submit-time dispatcher after `is_repl_command_position` returns true, requiring the full (only-trailing-trimmed) line to equal `/quit`, `/revision`, or `/env`.
+   - The Completer does its **own** prefix-filtering over the known command names once `is_repl_command_position` confirms eligibility (standard rustyline completion pattern — filter `["quit", "revision", "env"]` by whatever partial text follows `/`), rather than delegating to `parse_repl_command`.
+2. **Buffer-continuation state must reach the Completer.** Rustyline's `Completer::complete` only sees the current line being edited — it has no notion of whether this REPL is mid multi-line continuation. The Helper struct's state is updated directly by the outer REPL loop using `rl.helper_mut()` immediately before each `rl.readline(...)` call, mirroring today's `buffer.is_empty()` check.
 3. **No new command surface.** Exactly `quit`, `revision`, `env` — a syntax migration, not a feature expansion (spec Assumptions).
 4. **Full replacement, not dual syntax.** `.`-commands are deleted in the same change that adds `/`-commands (FR-006, Constitution VII).
+5. **History is saved only if it would change something.** `save_history` is skipped when there was no pre-existing history file **and** no entry was added this session — otherwise a REPL session with zero input would create an empty `.iklo_history`, violating spec.md's User Story 1 Acceptance Scenario 3. Encoded as a pure predicate, `should_save_history(had_pre_existing_file: bool, entries_added_this_session: bool) -> bool`, so it's unit-testable without a real terminal or file I/O in the test itself.
 
 ## Complexity Tracking
 

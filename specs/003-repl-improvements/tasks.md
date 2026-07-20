@@ -9,7 +9,7 @@ status: not-started
 
 **Prerequisites**: [plan.md](plan.md) (required), [spec.md](spec.md) (required for user stories)
 
-**Tests**: Tests are REQUIRED for the dispatch-gate logic (Constitution I). The interactive rustyline UX itself (arrow-key editing, live tab-completion) is verified by manual REPL smoke test, not unit tests — rustyline's terminal I/O isn't practically unit-testable, matching how the existing `.env`/`.revision`/`.quit` behavior was verified.
+**Tests**: Tests are REQUIRED (Constitution I) for every pure, testable decision this feature introduces: the REPL-command eligibility gate, the exact-match command parser, and the history-save-or-skip predicate (see plan.md Key Design Decisions 1 and 5). The interactive rustyline UX itself (arrow-key editing, live tab-completion, actual file I/O) is verified by manual REPL smoke test, not unit tests — rustyline's terminal I/O isn't practically unit-testable, matching how the existing `.env`/`.revision`/`.quit` behavior was verified.
 
 **Organization**: Tasks are grouped by phase and user story. Each task ends with a commit.
 
@@ -48,16 +48,24 @@ status: not-started
 
 ## Phase 3: User Story 1 - REPL user gets real line editing (Priority: P1) 🎯 MVP
 
-**Goal**: Arrow-key history navigation, persisted across sessions.
+**Goal**: Arrow-key history navigation, persisted across sessions — without ever creating a history file for a session that entered nothing.
 
-**Independent Test**: Enter a few expressions, Up arrow recalls them; quit and restart, history is still there.
+**Independent Test**: Enter a few expressions, Up arrow recalls them; quit and restart, history is still there. Separately: start the REPL fresh, quit immediately with no input — no `.iklo_history` file appears.
+
+### Tests for User Story 1 (write FIRST, ensure they FAIL) ⚠️
+
+- [ ] **T003** [US1] Write RED unit tests (in `crates/iklo-cli/src/main.rs` or a new `repl.rs`, `#[cfg(test)] mod tests`) for:
+  - `should_save_history(had_pre_existing_file: bool, entries_added_this_session: bool) -> bool` — pure predicate, no I/O: `(false, false) -> false` (the critical case — a fresh session with zero input must not create a file, per spec.md Acceptance Scenario 3); `(false, true) -> true`; `(true, false) -> true` (an existing file is still saved even if this session added nothing, keeping behavior simple and predictable); `(true, true) -> true`.
+  - A load-history smoke test using a real scratch path (e.g. `std::env::temp_dir().join(format!("iklo-test-history-{}", std::process::id()))`, cleaned up after): loading from a path that does not exist must not error or panic.
+  **Acceptance**: tests fail to compile (`should_save_history` doesn't exist yet) — RED state, verified locally, never pushed alone.
 
 ### Implementation for User Story 1
 
-- [ ] **T003** [US1] Load history from `.iklo_history` (cwd) at REPL startup via `rl.load_history(...)`; treat a missing/unreadable file as non-fatal (per spec Edge Cases). **Acceptance**: starting the REPL with no existing history file does not error.
-- [ ] **T004** [US1] Call `rl.add_history_entry(...)` for each complete, submitted top-level line (not a blank continuation-cancel). Save history via `rl.save_history(...)` on REPL exit (`.quit`/`/quit`, and on EOF). **Acceptance**: manual smoke test — Up arrow recalls prior entries within a session; after quit+restart, prior session's history is still reachable.
+- [ ] **T004** [US1] Implement `should_save_history` per T003. **Acceptance**: T003's tests pass, 0 failed.
+- [ ] **T005** [US1] Load history from `.iklo_history` (cwd) at REPL startup via `rl.load_history(...)`; treat a missing/unreadable file as non-fatal (per spec Edge Cases); record whether the file existed at startup (`path.exists()`, checked once, before `load_history` is called) for T006's use. **Acceptance**: starting the REPL with no existing history file does not error.
+- [ ] **T006** [US1] Call `rl.add_history_entry(...)` for each complete, submitted top-level line (not a blank continuation-cancel); track whether any entry was added this session. On REPL exit (`/quit`, and on EOF), call `should_save_history(had_pre_existing_file, entries_added_this_session)` and only call `rl.save_history(...)` if it returns `true`. **Acceptance**: manual smoke test — Up arrow recalls prior entries within a session; after quit+restart, prior session's history is still reachable; a fresh session quit with zero input leaves no `.iklo_history` file (verify by removing any pre-existing one first).
 
-**Checkpoint**: User Story 1 fully functional — real line editing, persisted history.
+**Checkpoint**: User Story 1 fully functional — real line editing, persisted history, no spurious empty history file.
 
 ---
 
@@ -65,29 +73,32 @@ status: not-started
 
 **Goal**: `.quit`/`.revision`/`.env` become `/quit`/`/revision`/`/env`, dispatched and completed only at a fresh prompt; a `/` anywhere else is untouched.
 
-**Independent Test**: `/` + Tab at a fresh prompt offers `quit`/`revision`/`env`; `10 / 2` at a fresh prompt evaluates as division, never as a command.
+**Independent Test**: `/` + Tab at a fresh prompt offers `quit`/`revision`/`env`; `10 / 2` at a fresh prompt evaluates as division, never as a command; `  /quit` (leading whitespace) at a fresh prompt is NOT treated as a command.
 
 ### Tests for User Story 2 (write FIRST, ensure they FAIL) ⚠️
 
-- [ ] **T005** [US2] Write unit tests (in `crates/iklo-cli/src/main.rs` or a new `repl.rs`, `#[cfg(test)] mod tests`) for the pure dispatch-gate function extracted in T006 — e.g. `fn repl_command(buffer_is_empty: bool, trimmed_line: &str) -> Option<ReplCommand>` — covering: fresh prompt + `/quit` → `Some(Quit)`; fresh prompt + `/revision` → `Some(Revision)`; fresh prompt + `/env` → `Some(Env)`; fresh prompt + `/foo` (unrecognized) → `None`; **non-fresh prompt (continuation) + `/quit` → `None`** (the critical negative case); fresh prompt + `10 / 2` → `None`. **Acceptance**: tests fail to compile (function doesn't exist yet) — RED state, verified locally, never pushed alone.
-- [ ] **T006** [US2] Implement the dispatch-gate function from T005 as a small, pure, unit-testable function (no rustyline/IO dependency) — this is what both the submit-time dispatcher AND the completer's gating condition call into, so the two dispatch points (plan.md Key Design Decision 1) share one source of truth instead of two hand-synced conditions. **Acceptance**: T005's tests pass, 0 failed.
+- [ ] **T007** [US2] Write RED unit tests for the two functions from plan.md Key Design Decision 1:
+  - `is_repl_command_position(buffer_is_empty: bool, line: &str) -> bool` — fresh prompt + `"/"` → `true`; fresh prompt + `"/q"` → `true` (partial input must still be eligible — this is the case the earlier, since-corrected single-function design got wrong); fresh prompt + `"foo"` → `false`; **non-fresh prompt (continuation) + `"/quit"` → `false`** (critical negative case); fresh prompt + `"  /quit"` (leading whitespace) → `false` (critical negative case — `/` must be byte zero of the untrimmed line, per FR-003).
+  - `parse_repl_command(line: &str) -> Option<ReplCommand>` — `"/quit"` → `Some(Quit)`; `"/revision"` → `Some(Revision)`; `"/env"` → `Some(Env)`; `"/foo"` → `None`; `"10 / 2"` → `None` (defensive — in practice `is_repl_command_position` already excludes this); `"/quit"` with trailing whitespace/newline → `Some(Quit)` (trailing-only trim tolerance).
+  **Acceptance**: tests fail to compile (neither function exists yet) — RED state, verified locally, never pushed alone.
+- [ ] **T008** [US2] Implement `is_repl_command_position` and `parse_repl_command` per T007. **Acceptance**: T007's tests pass, 0 failed.
 
 ### Implementation for User Story 2
 
-- [ ] **T007** [US2] Remove the `.quit`/`.revision`/`.env` string-equality checks from `run_repl()`; replace with a call into T006's dispatch-gate function, keyed on `buffer.is_empty()` (the existing "fresh prompt" signal) exactly as before, sigil swapped to `/`. **Acceptance**: manual smoke test — `/quit`, `/revision`, `/env` behave identically to today's `.`-commands; `.quit` etc. no longer do anything special (fall through to the parser, producing a parse error, per FR-006).
-- [ ] **T008** [US2] Implement a custom Completer (bundled into a Helper via rustyline's derive macros per plan.md's Technical Context) that offers quit/revision/env completions only when completing at position 0 of a line starting with /, AND the helper's continuation state (updated via rl.helper_mut() by run_repl() immediately before each rl.readline(...) call, per plan.md Key Design Decision 2) confirms the REPL is at a fresh prompt. Wire via rl.set_helper(...). **Acceptance**: manual smoke test — typing / + Tab at a fresh prompt offers the three commands; typing / + Tab mid-continuation offers nothing.
-- [ ] **T009** [US2] Manual smoke test covering spec.md's full Acceptance Scenarios list for User Story 2 (all 6 scenarios) plus Edge Cases (Ctrl-C/Ctrl-D behavior preserved; `/` mid-continuation inert). **Acceptance**: every scenario behaves as specified; discrepancies get a task, not a silent skip.
+- [ ] **T009** [US2] Remove the `.quit`/`.revision`/`.env` string-equality checks from `run_repl()`; replace the submit-time dispatch with: call `is_repl_command_position(buffer.is_empty(), &line)`, and only if `true`, call `parse_repl_command(&line)` and dispatch on the result — falling through to ordinary parsing on `None` at either step (matching FR-006's "unrecognized `/foo` falls through to the parser" requirement). **Acceptance**: manual smoke test — `/quit`, `/revision`, `/env` behave identically to today's `.`-commands; `.quit` etc. no longer do anything special (fall through to the parser, producing a parse error); `  /quit` (leading whitespace) is not treated as a command.
+- [ ] **T010** [US2] Implement a custom `Completer` (bundled into a `Helper` via rustyline's derive macros per plan.md's Technical Context) that calls `is_repl_command_position` — using the helper's own continuation-state field, updated via `rl.helper_mut()` by `run_repl()` immediately before each `rl.readline(...)` call, per plan.md Key Design Decision 2 — to decide eligibility, then does its own prefix-filtering over `["quit", "revision", "env"]` against whatever partial text follows `/` (standard rustyline completion pattern; does NOT call `parse_repl_command`, per Key Design Decision 1). Wire via `rl.set_helper(...)`. **Acceptance**: manual smoke test — typing `/` + Tab at a fresh prompt offers the three commands; typing `/q` + Tab offers `quit`; typing `/` + Tab mid-continuation offers nothing.
+- [ ] **T011** [US2] Manual smoke test covering spec.md's full Acceptance Scenarios list for User Story 2 (all 6 scenarios) plus Edge Cases (Ctrl-C/Ctrl-D behavior preserved; `/` mid-continuation inert; leading-whitespace `/quit` inert). **Acceptance**: every scenario behaves as specified; discrepancies get a task, not a silent skip.
 
-**Checkpoint**: User Stories 1 AND 2 both work — real line editing, persisted history, slash-command dispatch and completion, zero grammar/lexer/parser changes.
+**Checkpoint**: User Stories 1 AND 2 both work — real line editing, persisted history, slash-command dispatch and completion (including partial-input completion), zero grammar/lexer/parser changes.
 
 ---
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] **T010** [P] Update `AGENTS.md`: the REPL bullet under "Non-negotiable syntax rules" (currently `.quit`/`.revision`/`.env`, "to keep `/paths` free for shell mode") and the CLI description in "What is actually implemented today" — both need to describe `/`-prefixed commands, fresh-prompt-only, completion-backed, per ADR-0004.
-- [ ] **T011** [P] Update `README.md` if it references the REPL's `.`-commands anywhere.
-- [ ] **T012** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
-- [ ] **T013** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria) as ✅ complete in the commit that closes the epic. Open a PR from `003-repl-improvements` → `main`.
+- [ ] **T012** [P] Update `AGENTS.md`: the REPL bullet under "Non-negotiable syntax rules" (currently `.quit`/`.revision`/`.env`, "to keep `/paths` free for shell mode") and the CLI description in "What is actually implemented today" — both need to describe `/`-prefixed commands, fresh-prompt-only, completion-backed, per ADR-0004.
+- [ ] **T013** [P] Update `README.md` if it references the REPL's `.`-commands anywhere.
+- [ ] **T014** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
+- [ ] **T015** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria) as ✅ complete in the commit that closes the epic. Open a PR from `003-repl-improvements` → `main`.
 
 ---
 
@@ -104,8 +115,8 @@ status: not-started
 ### Task Dependencies (linear this epic — small scope, single crate)
 
 ```
-T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 [P] → T012 → T013
-                                                              ↳ T011 [P] ↗
+T001 → T002 → T003 → T004 → T005 → T006 → T007 → T008 → T009 → T010 → T011 → T012 [P] → T014 → T015
+                                                                              ↳ T013 [P] ↗
 ```
 
 ## Notes
