@@ -5,6 +5,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
+pub mod contract;
+pub mod memory;
+
 /// Errors returned by [`Transaction::commit`] and [`Transaction::rollback`].
 ///
 /// Intentionally minimal today — future backends (e.g. Turso) will extend

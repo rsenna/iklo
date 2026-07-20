@@ -3,7 +3,7 @@ description: "Task list for substrate capability boundary"
 status: shipped-partial
 ---
 
-**Status**: Shipped (partial — T001–T002 completed; T003–T012 deferred to a future continuation of this epic).
+**Status**: Shipped (partial — T001–T004 completed; T005–T012 deferred to a future continuation of this epic).
 
 # Tasks: Substrate Capability Boundary
 
@@ -57,11 +57,11 @@ status: shipped-partial
 
 ### Tests for User Story 2 (write FIRST, ensure they FAIL) ⚠️
 
-- [ ] **T003** [US2] Add the 7 contract cases in `crates/iklo-substrate/src/contract.rs` as a **generic function** `pub fn run_contract_suite<S: Substrate<Value = i64>>(make: impl Fn() -> S)` covering: `revision_starts_at_zero`, `commit_increments_revision`, `rollback_does_not_increment_revision`, `get_after_set_inside_tx_sees_value`, `get_after_rollback_does_not_see_value`, `get_after_commit_sees_value_from_fresh_tx`, `snapshot_returns_only_committed_state`. The suite body must drive **only** the `Substrate` / `Transaction` trait surface — no reference to `InMemorySubstrate` inside the cases. In `#[cfg(test)] mod tests` add a thin harness: one `#[test]` per scenario (or a single `#[test]` that calls `run_contract_suite(InMemorySubstrate::<i64>::new)` if the scenarios are asserted inside the generic function) — the harness is the *only* place `InMemorySubstrate` appears. Cases must be RED at this stage. **Acceptance**: `cargo test -p iklo-substrate` **fails to compile** because `InMemorySubstrate` (and the trait impls it needs) do not yet exist; the compile error identifies the missing item, and no test bodies reference `InMemorySubstrate` directly. This is the RED state; T004 turns it green.
+- [x] **T003** [US2] Add the 7 contract cases in `crates/iklo-substrate/src/contract.rs` as a **generic function** `pub fn run_contract_suite<S: Substrate<Value = i64>>(make: impl Fn() -> S)` covering: `revision_starts_at_zero`, `commit_increments_revision`, `rollback_does_not_increment_revision`, `get_after_set_inside_tx_sees_value`, `get_after_rollback_does_not_see_value`, `get_after_commit_sees_value_from_fresh_tx`, `snapshot_returns_only_committed_state`. The suite body must drive **only** the `Substrate` / `Transaction` trait surface — no reference to `InMemorySubstrate` inside the cases. In `#[cfg(test)] mod tests` add a thin harness: one `#[test]` per scenario (or a single `#[test]` that calls `run_contract_suite(InMemorySubstrate::<i64>::new)` if the scenarios are asserted inside the generic function) — the harness is the *only* place `InMemorySubstrate` appears. Cases must be RED at this stage. **Acceptance**: `cargo test -p iklo-substrate` **fails to compile** because `InMemorySubstrate` (and the trait impls it needs) do not yet exist; the compile error identifies the missing item, and no test bodies reference `InMemorySubstrate` directly. This is the RED state; T004 turns it green.
 
 ### Implementation for User Story 2
 
-- [ ] **T004** [US2] Implement `memory::InMemorySubstrate<V>` in `crates/iklo-substrate/src/memory.rs`: `bindings: HashMap<String, V>`, `revision: u64`. Its `Tx<'a>` clones bindings on `begin`; `commit(self)` writes back and increments `revision`; `rollback(self)` drops. `get` reads from the tx's clone; `set` writes to it; `snapshot()` returns only committed state (an owned `HashMap<String, V>`, not a reference — see FR-007 and plan.md § bindings() decision). Declare `pub mod memory;` in `lib.rs`. **Acceptance**: `cargo test -p iklo-substrate` — 7 passed, 0 failed (the harness now compiles because `InMemorySubstrate` exists and satisfies the trait).
+- [x] **T004** [US2] Implement `memory::InMemorySubstrate<V>` in `crates/iklo-substrate/src/memory.rs`: `bindings: HashMap<String, V>`, `revision: u64`. Its `Tx<'a>` clones bindings on `begin`; `commit(self)` writes back and increments `revision`; `rollback(self)` drops. `get` reads from the tx's clone; `set` writes to it; `snapshot()` returns only committed state (an owned `HashMap<String, V>`, not a reference — see FR-007 and plan.md § bindings() decision). Declare `pub mod memory;` in `lib.rs`. **Acceptance**: `cargo test -p iklo-substrate` — 7 passed, 0 failed (the harness now compiles because `InMemorySubstrate` exists and satisfies the trait).
 
 **Checkpoint**: User Story 2 fully functional — the boundary is real and validated.
 
