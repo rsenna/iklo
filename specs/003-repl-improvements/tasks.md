@@ -1,6 +1,6 @@
 ---
 description: "Task list for REPL improvements (rustyline + slash commands)"
-status: in-progress (T001-T002 done; T003-T015 remaining)
+status: in-progress (T001-T006 done, User Story 1 complete; T007-T015 remaining)
 ---
 
 # Tasks: REPL Improvements — rustyline & slash commands
@@ -54,16 +54,16 @@ status: in-progress (T001-T002 done; T003-T015 remaining)
 
 ### Tests for User Story 1 (write FIRST, ensure they FAIL) ⚠️
 
-- [ ] **T003** [US1] Write RED unit tests (in `crates/iklo-cli/src/main.rs` or a new `repl.rs`, `#[cfg(test)] mod tests`) for:
+- [x] **T003** [US1] Write RED unit tests (in `crates/iklo-cli/src/main.rs` or a new `repl.rs`, `#[cfg(test)] mod tests`) for:
   - `should_save_history(had_pre_existing_file: bool, entries_added_this_session: bool) -> bool` — pure predicate, no I/O: `(false, false) -> false` (the critical case — a fresh session with zero input must not create a file, per spec.md Acceptance Scenario 3); `(false, true) -> true`; `(true, false) -> true` (an existing file is still saved even if this session added nothing, keeping behavior simple and predictable); `(true, true) -> true`.
   - A load-history smoke test using a real scratch path (e.g. `std::env::temp_dir().join(format!("iklo-test-history-{}", std::process::id()))`, cleaned up after): loading from a path that does not exist must not error or panic.
   **Acceptance**: tests fail to compile (`should_save_history` doesn't exist yet) — RED state, verified locally, never pushed alone.
 
 ### Implementation for User Story 1
 
-- [ ] **T004** [US1] Implement `should_save_history` per T003. **Acceptance**: T003's tests pass, 0 failed.
-- [ ] **T005** [US1] Load history from `.iklo_history` (cwd) at REPL startup via `rl.load_history(...)`; treat a missing/unreadable file as non-fatal (per spec Edge Cases); record whether the file existed at startup (`path.exists()`, checked once, before `load_history` is called) for T006's use. **Acceptance**: starting the REPL with no existing history file does not error.
-- [ ] **T006** [US1] Call `rl.add_history_entry(...)` for each complete, submitted top-level line (not a blank continuation-cancel); track whether any entry was added this session. On REPL exit (`/quit`, and on EOF), call `should_save_history(had_pre_existing_file, entries_added_this_session)` and only call `rl.save_history(...)` if it returns `true`. **Acceptance**: manual smoke test — Up arrow recalls prior entries within a session; after quit+restart, prior session's history is still reachable; a fresh session quit with zero input leaves no `.iklo_history` file (verify by removing any pre-existing one first).
+- [x] **T004** [US1] Implement `should_save_history` per T003. **Acceptance**: T003's tests pass, 0 failed.
+- [x] **T005** [US1] Load history from `.iklo_history` (cwd) at REPL startup via `rl.load_history(...)`; treat a missing/unreadable file as non-fatal (per spec Edge Cases); record whether the file existed at startup (`path.exists()`, checked once, before `load_history` is called) for T006's use. **Acceptance**: starting the REPL with no existing history file does not error.
+- [x] **T006** [US1] Call `rl.add_history_entry(...)` for each complete, submitted top-level line (not a blank continuation-cancel); track whether any entry was added this session. On REPL exit (`/quit`, and on EOF), call `should_save_history(had_pre_existing_file, entries_added_this_session)` and only call `rl.save_history(...)` if it returns `true`. **Acceptance**: manual smoke test — Up arrow recalls prior entries within a session; after quit+restart, prior session's history is still reachable; a fresh session quit with zero input leaves no `.iklo_history` file (verify by removing any pre-existing one first).
 
 **Checkpoint**: User Story 1 fully functional — real line editing, persisted history, no spurious empty history file.
 

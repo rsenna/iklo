@@ -3,6 +3,9 @@ use rustyline::error::ReadlineError;
 use iklo_parser::{parse, ParseError};
 use iklo_runtime::RuntimeImage;
 
+/// REPL input history, persisted in the current working directory.
+const HISTORY_FILE: &str = ".iklo_history";
+
 fn main() {
     let mut args = std::env::args().skip(1);
     if let Some(path) = args.next() {
@@ -38,8 +41,13 @@ fn run_repl() {
         }
     };
 
+    let history_path = std::path::Path::new(HISTORY_FILE);
+    let had_pre_existing_file = history_path.exists();
+    let _ = rl.load_history(history_path); // missing/unreadable is non-fatal
+
     let mut image = RuntimeImage::new();
     let mut buffer = String::new();
+    let mut entries_added_this_session = false;
 
     loop {
         let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
@@ -69,6 +77,8 @@ fn run_repl() {
             if trimmed.is_empty() {
                 continue;
             }
+            let _ = rl.add_history_entry(line.as_str());
+            entries_added_this_session = true;
             if trimmed == ".quit" {
                 break;
             }
@@ -88,6 +98,8 @@ fn run_repl() {
                 buffer.clear();
                 continue;
             }
+            let _ = rl.add_history_entry(line.as_str());
+            entries_added_this_session = true;
             push_repl_line(&mut buffer, &line);
         }
 
@@ -110,6 +122,10 @@ fn run_repl() {
             }
         }
     }
+
+    if should_save_history(had_pre_existing_file, entries_added_this_session) {
+        let _ = rl.save_history(history_path);
+    }
 }
 
 /// Appends `line` (as returned by `rustyline::Editor::readline`, which has
@@ -121,10 +137,48 @@ fn push_repl_line(buffer: &mut String, line: &str) {
     buffer.push('\n');
 }
 
+/// Whether to call `save_history`: skip only when there was no pre-existing
+/// history file *and* this session added no entries — otherwise a session
+/// with zero input would create an empty `.iklo_history` (spec.md User
+/// Story 1 Acceptance Scenario 3).
+fn should_save_history(had_pre_existing_file: bool, entries_added_this_session: bool) -> bool {
+    had_pre_existing_file || entries_added_this_session
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use iklo_runtime::Value;
+
+    #[test]
+    fn should_save_history_skips_when_nothing_to_save() {
+        assert!(!should_save_history(false, false));
+    }
+
+    #[test]
+    fn should_save_history_saves_when_entries_added() {
+        assert!(should_save_history(false, true));
+    }
+
+    #[test]
+    fn should_save_history_saves_when_file_pre_existed() {
+        assert!(should_save_history(true, false));
+    }
+
+    #[test]
+    fn should_save_history_saves_when_both() {
+        assert!(should_save_history(true, true));
+    }
+
+    #[test]
+    fn load_history_from_missing_path_does_not_error() {
+        let path = std::env::temp_dir()
+            .join(format!("iklo-test-history-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+
+        let mut rl = rustyline::DefaultEditor::new().expect("editor");
+        assert!(rl.load_history(&path).is_err());
+    }
 
     #[test]
     fn push_repl_line_appends_a_real_newline() {
