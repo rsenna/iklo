@@ -70,7 +70,7 @@ crates/iklo-cli/
 ## Key Design Decisions
 
 1. **Two dispatch points share one gate, not one each.** The fresh-prompt-and-leading-slash condition governs both (a) rustyline's `Completer::complete` (interactive, as-you-type) and (b) the submit-time command dispatcher (on Enter). Both must independently agree a line qualifies before it's ever treated as a command — this is what makes FR-005 (division/mid-line `/` is untouched) actually safe rather than merely intended.
-2. **Buffer-continuation state must reach the `Completer`.** Rustyline's `Completer::complete(&self, line, pos, ctx)` only sees the current line being edited — it has no notion of "is this REPL mid multi-line continuation." The `Helper` struct needs a shared handle (e.g. `Rc<Cell<bool>>`) set by the outer REPL loop immediately before each `rl.readline(...)` call, mirroring today's `buffer.is_empty()` check.
+2. **Buffer-continuation state must reach the Completer.** Rustyline's Completer::complete only sees the current line being edited — it has no notion of whether this REPL is mid multi-line continuation. The Helper struct's state can be updated directly by the outer REPL loop using rl.helper_mut() immediately before each rl.readline(...) call, mirroring today's buffer.is_empty() check.
 3. **No new command surface.** Exactly `quit`, `revision`, `env` — a syntax migration, not a feature expansion (spec Assumptions).
 4. **Full replacement, not dual syntax.** `.`-commands are deleted in the same change that adds `/`-commands (FR-006, Constitution VII).
 
