@@ -1,3 +1,4 @@
+// HashMap used only in the public bindings() return type — internal storage lives behind the Substrate trait.
 use std::collections::HashMap;
 
 use iklo_ast::{BinOp, Expr, Program, Spanned};
