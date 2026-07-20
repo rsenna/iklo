@@ -14,6 +14,7 @@ pub struct InMemorySubstrate<V> {
 }
 
 impl<V> InMemorySubstrate<V> {
+    /// Creates an empty substrate: no bindings, revision zero.
     pub fn new() -> Self {
         Self {
             bindings: HashMap::new(),
