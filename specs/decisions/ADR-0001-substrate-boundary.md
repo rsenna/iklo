@@ -126,11 +126,14 @@ observations make that premature:
   under the new spec-driven workflow.
 - Do not write any VDBE code, or add Turso as a dependency, until the
   `substrate` epic has shipped and been exercised.
-- If/when a Turso-backed `Substrate` or VDBE work gets its own ADR (per the
-  2026-07 note below), start from the sketched architecture in the
-  2026-07-20 note: fork + Iklo dialect with real opcode extensions,
-  form-redefinition-as-validated-transaction, and the memory/`ResultRow`
-  design points recorded there.
+- If/when VDBE-as-compilation-target gets its own ADR (per the 2026-07 note
+  below and commitment 4 above), start from the sketched architecture in
+  the 2026-07-20 note: fork + Iklo dialect with real opcode extensions,
+  form redefinition as a validated transaction, and the memory/`ResultRow`
+  design points recorded there. This guidance is VDBE-specific — the
+  earlier, separate Turso-backed `Substrate` milestone needs none of it:
+  no fork, no dialect, no opcode work, just Turso as a storage backend
+  behind the existing `Substrate` trait.
 
 ## Status note
 
@@ -206,9 +209,9 @@ The sketched architecture:
   (committed state queryable, backing graph/document/reactive workloads)
   applied to raw memory itself. Honest cost: B-tree traversal per access
   versus blob-byte-indexing's near-free arithmetic. Resolution: not a
-  universal discipline — a fourth storage tier alongside the three
-  `LANGUAGE.md`'s VDBE section already specifies (registers / operand stack
-  / heap), reserved for state that specifically wants to be queryable and
+  universal discipline — a fourth storage tier alongside the three specified
+  in `LANGUAGE.md`'s VDBE section (registers / operand stack / heap),
+  reserved for state that specifically wants to be queryable and
   transactional.
 - **A design heuristic for the fork's future schema/opcode work**, prompted
   by @rsenna's discomfort with one specific Doom-demo choice (animation
