@@ -279,9 +279,17 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                             // Safe to retry but out of attempts, or verification
                             // failed: surface the original commit error. Never
                             // retry blindly on an unverified ambiguous commit.
+                            // A failed COMMIT typically leaves the SQL
+                            // transaction open pending an explicit ROLLBACK, so
+                            // clear it here (ignoring the rollback's own
+                            // result) before returning — otherwise this
+                            // long-lived connection would be left with a
+                            // dangling open transaction and every subsequent
+                            // commit() call would fail at its own BEGIN.
                             AmbiguousCommitResolution::SafeToRetry
                             | AmbiguousCommitResolution::VerificationFailed => {
-                                return Err(err.into())
+                                let _ = conn.execute("ROLLBACK", ()).await;
+                                return Err(err.into());
                             }
                         }
                     }
