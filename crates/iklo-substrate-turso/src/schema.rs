@@ -3,7 +3,7 @@
 //! This module owns the on-disk table layout used to persist bindings,
 //! schema version, and the monotonic revision counter. It intentionally
 //! knows nothing about the byte layout of stored values — that is the
-//! codec module's responsibility (a later task).
+//! [`crate::codec`] module's responsibility.
 
 use turso::Value;
 
@@ -45,7 +45,36 @@ const SELECT_SCHEMA_VERSION: &str = "SELECT schema_version FROM iklo_substrate_m
 /// IGNORE`. Calling this function repeatedly against the same database is a
 /// no-op after the first call: no error, no data change.
 pub async fn bootstrap(conn: &turso::Connection) -> Result<(), TursoSubstrateError> {
+    // Ensure the meta table exists first so we can check for a pre-existing
+    // schema version before creating any other tables.
     conn.execute(CREATE_META_TABLE, ()).await?;
+
+    // If a schema-version row already exists (pre-existing database from an
+    // older or newer binary), validate it *before* creating bindings/revision
+    // tables — checking compatibility must never silently mutate an
+    // incompatible database.
+    let existing = conn
+        .query(SELECT_SCHEMA_VERSION, ())
+        .await?
+        .next()
+        .await?;
+    if let Some(row) = existing {
+        let found = match row.get_value(0)? {
+            Value::Integer(version) => version,
+            other => {
+                return Err(TursoSubstrateError::Turso(turso::Error::Misuse(format!(
+                    "expected schema_version to be an integer, found {other:?}"
+                ))));
+            }
+        };
+        if found != SCHEMA_VERSION {
+            return Err(TursoSubstrateError::SchemaVersionMismatch {
+                expected: SCHEMA_VERSION,
+                found,
+            });
+        }
+    }
+
     conn.execute(CREATE_BINDINGS_TABLE, ()).await?;
     conn.execute(CREATE_REVISION_TABLE, ()).await?;
 

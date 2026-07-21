@@ -1,16 +1,20 @@
 #![cfg_attr(not(feature = "turso"), allow(dead_code))]
 
-//! Turso-backed substrate implementation for Iklo.
+//! Foundational Turso primitives for the Iklo substrate.
 //!
-//! This crate provides a `Substrate` trait implementation using Turso as the backing database.
-//! The Turso implementation is gated behind the `turso` feature and is not enabled by default.
+//! This crate provides schema management, a versioned value codec, and
+//! retry/ambiguous-commit policy primitives used to build a [`Substrate`]
+//! trait implementation in subsequent changes. Everything is gated behind
+//! the `turso` feature and is not enabled by default.
 
 #[cfg(feature = "turso")]
 use std::fmt;
 
+/// Version-tagged binary codec for values persisted into the bindings BLOB column.
 #[cfg(feature = "turso")]
 pub mod codec;
 
+/// Idempotent schema bootstrap and schema-version verification.
 #[cfg(feature = "turso")]
 pub mod schema;
 
@@ -142,7 +146,7 @@ pub enum RetryClass {
 /// | `Busy` | `Retryable` | SQLite/Turso lock contention — the canonical "retry after backoff" case. |
 /// | `BusySnapshot` | `Retryable` | MVCC snapshot conflict — a concurrent writer won; retrying against a fresh snapshot can succeed. |
 /// | `Interrupt` | `Retryable` | The operation was interrupted (e.g. by a competing statement); nothing about the data is wrong. |
-/// | `IoError` | `Retryable` | I/O-level failure (transport/disk) — transient by nature. |
+/// | `IoError` | `Retryable` (transient kinds) / `SurfaceImmediately` (others) | I/O failures with transient kinds (`Interrupted`, `WouldBlock`, `TimedOut`, `ConnectionReset`, `ConnectionAborted`) are retryable; permanent kinds (e.g. `PermissionDenied`) are surfaced immediately. |
 /// | `Error` | `SurfaceImmediately` | Opaque catch-all string from the underlying engine with no documented transient/permanent semantics. There is no way to distinguish a transient occurrence of this variant from a permanent one without inspecting engine-internal message text, which this crate deliberately avoids depending on. The safe default for an unclassifiable error is to not retry blindly, so this is surfaced immediately; see the note below. |
 /// | `Misuse` | `SurfaceImmediately` | Programmer/caller error (e.g. wrong argument count) — retrying without fixing the call site cannot succeed. |
 /// | `Constraint` | `SurfaceImmediately` | A SQL constraint (e.g. `UNIQUE`, `CHECK`) was violated — this is a data/logic condition, not a transient one. |
@@ -172,17 +176,15 @@ pub fn classify(err: &TursoSubstrateError) -> RetryClass {
         TursoSubstrateError::Turso(inner) => match inner {
             turso::Error::Busy(_) | turso::Error::BusySnapshot(_) => RetryClass::Retryable,
             turso::Error::Interrupt(_) => RetryClass::Retryable,
-            turso::Error::IoError(_, _) => RetryClass::Retryable,
-            turso::Error::Error(_)
-            | turso::Error::Misuse(_)
-            | turso::Error::Constraint(_)
-            | turso::Error::Readonly(_)
-            | turso::Error::DatabaseFull(_)
-            | turso::Error::NotAdb(_)
-            | turso::Error::Corrupt(_)
-            | turso::Error::QueryReturnedNoRows
-            | turso::Error::ConversionFailure(_)
-            | turso::Error::ToSqlConversionFailure(_) => RetryClass::SurfaceImmediately,
+            turso::Error::IoError(kind, _) => match kind {
+                std::io::ErrorKind::Interrupted
+                | std::io::ErrorKind::WouldBlock
+                | std::io::ErrorKind::TimedOut
+                | std::io::ErrorKind::ConnectionReset
+                | std::io::ErrorKind::ConnectionAborted => RetryClass::Retryable,
+                _ => RetryClass::SurfaceImmediately,
+            },
+            _ => RetryClass::SurfaceImmediately,
         },
     }
 }
@@ -230,7 +232,7 @@ impl RetryPolicy {
         // 2^exponent as a u32, saturating instead of panicking/overflowing
         // for large exponents (anything >= 32 already saturates to u32::MAX,
         // which will blow past the cap once multiplied anyway).
-        let multiplier = 1u32.checked_shl(exponent).unwrap_or(u32::MAX);
+        let multiplier = 2u32.checked_pow(exponent).unwrap_or(u32::MAX);
         let scaled = self.base_backoff.checked_mul(multiplier);
         match scaled {
             Some(duration) if duration <= Self::MAX_BACKOFF => duration,
@@ -243,7 +245,7 @@ impl RetryPolicy {
 /// or dropped connection where the caller cannot tell whether the server
 /// applied the operation before the failure occurred).
 #[cfg(feature = "turso")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum AmbiguousCommitResolution {
     /// `verify` confirmed the operation was already applied — treat the
     /// original (ambiguous) attempt as a success. Do not retry: retrying
@@ -253,7 +255,8 @@ pub enum AmbiguousCommitResolution {
     SafeToRetry,
     /// `verify` itself failed, so it is impossible to determine whether the
     /// operation landed. Surface immediately; never guess or retry blindly.
-    VerificationFailed,
+    /// Carries the underlying error for diagnostic propagation.
+    VerificationFailed(TursoSubstrateError),
 }
 
 /// Resolves an ambiguous commit outcome (FR-013/FR-022: verify the commit
@@ -279,6 +282,6 @@ pub fn resolve_ambiguous_commit(
     match verify() {
         Ok(true) => AmbiguousCommitResolution::AlreadyApplied,
         Ok(false) => AmbiguousCommitResolution::SafeToRetry,
-        Err(_) => AmbiguousCommitResolution::VerificationFailed,
+        Err(e) => AmbiguousCommitResolution::VerificationFailed(e),
     }
 }

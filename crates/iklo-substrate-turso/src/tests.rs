@@ -338,6 +338,15 @@ fn classify_treats_busy_snapshot_and_interrupt_and_io_error_as_retryable() {
 }
 
 #[test]
+fn classify_treats_permanent_io_error_as_surface_immediately() {
+    let err = TursoSubstrateError::Turso(turso::Error::IoError(
+        std::io::ErrorKind::PermissionDenied,
+        "open",
+    ));
+    assert_eq!(classify(&err), RetryClass::SurfaceImmediately);
+}
+
+#[test]
 fn classify_treats_misuse_as_surface_immediately() {
     // `Misuse` is a caller/programmer error — retrying without fixing the
     // call site cannot succeed.
@@ -449,13 +458,19 @@ fn retry_policy_backoff_is_capped_and_does_not_grow_unbounded() {
 #[test]
 fn resolve_ambiguous_commit_returns_already_applied_when_verify_confirms_it_landed() {
     let resolution = resolve_ambiguous_commit(|| Ok(true));
-    assert_eq!(resolution, AmbiguousCommitResolution::AlreadyApplied);
+    assert!(matches!(
+        resolution,
+        AmbiguousCommitResolution::AlreadyApplied
+    ));
 }
 
 #[test]
 fn resolve_ambiguous_commit_returns_safe_to_retry_when_verify_confirms_it_did_not_land() {
     let resolution = resolve_ambiguous_commit(|| Ok(false));
-    assert_eq!(resolution, AmbiguousCommitResolution::SafeToRetry);
+    assert!(matches!(
+        resolution,
+        AmbiguousCommitResolution::SafeToRetry
+    ));
 }
 
 #[test]
@@ -464,12 +479,17 @@ fn resolve_ambiguous_commit_returns_verification_failed_when_verify_errors_and_n
     // the function must surface immediately, NOT signal a retry — a
     // networked commit that timed out may have already landed server-side,
     // and retrying without a confirmed negative risks double-applying it.
-    let resolution = resolve_ambiguous_commit(|| {
-        Err(TursoSubstrateError::Turso(turso::Error::IoError(
-            std::io::ErrorKind::ConnectionReset,
-            "verify",
-        )))
-    });
-    assert_eq!(resolution, AmbiguousCommitResolution::VerificationFailed);
-    assert_ne!(resolution, AmbiguousCommitResolution::SafeToRetry);
+    let verify_err = TursoSubstrateError::Turso(turso::Error::IoError(
+        std::io::ErrorKind::ConnectionReset,
+        "verify",
+    ));
+    let resolution = resolve_ambiguous_commit(|| Err(verify_err));
+    assert!(matches!(
+        resolution,
+        AmbiguousCommitResolution::VerificationFailed(_)
+    ));
+    assert!(!matches!(
+        resolution,
+        AmbiguousCommitResolution::SafeToRetry
+    ));
 }
