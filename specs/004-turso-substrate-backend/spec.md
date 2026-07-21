@@ -8,6 +8,20 @@
 
 **Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
+## Integration Strategy (Decision Record)
+
+This epic follows an explicit three-phase strategy for Turso integration:
+
+1. **Adapter-first (no fork default)**: build `iklo-substrate-turso` against exposed/stable Turso interfaces only.
+2. **Fork-on-blocker (gated)**: fork Turso only when a required `Substrate` invariant cannot be satisfied in Iklo's adapter layer.
+3. **Fork-governed (controlled)**: any fork change is bounded, documented, and evaluated for upstreaming.
+
+Decision rule for each integration issue:
+
+- Change **Iklo** when the issue is adapter mapping, serialization, CLI/runtime policy, or call-site behavior.
+- Change **Turso** only when `Substrate` invariants (transactional atomicity, rollback visibility, revision semantics, or required transactional guarantees) cannot be met through exposed APIs.
+- Prefer **upstream contribution** when the needed Turso change is general-purpose and not Iklo-specific.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Runtime contributor can run Iklo on a persistent backend (Priority: P1)
@@ -61,6 +75,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - If a commit fails due to transport/auth/database error, the transaction is treated as failed, the error is surfaced to the caller, and no uncommitted mutation becomes visible.
 - If two runtime instances contend over the same binding keys, correctness follows database transaction guarantees: each top-level evaluation is atomic, with no torn writes and no partial visibility.
 - Schema initialization is idempotent: first run creates required tables/indexes, and subsequent runs verify compatibility without destructive migration.
+- If integration blockers are discovered, each blocker is classified as: adapter-fixable, upstream-fixable, or fork-required, with rationale captured in this epic artifacts.
 
 ## Requirements *(mandatory)*
 
@@ -79,6 +94,10 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **FR-011**: CLI substrate selection MUST be explicit and stable: `--substrate memory|turso` (default `memory`) and Turso mode MUST require `--turso-db-url <url>` (or `IKLO_TURSO_DB_URL`) plus optional `--turso-auth-token <token>` (or `IKLO_TURSO_AUTH_TOKEN`).
 - **FR-012**: Schema bootstrap MUST be idempotent and validated on startup; incompatible schema versions MUST fail with an explicit migration/version error.
 - **FR-013**: Multi-instance contention behavior MUST be defined by transactional correctness guarantees (atomic commit/rollback visibility), with conflicts surfaced as explicit errors or retries per backend semantics.
+- **FR-014**: Implementation sequencing MUST be adapter-first: `iklo-substrate-turso` starts with no Turso fork and uses only exposed/stable interfaces.
+- **FR-015**: Turso fork work MUST be gated by explicit blocker evidence showing a required `Substrate` invariant cannot be implemented in Iklo's adapter layer.
+- **FR-016**: For each blocker, the project MUST record classification (`adapter-fixable`, `upstream-fixable`, `fork-required`) and chosen action with rationale.
+- **FR-017**: If a fork is created, governance MUST be explicit: patch scope limits, upstream-first contribution policy when feasible, and a sync cadence with upstream Turso.
 
 ### Key Entities
 
@@ -96,10 +115,13 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **SC-003**: Existing `iklo-runtime` behavior tests pass unchanged in source.
 - **SC-004**: CLI default mode remains in-memory and non-persistent, while explicit Turso mode persists state.
 - **SC-005**: `make test && make build && make release` succeed in a clean workspace.
+- **SC-006**: A blocker inventory exists for Turso integration, with every blocker classified and linked to a concrete action (adapter fix, upstream proposal, or fork patch).
+- **SC-007**: If any fork-required blockers exist, fork-governance rules are documented and applied before implementation proceeds.
 
 ## Assumptions
 
 - Turso APIs and authentication are available in a form stable enough for a storage-backend implementation without requiring a Turso fork.
+- Medium confidence is sufficient for this strategy decision; unresolved uncertainty is handled by explicit blocker classification and gated fork criteria rather than immediate fork adoption.
 - Serialization strategy for Iklo runtime values can be implemented incrementally while preserving current value coverage required by tests.
 - Concurrency semantics will follow Turso/SQLite transactional guarantees plus the existing `Substrate` contract.
 - VDBE-targeted compiler work remains out of scope and stays gated behind a future, separate ADR.
