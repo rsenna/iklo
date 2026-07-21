@@ -56,8 +56,9 @@ cargo run -p iklo-cli -- examples/hello.iklo
 
 ### Newline semantics
 
-Newline is a soft terminator: it ends the current expression only when that
-expression is already complete and cannot be continued by the next line.
+Newline is a soft terminator: it ends the current expression when that
+expression is already complete. If the expression is incomplete (for example,
+after a trailing operator), parsing continues on the next line.
 `;` always forces termination. Newlines inside `( ... )` are ignored.
 
 ```iklo

@@ -2,8 +2,7 @@
 name = "iklo-ast"
 edition.workspace = true
 version.workspace = true
-license.workspace = true
+license-file = "../../LICENSE"
 
 [lib]
 path = "src/lib.rs"
-
