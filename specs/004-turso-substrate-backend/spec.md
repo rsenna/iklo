@@ -8,15 +8,14 @@
 
 **Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
-## Integration Strategy
-
-Fork-governance policy is defined in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md). This spec applies that policy to the implementation sequence below.
+## Integration Strategy (Decision Record)
+Fork-governance policy is defined in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md). This spec applies that policy through the adapter-first sequence, blocker classification rules, and fork-escalation gates defined below.
 
 This epic follows an explicit three-phase strategy for Turso integration:
 
 1. **Adapter-first (no fork default)**: build `iklo-substrate-turso` against exposed/stable Turso interfaces only.
 2. **Fork-on-blocker (gated)**: if a required `Substrate` invariant cannot be satisfied in Iklo's adapter layer, record the blocker and escalate per ADR-0005.
-3. **Fork-governed (controlled)**: any fork work belongs to a follow-up ADR/epic, not this epic.
+3. **Fork-governed (controlled)**: any fork work belongs to a follow-up ADR/epic, not this epic, and any approved fork change stays bounded, documented, and evaluated for upstreaming.
 
 Decision rule for each integration issue:
 
