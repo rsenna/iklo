@@ -16,6 +16,9 @@ Today it ships as a workspace centered on a REPL/file runner executable named
   soft-newline termination.
 - Runtime (`iklo-runtime`) with transactional evaluation over the live image.
 - Substrate boundary (`iklo-substrate`) with in-memory implementation.
+  A Turso-backed alternative (`iklo-substrate-turso`, local-file-only) is
+  available opt-in behind a Cargo feature and CLI flag; in-memory remains
+  the default.
 - CLI (`iklo-cli`) REPL and file runner (`iklo` executable).
 
 ## Quickstart
@@ -97,6 +100,7 @@ Each top-level evaluation runs in a transaction:
 - `crates/iklo-parser`
 - `crates/iklo-runtime`
 - `crates/iklo-substrate`
+- `crates/iklo-substrate-turso` (opt-in, `turso` Cargo feature)
 - `crates/iklo-cli`
 - `examples/` runnable `.iklo` programs
 - `specs/` feature specs and ADR-backed decisions
