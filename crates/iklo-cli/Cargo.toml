@@ -7,7 +7,15 @@ license-file = "../../LICENSE"
 [dependencies]
 iklo-parser = { path = "../iklo-parser" }
 iklo-runtime = { path = "../iklo-runtime" }
+# Needed for the `Substrate` trait bound on the generic run_file/run_repl.
+iklo-substrate = { path = "../iklo-substrate" }
+# Optional: only pulled in (with its own `turso` feature) when the CLI's
+# `turso` feature is enabled, so the default build stays turso/libSQL-free.
+iklo-substrate-turso = { path = "../iklo-substrate-turso", optional = true }
 rustyline = { version = "18.0.0", features = ["derive"] }
+
+[features]
+turso = ["dep:iklo-substrate-turso", "iklo-substrate-turso/turso"]
 
 [[bin]]
 name = "iklo"
