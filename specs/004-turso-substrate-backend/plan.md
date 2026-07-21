@@ -9,7 +9,7 @@
 Implement a new `iklo-substrate-turso` crate that satisfies the existing
 `Substrate`/`Transaction` contract while preserving `iklo-runtime` semantics,
 keeping implementation adapter-first, and treating Turso fork work as an
-escalation path only (per [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md)).
+escalation path only (per [ADR-0005](../../specs/decisions/ADR-0005-turso-fork-governance.md)).
 
 ## Technical Context
 
@@ -55,7 +55,7 @@ Checked against [`.specify/memory/constitution.md`](../../.specify/memory/consti
 - **III. Substrate Before Feature**: Work stays behind `Substrate` boundary.
 - **IV. Kebab-Case Iklo, Idiomatic Rust**: Preserved.
 - **V. Comments Justify Themselves**: No explanatory noise planned.
-- **VI. ADRs for Load-Bearing Decisions**: Fork governance in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md).
+- **VI. ADRs for Load-Bearing Decisions**: Fork governance in [ADR-0005](../../specs/decisions/ADR-0005-turso-fork-governance.md).
 - **VII. No Workarounds Left Standing**: Blockers must be classified and actioned.
 
 No constitutional violations planned.
