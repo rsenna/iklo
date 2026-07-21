@@ -132,6 +132,54 @@ async fn bootstrap_is_idempotent() {
 }
 
 #[tokio::test]
+async fn verify_before_bootstrap_returns_clear_error_without_panicking() {
+    let conn = fresh_connection().await;
+
+    // No bootstrap() call: iklo_substrate_meta does not exist yet.
+    let err = schema::verify(&conn)
+        .await
+        .expect_err("verify() against a never-bootstrapped database must return an error");
+
+    // Must be distinguishable from a schema-version mismatch (this is a
+    // "not bootstrapped at all" failure, not an incompatible-version one),
+    // and its Display must not panic and must mention the underlying cause.
+    match &err {
+        TursoSubstrateError::Turso(inner) => {
+            let message = inner.to_string();
+            assert!(
+                message.to_lowercase().contains("no such table"),
+                "expected a 'no such table' error from the missing iklo_substrate_meta table, got: {message}"
+            );
+        }
+        other => panic!(
+            "expected TursoSubstrateError::Turso for a missing table, got {other:?}"
+        ),
+    }
+
+    // Display must render without panicking and should be a legible message.
+    let rendered = err.to_string();
+    assert!(rendered.starts_with("turso error: "));
+}
+
+#[tokio::test]
+async fn verify_succeeds_immediately_after_bootstrap_on_fresh_database() {
+    let conn = fresh_connection().await;
+
+    schema::bootstrap(&conn)
+        .await
+        .expect("bootstrap should succeed on a fresh database");
+
+    schema::verify(&conn)
+        .await
+        .expect("verify must return Ok(()) immediately after a fresh bootstrap");
+
+    // Confirm the state verify() checked against is what we expect: exactly
+    // one meta row, at the current schema version.
+    assert_eq!(row_count(&conn, "iklo_substrate_meta").await, 1);
+    assert_eq!(read_schema_version(&conn).await, schema::SCHEMA_VERSION);
+}
+
+#[tokio::test]
 async fn verify_rejects_incompatible_schema_version() {
     let conn = fresh_connection().await;
 
