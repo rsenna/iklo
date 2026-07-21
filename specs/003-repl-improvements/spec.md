@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-20
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: Replace the CLI REPL's raw stdin loop with rustyline (line editing, arrow-key history, persistent history file — matching prior art from LogoScript's CLI). Replace the `.`-prefixed meta-commands (`.quit`, `.revision`, `.env`) with `/`-prefixed ones (`/quit`, `/revision`, `/env`), recognized only as the first character of a fresh (non-continuation) REPL input line and offered via tab-completion. This is a REPL-input-loop feature only — it must never reach `iklo-lexer`/`iklo-parser`/`iklo-ast`; a `/` anywhere else in input (mid-line, mid-continuation, or as part of an expression such as `10 / 2`) is untouched and parsed as ordinary Iklo syntax.
 
