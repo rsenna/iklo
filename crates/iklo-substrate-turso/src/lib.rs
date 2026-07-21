@@ -11,6 +11,9 @@ use std::fmt;
 #[cfg(feature = "turso")]
 pub mod schema;
 
+#[cfg(test)]
+mod tests;
+
 /// Errors produced by this crate's Turso integration.
 ///
 /// Intentionally minimal today — mirrors the style of
@@ -74,27 +77,5 @@ impl From<turso::Error> for TursoSubstrateError {
 impl From<TursoSubstrateError> for iklo_substrate::SubstrateError {
     fn from(err: TursoSubstrateError) -> Self {
         iklo_substrate::SubstrateError::BindingFailed(err.to_string())
-    }
-}
-
-#[cfg(all(test, feature = "turso"))]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn turso_error_converts_to_turso_substrate_error() {
-        let turso_err = turso::Error::Misuse("boom".to_string());
-        let wrapped: TursoSubstrateError = turso_err.into();
-        assert_eq!(wrapped.to_string(), "turso error: boom");
-    }
-
-    #[test]
-    fn turso_substrate_error_converts_to_substrate_error() {
-        let wrapped = TursoSubstrateError::Turso(turso::Error::Misuse("boom".to_string()));
-        let substrate_err: iklo_substrate::SubstrateError = wrapped.into();
-        assert_eq!(
-            substrate_err,
-            iklo_substrate::SubstrateError::BindingFailed("turso error: boom".to_string())
-        );
     }
 }
