@@ -10,15 +10,25 @@ minimum start/done criteria for each one.
 Epic `005` may start after `004`, but is preferred after `007/010` stabilization
 to reduce release-policy churn while language/runtime semantics are changing.
 
+### Dependency semantics
+
+In this document, `A -> B` means:
+
+1. Epic **B start criteria** cannot be met until epic **A done criteria** are met.
+2. Epic **B planning/spec refinements** may continue while **A** is in progress.
+3. If **A** changes a shared invariant, **B start criteria** must be revalidated.
+
 ## Queue
 
 ### 1. Epic 004 — Turso-backed Substrate Backend
 
 - **Spec**: [004-turso-substrate-backend/spec.md](004-turso-substrate-backend/spec.md)
 - **Start criteria**:
-  - PR/state for spec-004 is merged/aligned.
-  - `spec.md`, `plan.md`, and `tasks.md` are consistent.
-  - Blocker inventory schema is explicit.
+  - Spec 004 is in Draft and marked as the active implementation epic.
+  - `specs/004-turso-substrate-backend/spec.md`, `plan.md`, and `tasks.md` all
+    exist and contain an explicit blocker-inventory schema.
+  - No higher-priority load-bearing ADR is pending for substrate boundary
+    semantics.
 - **Done criteria**:
   - `iklo-substrate-turso` exists and integrates through `Substrate`.
   - Contract behavior matches in-memory substrate expectations.
@@ -53,8 +63,11 @@ to reduce release-policy churn while language/runtime semantics are changing.
 - **Spec**: [007-ik1-core-language/spec.md](007-ik1-core-language/spec.md)
 - **Start criteria**:
   - Epics 006 and 008 are accepted and linked.
+  - An ADR for introducing IK1 grammar constructs (`fn`, `cond`, `repeat`) is
+    accepted, or epic 007 explicitly states those forms are implementable
+    without new grammar-level ADRs.
 - **Done criteria**:
-  - Stdio IO is provided by standard library APIs (not a primitive).
+  - stdio IO is provided by standard library APIs (not a primitive).
   - `fn` + lexical `let :name be <expr>` closure flow works.
   - `cond` and `repeat` are implemented.
   - IK1 primitive subset is documented and explicitly linked to epic 010 as
