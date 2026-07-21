@@ -114,8 +114,8 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **FR-017**: If a blocker is classified as fork-required, the next step MUST be a follow-up ADR/epic under ADR-0005 governance (patch scope limits, upstream-first policy when feasible, and upstream sync cadence), rather than fork implementation in this epic.
 - **FR-018**: Before implementation starts, this epic MUST produce `plan.md` and `tasks.md` under `specs/004-turso-substrate-backend/` and treat them as the execution source of truth.
 - **FR-019**: Blocker inventory MUST have a single canonical home in this epic's artifacts (under `tasks.md` or a linked subsection from it), with each blocker recording: ID, classification, invariant impacted, evidence, chosen action, and rationale.
-- **FR-020**: Fork-escalation workflow MUST be explicit: a blocker may be marked `fork-required` only with a reproducible failing case, documented adapter attempts, and an upstream-feasibility assessment, followed by follow-up ADR/epic creation.
-- **FR-021**: `TursoSubstrate` value persistence MUST define a versioned serialization contract for currently supported `Value` variants, including behavior for unsupported/unknown variants and an explicit migration policy for schema/data version mismatches.
+- **FR-020**: Fork-escalation workflow MUST be explicit: a blocker may be marked `fork-required` only with a reproducible failing case, documented adapter attempts, and an upstream-feasibility assessment, followed by approval handoff to maintainers for follow-up ADR/epic creation.
+- **FR-021**: `TursoSubstrate<V>` value persistence MUST define a versioned serialization contract for currently supported persisted-`V` shapes, including behavior for unsupported/unknown shapes and an explicit migration policy for schema/data version mismatches.
 - **FR-022**: Concurrency handling MUST define where retries are permitted, which errors are retryable, retry bounds/backoff policy, and which failures must surface immediately.
 - **FR-023**: CLI configuration semantics MUST define precedence (`CLI flags` over `env`), required/optional fields by substrate mode, and explicit error behavior for invalid combinations.
 - **FR-024**: Implementation branches for this epic MUST be cut from an up-to-date `main` and include a recorded baseline commit in the implementation PR description.
@@ -140,7 +140,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **SC-007**: If any fork-required blockers exist, a follow-up ADR/epic is opened under ADR-0005 before any fork implementation work proceeds.
 - **SC-008**: `specs/004-turso-substrate-backend/plan.md` and `tasks.md` exist before `/speckit.implement`, and include explicit FR-ID traceability that maps every functional requirement (`FR-001` onward) to one or more tasks.
 - **SC-009**: Every blocker captured during implementation has complete inventory fields (ID, classification, invariant impacted, evidence, chosen action, rationale) in the canonical tracker.
-- **SC-010**: Serialization contract tests cover supported variants, unknown/unsupported variant handling behavior, and migration-policy behavior for schema/data version mismatches.
+- **SC-010**: Serialization contract tests cover supported persisted-`V` shapes, unknown/unsupported shape handling behavior, and migration-policy behavior for schema/data version mismatches.
 - **SC-011**: Concurrency/retry behavior is validated by targeted tests for conflict and transient failure scenarios.
 - **SC-012**: CLI configuration precedence and invalid-combination behavior are validated by targeted CLI tests.
 
