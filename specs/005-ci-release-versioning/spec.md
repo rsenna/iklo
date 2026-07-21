@@ -6,7 +6,7 @@
 
 **Status**: Draft (Queued; activates after epic 004 leaves Draft)
 
-**Input**: Add a basic GitHub Actions pipeline that validates Iklo and publishes the `iklo-cli` binary as a GitHub Release asset, while introducing explicit semantic versioning and release notes generated from commit history between releases.
+**Input**: Add a basic GitHub Actions pipeline that validates Iklo and publishes the `iklo` executable as a GitHub Release asset, while introducing explicit semantic versioning and release notes generated from commit history between releases.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -27,7 +27,7 @@ A maintainer opens a PR and gets an automated pass/fail signal from GitHub Actio
 
 ### User Story 2 - Maintainer can publish an Iklo CLI release artifact (Priority: P1)
 
-A maintainer creates a release tag and receives a GitHub Release containing the `iklo-cli` binary artifact produced by CI.
+A maintainer creates a release tag and receives a GitHub Release containing the `iklo` executable artifact produced by CI.
 
 **Why this priority**: This is the direct delivery mechanism users consume.
 
@@ -35,7 +35,7 @@ A maintainer creates a release tag and receives a GitHub Release containing the 
 
 **Acceptance Scenarios**:
 
-1. **Given** a valid release tag, **When** the release workflow runs, **Then** it builds `iklo-cli` in release mode and uploads binary assets to the GitHub Release.
+1. **Given** a valid release tag, **When** the release workflow runs, **Then** it builds the `iklo` executable in release mode and uploads binary assets to the GitHub Release.
 2. **Given** a release workflow failure during build/package, **When** the workflow completes, **Then** no partial/invalid release is published.
 3. **Given** a valid release tag, **When** the release workflow runs, **Then** it executes `make test` before packaging/publishing assets.
 
@@ -69,8 +69,8 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 ### Functional Requirements
 
 - **FR-001**: A CI workflow MUST run on pull requests targeting `main` and execute at least `make test` and `make build`.
-- **FR-002**: A release workflow MUST run on SemVer tag pushes, execute `make test`, and only then build the `iklo-cli` binary in release mode.
-- **FR-003**: The release workflow MUST publish `iklo-cli` binary assets to GitHub Releases.
+- **FR-002**: A release workflow MUST run on SemVer tag pushes, execute `make test`, and only then build the `iklo` executable in release mode.
+- **FR-003**: The release workflow MUST publish `iklo` executable assets to GitHub Releases.
 - **FR-004**: Release versioning MUST follow Semantic Versioning (`MAJOR.MINOR.PATCH`) with tags in `vMAJOR.MINOR.PATCH` format.
 - **FR-005**: Every CI/release run MUST compute a deterministic build identifier as `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT`; this identifier MUST be attached to release metadata and artifact naming, and MUST strictly increase across successful releases.
 - **FR-006**: Release notes MUST be generated from commit history diff (`previous_release_tag..current_release_tag`) and included in the GitHub Release body.
@@ -85,7 +85,7 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 
 - **Release Tag**: Git tag in SemVer form (`vMAJOR.MINOR.PATCH`) that triggers release automation.
 - **Build Identifier**: CI run identity formatted as `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT`, attached to artifacts/release metadata.
-- **Release Artifact**: Packaged `iklo-cli` binary produced by release workflow.
+- **Release Artifact**: Packaged `iklo` executable produced by release workflow (built from the `iklo-cli` crate).
 - **Release Notes Model**: Structured changelog content derived from commit history between release tags.
 - **Canonical Workspace Version**: Version declared in root `Cargo.toml` under `[workspace.package].version`; must match the release tag without the `v` prefix.
 
@@ -94,12 +94,12 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 ### Measurable Outcomes
 
 - **SC-001**: Pull requests to `main` show CI status from GitHub Actions with test/build checks.
-- **SC-002**: A SemVer tag publish produces a GitHub Release with at least one downloadable `iklo-cli` binary artifact.
+- **SC-002**: A SemVer tag publish produces a GitHub Release with at least one downloadable `iklo` executable artifact.
 - **SC-003**: Two consecutive release runs show a strictly increasing build identifier in release metadata/artifacts.
 - **SC-004**: Release notes include all commits in `previous_tag..current_tag` and exclude older commits.
 - **SC-005**: Invalid tag format and duplicate release-tag attempts fail without publishing artifacts.
 - **SC-006**: A tag/workspace-version mismatch fails before build publication, and the failure message includes both values.
-- **SC-007**: Every published release includes SHA-256 checksum files for all attached `iklo-cli` artifacts.
+- **SC-007**: Every published release includes SHA-256 checksum files for all attached `iklo` executable artifacts.
 
 ## Assumptions
 
