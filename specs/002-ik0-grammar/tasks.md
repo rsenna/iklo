@@ -1,10 +1,13 @@
 ---
 description: "Task list for IK0 formal grammar"
+status: shipped
 ---
 
 # Tasks: IK0 Formal Grammar
 
 **Input**: Design documents from `/specs/002-ik0-grammar/`
+
+**Status**: Shipped (all tasks complete; epic closed).
 
 ## Completed Tasks
 
@@ -36,7 +39,7 @@ description: "Task list for IK0 formal grammar"
 
 - [x] **T009** Update spec.md, plan.md, tasks.md for LALRPOP approach
 
-## Remaining Tasks
+## Closure Tasks (Completed)
 
-- [ ] **T010** Commit changes with conventional commit message
-- [ ] **T011** Open PR from `002-ik0-grammar` → `main`
+- [x] **T010** Commit changes with conventional commit message
+- [x] **T011** Open PR from `002-ik0-grammar` → `main`
