@@ -1,0 +1,31 @@
+Iklo
+Copyright (C) 2026 Iklo contributors
+
+This project is licensed under the GNU General Public License, version 3 or
+(at your option) any later version ("GPL-3.0-or-later"), with the additional
+permission below.
+
+You should have received a copy of the GNU General Public License along with
+this program. If not, see <https://www.gnu.org/licenses/>.
+
+Additional permission under GPLv3 section 7
+--------------------------------------------
+
+The copyright holders of Iklo grant you the following additional permission:
+
+1. Programs, scripts, libraries, and other source files written *in the Iklo
+   language* are not covered by this license merely because they are written in
+   Iklo, executed by Iklo, parsed by Iklo, compiled by Iklo, or distributed
+   for use with Iklo.
+
+2. Output and artifacts produced by running Iklo (including generated source
+   code, compiled binaries, data files, and logs) are not covered by this
+   license merely because they were produced by Iklo.
+
+3. Distributing software that uses Iklo as a language/runtime tool does not, by
+   itself, impose GPL terms on that software. This permission does not remove
+   GPL obligations for Iklo implementation code itself, or for modifications to
+   Iklo implementation code.
+
+For avoidance of doubt: copyleft applies to Iklo implementation code in this
+repository (and modifications to it), not to independent works written in Iklo.
