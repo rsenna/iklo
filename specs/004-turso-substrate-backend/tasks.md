@@ -16,8 +16,8 @@ standalone red-only commits.
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel
+- **[Priority]**: `P1`, `P2`, ... indicate overall priority when used in phase headings (`P1` highest)
 - **[Story]**: US1, US2, or US3
-
 ## Path Conventions
 
 - Rust workspace rooted at repository root
@@ -131,7 +131,7 @@ Allowed `Classification` values:
 
 **Purpose**: Close readiness gaps and enforce traceability.
 
-- [ ] **T024** [US1] Add FR→Task traceability section in this file mapping `FR-001..FR-024` to task IDs (required for SC-008).
+- [ ] **T024** [US1] Validate and maintain the FR→Task traceability section in this file (required for SC-008).
 - [ ] **T025** [US1] During implementation, record every blocker in canonical inventory with full schema fields.
 - [ ] **T026** [US1] If any blocker is `fork-required`, open follow-up ADR/epic before any fork code change.
 - [ ] **T027** [US1] Add an explicit baseline-capture task: record the `main` baseline commit SHA in the implementation PR description (FR-024).
