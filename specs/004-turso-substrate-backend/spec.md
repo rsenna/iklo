@@ -75,7 +75,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 
 **Why this priority**: Required for practical usage and for safe rollout without changing existing defaults.
 
-**Independent Test**: Run `iklo-cli` once in default mode and once in Turso mode; confirm default mode remains ephemeral while Turso mode persists state between runs.
+**Independent Test**: Run the `iklo` executable once in default mode and once in Turso mode; confirm default mode remains ephemeral while Turso mode persists state between runs.
 
 **Acceptance Scenarios**:
 

@@ -5,7 +5,7 @@ Minimal Rust workspace for Iklo with:
 - `iklo-lexer`: tokenization with source spans
 - `iklo-parser`: small expression + `let` parser
 - `iklo-runtime`: transactional live image core
-- `iklo-cli`: runnable REPL/file runner
+- `iklo-cli`: crate that provides the `iklo` REPL/file-runner executable
 
 ## Run
 
@@ -53,4 +53,3 @@ Every top-level evaluation runs as a transaction over the runtime image:
 
 - success => commit (image revision increments)
 - failure => rollback (image unchanged)
-
