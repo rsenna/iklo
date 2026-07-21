@@ -9,7 +9,7 @@
 **Input**: Implement binding kinds using the terminology and matrix ratified by
 `specs/008-binding-model-taxonomy/`. Current target set from `LANGUAGE.md`:
 transactional (`gra`), form (`fm`), interface (`if`), computation (`cp`),
-option/keyword (`key`, with static binding mode), lexical (`val`), dynamic
+option (`key`, with static binding mode), lexical (`val`), dynamic
 (`var`), reactive (`rx`), and synchronised (`sync`).
 
 ## User Scenarios & Testing *(mandatory)*
@@ -45,8 +45,8 @@ implementation tests.
   transactional (`gra`), form (`fm`), interface (`if`), and computation (`cp`).
 - **FR-003**: The runtime MUST support lexical (`val`) and dynamic (`var`)
   kinds.
-- **FR-004**: The runtime MUST support option/keyword (`key`) with static
-  binding mode semantics (self-bound, global, and non-rebindable).
+- **FR-004**: The runtime MUST support option (`key`) with static binding mode
+  semantics (self-bound, global, and non-rebindable).
 - **FR-005**: The runtime MUST support reactive (`rx`) and synchronised
   (`sync`) kinds.
 - **FR-006**: Delivery SHOULD be phased (baseline then advanced kinds), but the

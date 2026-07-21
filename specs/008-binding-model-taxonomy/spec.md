@@ -10,6 +10,17 @@
 `LANGUAGE.md` so binding semantics can be discussed without ambiguity. This epic
 uses **binding mode** as the canonical term for that column.
 
+## Ubiquitous Language Conventions
+
+This epic standardizes terminology used by follow-up epics:
+
+- **Option** is the canonical name for `key`-style values/bindings. "Keyword"
+  may appear only as a cross-language comparison note.
+- **Epic** means a delivery goal; **spike** means exploratory work that reduces
+  uncertainty before delivery planning.
+- **Word** is deprecated in specs. Use **token** for symbolic units and
+  **form** for computation constructs identified by token/pattern.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Language designer gets a better vocabulary
@@ -46,6 +57,8 @@ non-goals.
   docs and to internal implementation.
 - **FR-004**: The epic MUST identify which parts are naming/terminology only
   and which parts require runtime work later.
+- **FR-005**: The epic MUST codify the terms option, token, and form as
+  described above and remove use of deprecated "word" in new spec artifacts.
 
 ## Success Criteria *(mandatory)*
 
