@@ -26,8 +26,9 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 - **AST** (`crates/iklo-ast`) — `Program = Vec<Spanned<Expr>>`; expressions include `Number`, `LexRef`, `Let`, `Binary`.
 - **Parser** (`crates/iklo-parser`) — Pratt precedence; whitespace-sensitive infix ops (so `x-1` stays one identifier); newline is a soft terminator (terminates only when the current expression is complete and can't be continued); `;` is a hard terminator; newlines are swallowed inside parens. Supports `let :name be <expr>` as an expression.
 - **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `RuntimeImage` is a thin façade over `InMemorySubstrate<Value>` (from `iklo-substrate`); `let` and `set` update the image transactionally per top-level expression.
-- **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Ships with an in-memory implementation (`InMemorySubstrate`); Turso-backed impl deferred per [ADR-0001](specs/decisions/ADR-0001-substrate-boundary.md).
-- **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `/`-prefixed (`/quit`, `/revision`, `/env`), recognized only at a fresh prompt, with tab-completion (per ADR-0004).
+- **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Ships with an in-memory implementation (`InMemorySubstrate`), the default.
+- **Substrate (Turso-backed)** (`crates/iklo-substrate-turso`) — `TursoSubstrate<V>` implementation of `Substrate`, opt-in behind the `turso` Cargo feature (epic [004-turso-substrate-backend](specs/004-turso-substrate-backend/spec.md)); passes the same contract suite as `InMemorySubstrate`. **Local-file-only**: no remote/cloud Turso connectivity (blocker `B001` in that epic's `tasks.md` — a deliberate scoping decision, not a limitation to work around).
+- **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `/`-prefixed (`/quit`, `/revision`, `/env`), recognized only at a fresh prompt, with tab-completion (per ADR-0004). Also selects the substrate backend — see "Substrate mode selection" below.
 
 ## Non-negotiable syntax rules
 
@@ -55,6 +56,22 @@ cargo test -p iklo-parser                # target one crate
 
 `mise.toml` pins the Rust and Java toolchains (`mise install` to hydrate).
 There are no plugins yet; the Makefile is deliberately thin.
+
+### Substrate mode selection (`iklo-cli`)
+
+The `iklo` CLI defaults to the in-memory substrate. To use the Turso-backed
+substrate instead, build with the `turso` Cargo feature and pass `--substrate turso`:
+
+```bash
+cargo build --features turso                       # or: cargo build -p iklo-cli --features turso
+cargo run -p iklo-cli --features turso -- --substrate turso --turso-db-url ./state.db
+```
+
+- `--substrate memory|turso` — selects the backend; default `memory`.
+- `--turso-db-url <path>` / `IKLO_TURSO_DB_URL` — **local file path** for the Turso database (`:memory:` also works). The flag takes precedence over the env var. Required when `--substrate turso` is selected; omitting both is a hard error, never a silent fallback to in-memory.
+- `--turso-auth-token <token>` — accepted so setting it isn't an "unknown flag" error, but **currently a no-op**: there is no remote/cloud connectivity in this epic (blocker `B001`), so no authentication actually happens. No corresponding env var exists. Never stored, printed, or logged.
+- `make test` / `make build` use default features and do **not** exercise the Turso backend. Use `--all-features` (e.g. `cargo test --workspace --all-features`) to build/test with Turso support included.
+- `cargo test -p iklo-substrate-turso --features turso` — crate-local test command for the Turso backend, matching the "target one crate" convention above.
 
 ## Coding conventions
 

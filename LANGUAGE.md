@@ -836,8 +836,13 @@ Iklo language semantics are transactional, so VDBE must be (and indeed it is) tr
 
 > **As of 001-substrate (2026):** The runtime image lives behind a
 > [`Substrate`](crates/iklo-substrate/) trait that hides where state
-> resides. The active implementation is in-memory (`InMemorySubstrate`);
-> Turso-backed storage is deferred per
+> resides. The default implementation is in-memory (`InMemorySubstrate`).
+> A Turso-backed implementation now exists (`iklo-substrate-turso`, epic
+> [004-turso-substrate-backend](specs/004-turso-substrate-backend/spec.md)),
+> opt-in via a Cargo feature and CLI flag — it is **local-file-only**, with
+> no remote/cloud Turso connectivity (a deliberate scoping decision, see
+> blocker `B001` in that epic's `tasks.md`), and does not itself constitute
+> VDBE bytecode compilation, which remains deferred per
 > [ADR-0001](specs/decisions/ADR-0001-substrate-boundary.md).
 
 ### Runtime as a persistent image
