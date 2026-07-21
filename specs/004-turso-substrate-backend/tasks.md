@@ -42,7 +42,7 @@ Allowed `Classification` values:
 
 **Purpose**: Create backend crate and integration scaffolding.
 
-- [ ] **T001** [US1] Add `crates/iklo-substrate-turso/` to workspace and scaffold `Cargo.toml` + `src/lib.rs`, gated behind an explicit Cargo feature per ADR-0001 sequencing.
+- [ ] **T001** [US1] Add `crates/iklo-substrate-turso/` to workspace and scaffold `Cargo.toml` + `src/lib.rs`, gated behind an explicit Cargo feature per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md) sequencing.
 - [ ] **T002** [US1] Select and pin Turso Rust client dependency in `crates/iklo-substrate-turso/Cargo.toml` under that feature gate, with a short rationale comment in plan-aligned notes.
 - [ ] **T003** [US1] Define crate-level error types and conversion boundaries in `crates/iklo-substrate-turso/src/lib.rs`.
 - [ ] **T004** [US1] Add schema bootstrap module `crates/iklo-substrate-turso/src/schema.rs` with idempotent create/verify entrypoints.
