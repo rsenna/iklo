@@ -63,9 +63,8 @@ In this document, `A -> B` means:
 - **Spec**: [007-ik1-core-language/spec.md](007-ik1-core-language/spec.md)
 - **Start criteria**:
   - Epics 006 and 008 are accepted and linked.
-  - An ADR for introducing IK1 grammar constructs (`fn`, `cond`, `repeat`) is
-    accepted, or epic 007 explicitly states those forms are implementable
-    without new grammar-level ADRs.
+  - An ADR covering IK1 grammar constructs (`fn`, `cond`, `repeat`) is accepted
+    before implementation begins.
 - **Done criteria**:
   - stdio IO is provided by standard library APIs (not a primitive).
   - `fn` + lexical `let :name be <expr>` closure flow works.
