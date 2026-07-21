@@ -75,9 +75,13 @@ let :x be 1; :x # forced two expressions via hard terminator
 
 REPL commands are slash-prefixed and recognized only at a fresh prompt:
 
-- `/quit`
-- `/revision`
-- `/env`
+- `/quit` — **Purpose:** exit the REPL session. **Current status:** implemented and working.
+- `/revision` — **Purpose:** show the current runtime-image revision counter.
+  **Current status:** implemented; prints a number (`0` on a fresh session, then
+  increments after each successful top-level evaluation commit).
+- `/env` — **Purpose:** inspect current lexical bindings in the runtime image.
+  **Current status:** implemented; prints one binding per line as `:name = value`
+  (prints nothing when no bindings exist yet).
 
 ## Transaction model
 
