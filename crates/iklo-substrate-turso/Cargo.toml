@@ -1,0 +1,14 @@
+[package]
+name = "iklo-substrate-turso"
+edition.workspace = true
+version.workspace = true
+license-file = "../../LICENSE"
+
+[dependencies]
+iklo-substrate = { path = "../iklo-substrate" }
+
+[features]
+turso = []
+
+[lib]
+path = "src/lib.rs"
