@@ -78,7 +78,7 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 - **FR-008**: The workflow MUST fail and avoid publishing when tag format, build, tests, packaging, or note generation steps fail.
 - **FR-009**: The first release (no previous tag) MUST be supported with a deterministic fallback note-generation strategy.
 - **FR-010**: Canonical release version source MUST be `Cargo.toml` `[workspace.package].version`; release tag MUST equal `v<workspace-version>`, and mismatches MUST fail before build/publish.
-- **FR-011**: `previous_release_tag` MUST be selected deterministically as the nearest reachable prior SemVer tag from `current_release_tag` (equivalent to `git describe --tags --abbrev=0 <current_tag>^`); if none exists, FR-009 fallback applies.
+- **FR-011**: `previous_release_tag` MUST be selected deterministically as the nearest reachable prior SemVer tag from `current_release_tag` (equivalent to `git describe --tags --match "v[0-9]*" --abbrev=0 <current_tag>^`); if none exists, FR-009 fallback applies.
 - **FR-012**: The release workflow MUST generate and publish SHA-256 checksums for every release artifact.
 
 ### Key Entities
