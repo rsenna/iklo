@@ -8,13 +8,15 @@
 
 **Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
-## Integration Strategy (Decision Record)
+## Integration Strategy
+
+Fork-governance policy is defined in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md). This spec applies that policy to the implementation sequence below.
 
 This epic follows an explicit three-phase strategy for Turso integration:
 
 1. **Adapter-first (no fork default)**: build `iklo-substrate-turso` against exposed/stable Turso interfaces only.
-2. **Fork-on-blocker (gated)**: fork Turso only when a required `Substrate` invariant cannot be satisfied in Iklo's adapter layer.
-3. **Fork-governed (controlled)**: any fork change is bounded, documented, and evaluated for upstreaming.
+2. **Fork-on-blocker (gated)**: if a required `Substrate` invariant cannot be satisfied in Iklo's adapter layer, record the blocker and escalate per ADR-0005.
+3. **Fork-governed (controlled)**: any fork work belongs to a follow-up ADR/epic, not this epic.
 
 Decision rule for each integration issue:
 
@@ -75,7 +77,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - If a commit fails due to transport/auth/database error, the transaction is treated as failed, the error is surfaced to the caller, and no uncommitted mutation becomes visible.
 - If two runtime instances contend over the same binding keys, correctness follows database transaction guarantees: each top-level evaluation is atomic, with no torn writes and no partial visibility.
 - Schema initialization is idempotent: first run creates required tables/indexes, and subsequent runs verify compatibility without destructive migration.
-- If integration blockers are discovered, each blocker is classified as: adapter-fixable, upstream-fixable, or fork-required, with rationale captured in this epic artifacts.
+- If integration blockers are discovered, each blocker is classified as: adapter-fixable, upstream-fixable, or fork-required, with rationale captured in this epic's artifacts.
 
 ## Requirements *(mandatory)*
 
@@ -95,9 +97,9 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **FR-012**: Schema bootstrap MUST be idempotent and validated on startup; incompatible schema versions MUST fail with an explicit migration/version error.
 - **FR-013**: Multi-instance contention behavior MUST be defined by transactional correctness guarantees (atomic commit/rollback visibility), with conflicts surfaced as explicit errors or retries per backend semantics.
 - **FR-014**: Implementation sequencing MUST be adapter-first: `iklo-substrate-turso` starts with no Turso fork and uses only exposed/stable interfaces.
-- **FR-015**: Turso fork work MUST be gated by explicit blocker evidence showing a required `Substrate` invariant cannot be implemented in Iklo's adapter layer.
+- **FR-015**: Turso fork work MUST be gated by explicit blocker evidence showing a required `Substrate` invariant cannot be implemented in Iklo's adapter layer, and any fork execution is out of scope for this epic.
 - **FR-016**: For each blocker, the project MUST record classification (`adapter-fixable`, `upstream-fixable`, `fork-required`) and chosen action with rationale.
-- **FR-017**: If a fork is created, governance MUST be explicit: patch scope limits, upstream-first contribution policy when feasible, and a sync cadence with upstream Turso.
+- **FR-017**: If a blocker is classified as fork-required, the next step MUST be a follow-up ADR/epic under ADR-0005 governance (patch scope limits, upstream-first policy when feasible, and upstream sync cadence), rather than fork implementation in this epic.
 
 ### Key Entities
 
@@ -116,7 +118,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **SC-004**: CLI default mode remains in-memory and non-persistent, while explicit Turso mode persists state.
 - **SC-005**: `make test && make build && make release` succeed in a clean workspace.
 - **SC-006**: A blocker inventory exists for Turso integration, with every blocker classified and linked to a concrete action (adapter fix, upstream proposal, or fork patch).
-- **SC-007**: If any fork-required blockers exist, fork-governance rules are documented and applied before implementation proceeds.
+- **SC-007**: If any fork-required blockers exist, a follow-up ADR/epic is opened under ADR-0005 before any fork implementation work proceeds.
 
 ## Assumptions
 
@@ -125,3 +127,4 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - Serialization strategy for Iklo runtime values can be implemented incrementally while preserving current value coverage required by tests.
 - Concurrency semantics will follow Turso/SQLite transactional guarantees plus the existing `Substrate` contract.
 - VDBE-targeted compiler work remains out of scope and stays gated behind a future, separate ADR.
+- Any Turso fork implementation work is out of scope for this epic and requires a separate ADR/epic.

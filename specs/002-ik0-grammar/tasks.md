@@ -39,7 +39,7 @@ status: shipped
 
 - [x] **T009** Update spec.md, plan.md, tasks.md for LALRPOP approach
 
-## Remaining Tasks
+## Closure Tasks (Completed)
 
 - [x] **T010** Commit changes with conventional commit message
 - [x] **T011** Open PR from `002-ik0-grammar` → `main`
