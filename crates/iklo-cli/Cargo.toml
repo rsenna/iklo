@@ -2,7 +2,7 @@
 name = "iklo-cli"
 edition.workspace = true
 version.workspace = true
-license.workspace = true
+license-file = "../../LICENSE"
 
 [dependencies]
 iklo-parser = { path = "../iklo-parser" }
@@ -12,4 +12,3 @@ rustyline = { version = "18.0.0", features = ["derive"] }
 [[bin]]
 name = "iklo"
 path = "src/main.rs"
-
