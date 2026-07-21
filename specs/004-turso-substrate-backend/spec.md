@@ -32,7 +32,7 @@ The following execution gaps are considered in-scope tracking items for this epi
 2. Blocker inventory storage/location and schema are not yet explicit.
 3. Fork-escalation mechanics (trigger, evidence, approval handoff) need precise workflow rules.
 4. Value persistence/serialization shape is not yet constrained.
-5. Concurrency conflict and retry policy is still too open-ended.
+5. Concurrency conflict handling and retry policy are still too open-ended.
 6. CLI configuration precedence and invalid-combination behavior need explicit rules.
 7. Branch-sync hygiene before implementation must be treated as an execution prerequisite.
 
