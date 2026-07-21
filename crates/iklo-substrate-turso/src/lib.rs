@@ -8,6 +8,9 @@
 #[cfg(feature = "turso")]
 use std::fmt;
 
+#[cfg(feature = "turso")]
+pub mod schema;
+
 /// Errors produced by this crate's Turso integration.
 ///
 /// Intentionally minimal today — mirrors the style of
@@ -18,6 +21,16 @@ use std::fmt;
 pub enum TursoSubstrateError {
     /// A lower-level Turso database error occurred.
     Turso(turso::Error),
+    /// The on-disk schema version stored in `iklo_substrate_meta` does not
+    /// match the schema version this crate expects. This is distinct from a
+    /// generic [`turso::Error`] so callers (and tests) can distinguish an
+    /// incompatible-schema failure from an I/O or driver-level failure.
+    SchemaVersionMismatch {
+        /// The schema version this build of the crate expects.
+        expected: i64,
+        /// The schema version found in the database.
+        found: i64,
+    },
 }
 
 #[cfg(feature = "turso")]
@@ -25,6 +38,10 @@ impl fmt::Display for TursoSubstrateError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TursoSubstrateError::Turso(err) => write!(f, "turso error: {err}"),
+            TursoSubstrateError::SchemaVersionMismatch { expected, found } => write!(
+                f,
+                "schema version mismatch: expected {expected}, found {found}"
+            ),
         }
     }
 }
@@ -34,6 +51,7 @@ impl std::error::Error for TursoSubstrateError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             TursoSubstrateError::Turso(err) => Some(err),
+            TursoSubstrateError::SchemaVersionMismatch { .. } => None,
         }
     }
 }
