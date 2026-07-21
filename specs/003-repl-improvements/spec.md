@@ -69,11 +69,11 @@ A person at the `iklo>` prompt types `/` and gets tab-completion over the availa
 
 ## Success Criteria
 
-- **SC-001**: A user can navigate REPL input history with the Up/Down arrow keys within a session.
-- **SC-002**: REPL history persists across separate REPL invocations via `.iklo_history`.
-- **SC-003**: Typing `/` at a fresh REPL prompt and pressing Tab offers completion over `quit`, `revision`, `env`.
-- **SC-004**: A `/` anywhere else in input (e.g. `10 / 2`) is parsed as ordinary Iklo syntax with zero REPL-level interception.
-- **SC-005**: `cargo test --workspace` passes with zero changes to `iklo-lexer`, `iklo-parser`, or `iklo-ast`.
+- **SC-001** ✅: A user can navigate REPL input history with the Up/Down arrow keys within a session.
+- **SC-002** ✅: REPL history persists across separate REPL invocations via `.iklo_history`.
+- **SC-003** ✅: Typing `/` at a fresh REPL prompt and pressing Tab offers completion over `quit`, `revision`, `env`.
+- **SC-004** ✅: A `/` anywhere else in input (e.g. `10 / 2`) is parsed as ordinary Iklo syntax with zero REPL-level interception.
+- **SC-005** ✅: `cargo test --workspace` passes with zero changes to `iklo-lexer`, `iklo-parser`, or `iklo-ast`.
 
 ## Assumptions
 
