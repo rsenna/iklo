@@ -7,11 +7,16 @@
 //! is unaffected.
 #![cfg(feature = "turso")]
 
+use std::time::Duration;
+
 use turso::Value;
 
 use crate::codec::{Codec, CODEC_VERSION_I64};
 use crate::schema;
-use crate::TursoSubstrateError;
+use crate::{
+    classify, resolve_ambiguous_commit, AmbiguousCommitResolution, RetryClass, RetryPolicy,
+    TursoSubstrateError,
+};
 
 #[test]
 fn turso_error_converts_to_turso_substrate_error() {
@@ -300,4 +305,171 @@ fn i64_decode_does_not_panic_on_single_byte_slice() {
         TursoSubstrateError::CodecDecodeFailed(_) => {}
         other => panic!("expected CodecDecodeFailed, got {other:?}"),
     }
+}
+
+// --- retry classification, backoff policy, ambiguous-commit resolution (T009/T010) ---
+//
+// Pure policy logic, no live database required, but kept in this
+// feature-gated file alongside the rest of the crate's tests per the brief.
+
+#[test]
+fn classify_treats_busy_as_retryable() {
+    // `Busy` is the canonical SQLite/Turso lock-contention error — a real,
+    // constructible `turso::Error` variant (not fabricated).
+    let err = TursoSubstrateError::Turso(turso::Error::Busy("database is locked".to_string()));
+    assert_eq!(classify(&err), RetryClass::Retryable);
+}
+
+#[test]
+fn classify_treats_busy_snapshot_and_interrupt_and_io_error_as_retryable() {
+    let busy_snapshot =
+        TursoSubstrateError::Turso(turso::Error::BusySnapshot("snapshot conflict".to_string()));
+    assert_eq!(classify(&busy_snapshot), RetryClass::Retryable);
+
+    let interrupt =
+        TursoSubstrateError::Turso(turso::Error::Interrupt("interrupted".to_string()));
+    assert_eq!(classify(&interrupt), RetryClass::Retryable);
+
+    let io_error = TursoSubstrateError::Turso(turso::Error::IoError(
+        std::io::ErrorKind::TimedOut,
+        "read",
+    ));
+    assert_eq!(classify(&io_error), RetryClass::Retryable);
+}
+
+#[test]
+fn classify_treats_misuse_as_surface_immediately() {
+    // `Misuse` is a caller/programmer error — retrying without fixing the
+    // call site cannot succeed.
+    let err = TursoSubstrateError::Turso(turso::Error::Misuse("bad argument count".to_string()));
+    assert_eq!(classify(&err), RetryClass::SurfaceImmediately);
+}
+
+#[test]
+fn classify_treats_constraint_readonly_corrupt_and_opaque_error_as_surface_immediately() {
+    let constraint =
+        TursoSubstrateError::Turso(turso::Error::Constraint("UNIQUE violated".to_string()));
+    assert_eq!(classify(&constraint), RetryClass::SurfaceImmediately);
+
+    let readonly = TursoSubstrateError::Turso(turso::Error::Readonly("read-only db".to_string()));
+    assert_eq!(classify(&readonly), RetryClass::SurfaceImmediately);
+
+    let corrupt = TursoSubstrateError::Turso(turso::Error::Corrupt("corrupt page".to_string()));
+    assert_eq!(classify(&corrupt), RetryClass::SurfaceImmediately);
+
+    // The opaque catch-all `Error(String)` variant carries no structured
+    // error code, so the documented, conservative default is
+    // SurfaceImmediately rather than a blind retry.
+    let opaque = TursoSubstrateError::Turso(turso::Error::Error("unspecified".to_string()));
+    assert_eq!(classify(&opaque), RetryClass::SurfaceImmediately);
+}
+
+#[test]
+fn classify_treats_this_crates_own_error_variants_as_surface_immediately() {
+    let schema_mismatch = TursoSubstrateError::SchemaVersionMismatch {
+        expected: 1,
+        found: 2,
+    };
+    assert_eq!(classify(&schema_mismatch), RetryClass::SurfaceImmediately);
+
+    let unsupported_codec = TursoSubstrateError::UnsupportedCodecVersion { found: 0xFF };
+    assert_eq!(classify(&unsupported_codec), RetryClass::SurfaceImmediately);
+
+    let codec_decode_failed = TursoSubstrateError::CodecDecodeFailed("bad payload".to_string());
+    assert_eq!(
+        classify(&codec_decode_failed),
+        RetryClass::SurfaceImmediately
+    );
+}
+
+#[test]
+fn classify_uses_a_real_turso_error_obtained_from_a_live_database() {
+    // Like T005/T006, obtain a real `turso::Error` by triggering one against
+    // an in-memory database rather than hand-constructing every case.
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build tokio runtime");
+
+    let err = rt.block_on(async {
+        let conn = fresh_connection().await;
+        // No such table exists on a never-bootstrapped, freshly-created
+        // in-memory database.
+        match conn.query("SELECT * FROM does_not_exist", ()).await {
+            Ok(_) => panic!("querying a nonexistent table must fail"),
+            Err(err) => err,
+        }
+    });
+
+    let wrapped: TursoSubstrateError = err.into();
+    // A "no such table" failure is a caller/schema-mismatch condition, not a
+    // transient one — retrying an identical query against an unchanged
+    // schema will fail identically every time.
+    assert_eq!(classify(&wrapped), RetryClass::SurfaceImmediately);
+}
+
+#[test]
+fn retry_policy_backoff_follows_exponential_formula_before_the_cap() {
+    let policy = RetryPolicy {
+        max_attempts: 10,
+        base_backoff: Duration::from_millis(100),
+    };
+
+    assert_eq!(policy.backoff_for(1), Duration::from_millis(100));
+    assert_eq!(policy.backoff_for(2), Duration::from_millis(200));
+    assert_eq!(policy.backoff_for(3), Duration::from_millis(400));
+    assert_eq!(policy.backoff_for(4), Duration::from_millis(800));
+}
+
+#[test]
+fn retry_policy_backoff_treats_attempt_zero_like_attempt_one() {
+    let policy = RetryPolicy {
+        max_attempts: 10,
+        base_backoff: Duration::from_millis(100),
+    };
+
+    assert_eq!(policy.backoff_for(0), policy.backoff_for(1));
+}
+
+#[test]
+fn retry_policy_backoff_is_capped_and_does_not_grow_unbounded() {
+    let policy = RetryPolicy {
+        max_attempts: 10,
+        base_backoff: Duration::from_millis(100),
+    };
+
+    // Well past the point where 100ms * 2^(attempt-1) would exceed the cap.
+    assert_eq!(policy.backoff_for(20), RetryPolicy::MAX_BACKOFF);
+
+    // A very high attempt number must not panic (overflow) and must still
+    // be clamped to the cap, not grow unbounded.
+    assert_eq!(policy.backoff_for(u32::MAX), RetryPolicy::MAX_BACKOFF);
+}
+
+#[test]
+fn resolve_ambiguous_commit_returns_already_applied_when_verify_confirms_it_landed() {
+    let resolution = resolve_ambiguous_commit(|| Ok(true));
+    assert_eq!(resolution, AmbiguousCommitResolution::AlreadyApplied);
+}
+
+#[test]
+fn resolve_ambiguous_commit_returns_safe_to_retry_when_verify_confirms_it_did_not_land() {
+    let resolution = resolve_ambiguous_commit(|| Ok(false));
+    assert_eq!(resolution, AmbiguousCommitResolution::SafeToRetry);
+}
+
+#[test]
+fn resolve_ambiguous_commit_returns_verification_failed_when_verify_errors_and_never_retries() {
+    // The core invariant: if `verify` itself cannot determine the outcome,
+    // the function must surface immediately, NOT signal a retry — a
+    // networked commit that timed out may have already landed server-side,
+    // and retrying without a confirmed negative risks double-applying it.
+    let resolution = resolve_ambiguous_commit(|| {
+        Err(TursoSubstrateError::Turso(turso::Error::IoError(
+            std::io::ErrorKind::ConnectionReset,
+            "verify",
+        )))
+    });
+    assert_eq!(resolution, AmbiguousCommitResolution::VerificationFailed);
+    assert_ne!(resolution, AmbiguousCommitResolution::SafeToRetry);
 }
