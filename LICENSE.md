@@ -18,10 +18,10 @@ The legally operative terms are in [LICENSE](LICENSE).
 
 ## Dependency license check
 
-A workspace dependency audit was run via `cargo metadata`. Current Rust
-dependencies are permissive licensed (`MIT`, `Apache-2.0`, `BSD-1-Clause`,
-`Unicode-3.0`, and combinations like `MIT OR Apache-2.0`), with no missing
-license fields reported.
+Best-effort snapshot (2026-07-21): a workspace dependency audit was run via
+`cargo metadata`. Current Rust dependencies are permissively licensed (`MIT`,
+`Apache-2.0`, `BSD-1-Clause`, `Unicode-3.0`, and combinations like
+`MIT OR Apache-2.0`), with no missing license fields reported.
 
 No conflicting copyleft dependencies were identified in the Rust dependency
-graph at the time of this update.
+graph at that time.

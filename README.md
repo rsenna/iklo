@@ -12,7 +12,8 @@ Today it ships as a workspace centered on a REPL/file runner executable named
 
 - Lexer (`iklo-lexer`) with `Lexeme` output.
 - AST (`iklo-ast`) for number, lexical reference, let, and binary expressions.
-- Parser (`iklo-parser`) with Pratt precedence and soft-newline termination.
+- Parser (`iklo-parser`) with LALRPOP grammar, operator precedence, and
+  soft-newline termination.
 - Runtime (`iklo-runtime`) with transactional evaluation over the live image.
 - Substrate boundary (`iklo-substrate`) with in-memory implementation.
 - CLI (`iklo-cli`) REPL and file runner (`iklo` executable).
@@ -61,12 +62,12 @@ expression is already complete and cannot be continued by the next line.
 
 ```iklo
 let :x be 1 +
-  2
+  2            # one expression: 1 + 2
 
 1 + 2
-* 3
+* 3            # error: `1 + 2` is complete, so newline terminated it
 
-let :x be 1; :x
+let :x be 1; :x # forced two expressions via hard terminator
 ```
 
 ## REPL commands
