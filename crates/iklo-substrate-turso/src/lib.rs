@@ -9,6 +9,9 @@
 use std::fmt;
 
 #[cfg(feature = "turso")]
+pub mod codec;
+
+#[cfg(feature = "turso")]
 pub mod schema;
 
 #[cfg(test)]
@@ -34,6 +37,18 @@ pub enum TursoSubstrateError {
         /// The schema version found in the database.
         found: i64,
     },
+    /// A [`codec`] version tag was not recognized. See the `codec` module's
+    /// migration policy docs: with only one version defined today, an
+    /// unrecognized tag is always a hard decode error, never a silent
+    /// best-effort parse.
+    UnsupportedCodecVersion {
+        /// The unrecognized version byte found in the payload.
+        found: u8,
+    },
+    /// A [`codec`] payload had a valid version tag but could not otherwise
+    /// be decoded (e.g. wrong payload length for the version). Carries a
+    /// human-readable description of what went wrong.
+    CodecDecodeFailed(String),
 }
 
 #[cfg(feature = "turso")]
@@ -45,6 +60,12 @@ impl fmt::Display for TursoSubstrateError {
                 f,
                 "schema version mismatch: expected {expected}, found {found}"
             ),
+            TursoSubstrateError::UnsupportedCodecVersion { found } => {
+                write!(f, "unsupported codec version tag: {found}")
+            }
+            TursoSubstrateError::CodecDecodeFailed(reason) => {
+                write!(f, "codec decode failed: {reason}")
+            }
         }
     }
 }
@@ -55,6 +76,8 @@ impl std::error::Error for TursoSubstrateError {
         match self {
             TursoSubstrateError::Turso(err) => Some(err),
             TursoSubstrateError::SchemaVersionMismatch { .. } => None,
+            TursoSubstrateError::UnsupportedCodecVersion { .. } => None,
+            TursoSubstrateError::CodecDecodeFailed(_) => None,
         }
     }
 }
