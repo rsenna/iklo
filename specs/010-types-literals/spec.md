@@ -1,11 +1,14 @@
 # Feature Specification: Basic Types and Literal Constructors
 
-**Feature Branch**: `010-types-literals`  
-**Created**: 2026-07-21  
-**Status**: Draft
+**Feature Branch**: `010-types-literals`
+
+**Created**: 2026-07-21
+
+**Status**: Draft (Queued; activates after epic 004 leaves Draft)
 
 **Input**: Expand the basic type system and standard literal-constructor forms
-for primitive and composite values.
+for primitive and composite values, as the canonical full inventory that
+supersedes interim IK1 subset listings.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -35,9 +38,10 @@ types, names, and constructor forms.
 
 ## Requirements *(mandatory)*
 
-- **FR-001**: The epic MUST define the canonical primitive-type inventory.
-- **FR-002**: The epic MUST define the naming rule for primitive families and
-  any width-suffixed variants.
+- **FR-001**: The epic MUST define the canonical full primitive-type inventory
+  for Iklo and its naming/width rules.
+- **FR-002**: The epic MUST define how IK1 subset types from epic 007 map into
+  this canonical inventory.
 - **FR-003**: The epic MUST define literal constructors for the documented
   primitive and composite types.
 - **FR-004**: Literal constructors MUST be pure and return deterministic syntax
@@ -51,4 +55,3 @@ types, names, and constructor forms.
 - **SC-002**: Literal constructors round-trip for the documented examples.
 - **SC-003**: The type and literal documentation is stable enough to support
   future implementation epics.
-

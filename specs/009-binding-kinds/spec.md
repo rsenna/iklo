@@ -1,12 +1,16 @@
 # Feature Specification: Binding Kinds Implementation
 
-**Feature Branch**: `009-binding-kinds`  
-**Created**: 2026-07-21  
-**Status**: Draft
+**Feature Branch**: `009-binding-kinds`
 
-**Input**: Implement the binding kinds currently named transactional, form,
-interface, computation, option, static, lexical, dynamic, reactive, and
-synchronised.
+**Created**: 2026-07-21
+
+**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+
+**Input**: Implement binding kinds using the terminology and matrix ratified by
+`specs/008-binding-model-taxonomy/`. Current target set from `LANGUAGE.md`:
+transactional (`gra`), form (`fm`), interface (`if`), computation (`cp`),
+option/keyword (`key`, with static binding mode), lexical (`val`), dynamic
+(`var`), reactive (`rx`), and synchronised (`sync`).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -35,20 +39,21 @@ implementation tests.
 
 ## Requirements *(mandatory)*
 
-- **FR-001**: The runtime MUST support transactional bindings.
-- **FR-002**: The runtime MUST support form bindings.
-- **FR-003**: The runtime MUST support interface bindings.
-- **FR-004**: The runtime MUST support computation bindings.
-- **FR-005**: The runtime MUST support option/keyword bindings.
-- **FR-006**: The runtime MUST support static bindings.
-- **FR-007**: The runtime MUST support lexical bindings.
-- **FR-008**: The runtime MUST support dynamic bindings.
-- **FR-009**: The runtime MUST support reactive bindings.
-- **FR-010**: The runtime MUST support synchronised bindings.
+- **FR-001**: This epic MUST implement binding kinds and binding-mode behavior
+  according to the taxonomy and names ratified in epic 008.
+- **FR-002**: The runtime MUST support the graph-backed kinds:
+  transactional (`gra`), form (`fm`), interface (`if`), and computation (`cp`).
+- **FR-003**: The runtime MUST support lexical (`val`) and dynamic (`var`)
+  kinds.
+- **FR-004**: The runtime MUST support option/keyword (`key`) with static
+  binding mode semantics (self-bound, global, and non-rebindable).
+- **FR-005**: The runtime MUST support reactive (`rx`) and synchronised
+  (`sync`) kinds.
+- **FR-006**: Delivery SHOULD be phased (baseline then advanced kinds), but the
+  final epic scope MUST cover all target kinds above.
 
 ## Success Criteria *(mandatory)*
 
 - **SC-001**: Each binding kind has at least one proving test.
 - **SC-002**: The user-visible documentation explains when to use each kind.
 - **SC-003**: The runtime behavior matches the taxonomy epic.
-

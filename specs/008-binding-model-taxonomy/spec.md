@@ -1,18 +1,21 @@
 # Feature Specification: Binding Model Taxonomy
 
-**Feature Branch**: `008-binding-model-taxonomy`  
-**Created**: 2026-07-21  
-**Status**: Draft
+**Feature Branch**: `008-binding-model-taxonomy`
 
-**Input**: Define the terms and dimensions behind the current `engine` column in
-`LANGUAGE.md` so binding semantics can be discussed without ambiguity.
+**Created**: 2026-07-21
+
+**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+
+**Input**: Define the terms and dimensions behind the current `Engine` column in
+`LANGUAGE.md` so binding semantics can be discussed without ambiguity. This epic
+uses **binding mode** as the canonical term for that column.
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Language designer gets a better vocabulary
 
 A language designer wants one name for the concept currently labeled
-“engine/styled binding” and wants it to mean the same thing everywhere.
+`Engine` and wants it to mean the same thing everywhere.
 
 **Independent Test**: The reference docs use one canonical term and explain why
 it was chosen.
@@ -35,8 +38,8 @@ non-goals.
 
 ## Requirements *(mandatory)*
 
-- **FR-001**: The epic MUST choose a canonical term for the current “engine”
-  column.
+- **FR-001**: The epic MUST adopt **binding mode** as the canonical term for
+  the current `Engine` column and update docs to use it consistently.
 - **FR-002**: The epic MUST define the dimensions that distinguish binding
   behaviors.
 - **FR-003**: The epic MUST explain how the taxonomy applies to user-facing
@@ -50,4 +53,3 @@ non-goals.
 - **SC-002**: The taxonomy can classify every current and proposed binding
   behavior.
 - **SC-003**: The taxonomy is reusable by the implementation epic.
-
