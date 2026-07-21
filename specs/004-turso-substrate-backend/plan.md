@@ -18,6 +18,7 @@ escalation path only (per [ADR-0005](../decisions/ADR-0005-turso-fork-governance
 **Primary Dependencies**:
 - Existing crates: `iklo-substrate`, `iklo-runtime`, `iklo-cli`
 - New integration dependency: Turso Rust client (exact crate/API validated in implementation tasks)
+- Feature gating: Turso-backed crate and wiring are behind an explicit Cargo feature until stabilized.
 
 **Storage**: Turso-backed SQLite-compatible database for bindings + revision metadata; in-memory substrate remains default.
 
@@ -54,7 +55,7 @@ Checked against [`.specify/memory/constitution.md`](../../.specify/memory/consti
 - **III. Substrate Before Feature**: Work stays behind `Substrate` boundary.
 - **IV. Kebab-Case Iklo, Idiomatic Rust**: Preserved.
 - **V. Comments Justify Themselves**: No explanatory noise planned.
-- **VI. ADRs for Load-Bearing Decisions**: Fork governance in ADR-0005.
+- **VI. ADRs for Load-Bearing Decisions**: Fork governance in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md).
 - **VII. No Workarounds Left Standing**: Blockers must be classified and actioned.
 
 No constitutional violations planned.
@@ -117,6 +118,8 @@ backend concerns isolated and avoid dependency cycles with `iklo-substrate`.
 5. **Concurrency behavior policy**
    - Define retryable vs non-retryable failures, retry bounds/backoff, and
      immediate-surface error classes.
+   - Include ambiguous commit-result handling over remote transport (verify
+     commit outcome before any retry decision).
 
 ## Complexity Tracking
 
