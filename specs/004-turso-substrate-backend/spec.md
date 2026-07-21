@@ -6,11 +6,11 @@
 
 **Status**: Draft
 
-**Input**: Implement the next milestone committed by ADR-0001: add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
+**Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Runtime contributor can run Iklo on a persistent backend (Priority: P1) 🎯 MVP
+### User Story 1 - Runtime contributor can run Iklo on a persistent backend (Priority: P1)
 
 A contributor can opt into a Turso-backed substrate and execute the current interpreter semantics (`let`, `set`, lexical reads, transactional top-level eval) with committed state surviving process restarts.
 
@@ -20,8 +20,8 @@ A contributor can opt into a Turso-backed substrate and execute the current inte
 
 **Acceptance Scenarios**:
 
-1. **Given** a new Turso-backed substrate instance, **When** the first transaction commits `x = 42`, **Then** a fresh instance opened against the same database can read `x = 42`.
-2. **Given** a Turso-backed transaction that sets a value then rolls back, **When** a new transaction reads the same key, **Then** the rolled-back value is not visible.
+1. **Given** a new Turso-backed substrate instance, **When** `Transaction::set("x", 42)` is committed, **Then** a fresh instance opened against the same database can read `Some(42)` from `get("x")`.
+2. **Given** a Turso-backed transaction that calls `set("x", 42)` and then rolls back, **When** a new transaction calls `get("x")`, **Then** the rolled-back value is not visible.
 3. **Given** a sequence of successful commits, **When** revision is queried, **Then** it increases by one per commit and never increases on rollback.
 
 ---
@@ -57,10 +57,10 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 
 ### Edge Cases
 
-- What happens when the Turso database is unreachable at startup?
-- What happens when a commit partially fails due to transport or auth errors?
-- What happens when two runtime instances contend over the same logical binding keys?
-- How is schema initialization handled on an empty database versus an existing one?
+- If the Turso database is unreachable at startup, substrate initialization fails fast with an explicit error and no fallback to in-memory mode.
+- If a commit fails due to transport/auth/database error, the transaction is treated as failed, the error is surfaced to the caller, and no uncommitted mutation becomes visible.
+- If two runtime instances contend over the same binding keys, correctness follows database transaction guarantees: each top-level evaluation is atomic, with no torn writes and no partial visibility.
+- Schema initialization is idempotent: first run creates required tables/indexes, and subsequent runs verify compatibility without destructive migration.
 
 ## Requirements *(mandatory)*
 
@@ -76,10 +76,13 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **FR-008**: This epic MUST NOT introduce VDBE bytecode compilation, opcode work, or Turso forks; scope is storage backend only.
 - **FR-009**: `make test`, `make build`, and `make release` MUST pass with Turso support enabled in CI-reproducible configuration.
 - **FR-010**: Documentation (`AGENTS.md`, `README.md`, `LANGUAGE.md`) MUST describe both substrate modes and the default selection behavior accurately.
+- **FR-011**: CLI substrate selection MUST be explicit and stable: `--substrate memory|turso` (default `memory`) and Turso mode MUST require `--turso-db-url <url>` (or `IKLO_TURSO_DB_URL`) plus optional `--turso-auth-token <token>` (or `IKLO_TURSO_AUTH_TOKEN`).
+- **FR-012**: Schema bootstrap MUST be idempotent and validated on startup; incompatible schema versions MUST fail with an explicit migration/version error.
+- **FR-013**: Multi-instance contention behavior MUST be defined by transactional correctness guarantees (atomic commit/rollback visibility), with conflicts surfaced as explicit errors or retries per backend semantics.
 
 ### Key Entities
 
-- **TursoSubstrate\<V\>**: Turso-backed `Substrate` implementation that stores bindings and revision state transactionally.
+- **`TursoSubstrate<V>`**: Turso-backed `Substrate` implementation that stores bindings and revision state transactionally.
 - **Substrate Record**: Persisted representation of a binding (`name`, `value`, revision visibility).
 - **Revision State**: Persisted monotonic counter tracking committed top-level evaluations.
 - **CLI Substrate Mode**: Explicit runtime selection between in-memory and Turso-backed substrate.
@@ -88,7 +91,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 
 ### Measurable Outcomes
 
-- **SC-001**: `cargo test -p iklo-substrate` passes with contract tests instantiated for both in-memory and Turso implementations.
+- **SC-001**: `cargo test --workspace` passes, including contract-suite instantiation in both `iklo-substrate` (in-memory) and `iklo-substrate-turso` (Turso backend).
 - **SC-002**: A restart persistence test demonstrates committed bindings and revision continuity in Turso mode.
 - **SC-003**: Existing `iklo-runtime` behavior tests pass unchanged in source.
 - **SC-004**: CLI default mode remains in-memory and non-persistent, while explicit Turso mode persists state.

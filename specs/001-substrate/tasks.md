@@ -1,9 +1,9 @@
 ---
 description: "Task list for substrate capability boundary"
-status: shipped-partial
+status: shipped
 ---
 
-**Status**: Shipped (partial — T001–T007 completed, reaching the Phase 4 MVP-of-the-refactor checkpoint; T008–T012 paused explicitly and deferred to a future continuation of this epic).
+**Status**: Shipped (all tasks complete; epic closed).
 
 # Tasks: Substrate Capability Boundary
 
@@ -103,7 +103,7 @@ status: shipped-partial
 
 **Independent Test**: `grep -E 'HashMap|Vec<HashMap>|RefCell' crates/iklo-runtime/src/` returns no matches related to binding storage.
 
-- [ ] **T008** [US3] Run the grep above; if any match relates to binding storage, refactor further to remove it (state lives behind the trait). If matches are unrelated (e.g., in a test helper), document why in a comment. **Acceptance**: grep clean, or every remaining match has a justifying comment.
+- [x] **T008** [US3] Run the grep above; if any match relates to binding storage, refactor further to remove it (state lives behind the trait). If matches are unrelated (e.g., in a test helper), document why in a comment. **Acceptance**: grep clean, or every remaining match has a justifying comment.
 
 ---
 
@@ -111,10 +111,10 @@ status: shipped-partial
 
 **Purpose**: Documentation and epic closure.
 
-- [ ] **T009** [P] Update `AGENTS.md` "What is actually implemented today" section: add `iklo-substrate` (trait + in-memory implementation); note that `RuntimeImage` is now a façade over `InMemorySubstrate<Value>`.
-- [ ] **T010** [P] Update `LANGUAGE.md`'s "Transactional VDBE and live image runtime" section: add a note that as of this epic the runtime image lives behind a `Substrate` trait (in `iklo-substrate`); the active implementation is in-memory; Turso is deferred per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md).
-- [ ] **T011** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
-- [ ] **T012** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria-mandatory) as ✅ complete in the commit that closes the epic. Open a PR from `001-substrate` → `main`.
+- [x] **T009** [P] Update `AGENTS.md` "What is actually implemented today" section: add `iklo-substrate` (trait + in-memory implementation); note that `RuntimeImage` is now a façade over `InMemorySubstrate<Value>`.
+- [x] **T010** [P] Update `LANGUAGE.md`'s "Transactional VDBE and live image runtime" section: add a note that as of this epic the runtime image lives behind a `Substrate` trait (in `iklo-substrate`); the active implementation is in-memory; Turso is deferred per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md).
+- [x] **T011** Run the full gate: `make test && make build && make release`. All three must exit 0. **Acceptance**: three green exits captured in the commit message.
+- [x] **T012** Mark all Success Criteria checkboxes in [spec.md § Success Criteria](spec.md#success-criteria-mandatory) as ✅ complete in the commit that closes the epic. Open a PR from `001-substrate` → `main`.
 
 ---
 
