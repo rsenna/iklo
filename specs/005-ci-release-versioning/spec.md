@@ -72,7 +72,7 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 - **FR-002**: A release workflow MUST run on SemVer tag pushes, execute `make test`, and only then build the `iklo` executable in release mode.
 - **FR-003**: The release workflow MUST publish `iklo` executable assets to GitHub Releases.
 - **FR-004**: Release versioning MUST follow Semantic Versioning (`MAJOR.MINOR.PATCH`) with tags in `vMAJOR.MINOR.PATCH` format.
-- **FR-005**: Every CI/release run MUST compute a deterministic build identifier as `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT`; this identifier MUST be attached to release metadata and artifact naming, and MUST strictly increase across successful releases.
+- **FR-005**: Every CI/release run MUST compute a deterministic build identifier as `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT` (dot-separated base-10 integers). “Strictly increase” MUST be evaluated numerically as `(GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)` across successful releases; this identifier MUST be attached to release metadata and artifact naming.
 - **FR-006**: Release notes MUST be generated from commit history diff (`previous_release_tag..current_release_tag`) and included in the GitHub Release body.
 - **FR-007**: Generated release notes MUST provide a human-readable “implemented changes” list grouped by commit intent where possible (e.g., `feat`, `fix`, `docs`, `chore`), with fallback grouping for unmatched commits.
 - **FR-008**: The workflow MUST fail and avoid publishing when tag format, build, tests, packaging, or note generation steps fail.
