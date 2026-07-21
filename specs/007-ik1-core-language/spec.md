@@ -36,7 +36,8 @@ result using standard-library functions.
 **Priority**: P1
 
 A contributor needs closures and function definition syntax that works with
-`fn` and `let`, with `to` deferred until a later syntax decision.
+`fn` and the existing lexical binding form `let :name be <expr>`, with `to`
+deferred until a later syntax decision.
 
 **Why this priority**: Reusable abstraction is required for non-trivial programs.
 
@@ -47,8 +48,8 @@ and can be stored in a lexical binding.
 
 1. **Given** a closure created with `fn`, **When** it references an outer
    binding, **Then** lexical capture behaves predictably.
-2. **Given** a function value, **When** stored and called via `let`, **Then**
-   the call returns the expected value.
+2. **Given** a function value, **When** stored and called via
+   `let :name be <fn-expr>`, **Then** the call returns the expected value.
 
 ### User Story 3 - Author can express control flow
 
@@ -92,8 +93,9 @@ accept the agreed primitive names.
 - **FR-001**: IO MUST be provided through the standard library, not as a
   primitive language form.
 - **FR-002**: The language MUST support function definitions with `fn` and
-  lexical capture via `let`/closures; this epic MAY extend parser/runtime rules
-  beyond today's lexical-binding-only `let :name be <expr>` shape as needed.
+  lexical capture using the existing lexical binding form
+  `let :name be <expr>`; this epic does not require introducing non-lexical
+  `let` binding targets.
 - **FR-003**: The language MUST support `cond` for conditionals.
 - **FR-004**: The language MUST support `repeat` for looping.
 - **FR-005**: The language MUST define the IK1-required primitive subset and
