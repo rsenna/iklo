@@ -9,7 +9,7 @@
 **Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
 ## Integration Strategy (Decision Record)
-Fork-governance policy is defined in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md). This spec applies that policy to the implementation sequence below.
+Fork-governance policy is defined in [ADR-0005](../decisions/ADR-0005-turso-fork-governance.md). This spec applies that policy through the adapter-first sequence, blocker classification rules, and fork-escalation gates defined below.
 
 This epic follows an explicit three-phase strategy for Turso integration:
 
@@ -34,6 +34,7 @@ The following execution gaps are considered in-scope tracking items for this epi
 5. Concurrency conflict handling and retry policy are still too open-ended.
 6. CLI configuration precedence and invalid-combination behavior need explicit rules.
 7. Branch-sync hygiene before implementation must be treated as an execution prerequisite.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Runtime contributor can run Iklo on a persistent backend (Priority: P1)
