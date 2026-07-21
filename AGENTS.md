@@ -69,7 +69,7 @@ cargo run -p iklo-cli --features turso -- --substrate turso --turso-db-url ./sta
 
 - `--substrate memory|turso` — selects the backend; default `memory`.
 - `--turso-db-url <path>` / `IKLO_TURSO_DB_URL` — **local file path** for the Turso database (`:memory:` also works). The flag takes precedence over the env var. Required when `--substrate turso` is selected; omitting both is a hard error, never a silent fallback to in-memory.
-- `--turso-auth-token <token>` / `IKLO_TURSO_AUTH_TOKEN` — accepted so setting it isn't an "unknown flag" error, but **currently a no-op**: there is no remote/cloud connectivity in this epic (blocker `B001`), so no authentication actually happens. Never stored, printed, or logged.
+- `--turso-auth-token <token>` — accepted so setting it isn't an "unknown flag" error, but **currently a no-op**: there is no remote/cloud connectivity in this epic (blocker `B001`), so no authentication actually happens. No corresponding env var exists. Never stored, printed, or logged.
 - `make test` / `make build` use default features and do **not** exercise the Turso backend. Use `--all-features` (e.g. `cargo test --workspace --all-features`) to build/test with Turso support included.
 - `cargo test -p iklo-substrate-turso --features turso` — crate-local test command for the Turso backend, matching the "target one crate" convention above.
 
