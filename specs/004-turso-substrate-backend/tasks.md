@@ -56,7 +56,7 @@ Allowed `Classification` values:
 **CRITICAL**: No user-story implementation starts before this phase is complete.
 
 - [ ] **T005** [US1] Write RED tests for schema bootstrap idempotency and incompatible schema version failure in `crates/iklo-substrate-turso/src/tests.rs`.
-- [ ] **T006** [US1] Implement schema versioning + compatibility checks in `schema.rs`.
+- [ ] **T006** [US1] Implement schema versioning + compatibility checks in `schema.rs` (commit together with T005 as one red→green cycle).
 - [ ] **T007** [US1] Write RED tests for versioned persisted-`V` codec behavior (supported/unsupported shapes, decode failures) in `crates/iklo-substrate-turso/src/tests.rs`.
 - [ ] **T008** [US1] Implement codec module `crates/iklo-substrate-turso/src/codec.rs` with explicit version tag handling.
 - [ ] **T009** [US1] Write RED tests for retry classification, contention behavior, and ambiguous commit-result handling on transient transport failures in `crates/iklo-substrate-turso/src/tests.rs`.
