@@ -2,13 +2,60 @@
 use std::collections::HashMap;
 
 use iklo_ast::{BinOp, Expr, Program, Spanned};
-use iklo_substrate::{Substrate, SubstrateError, Transaction};
+use iklo_substrate::{Codec, CodecError, Substrate, SubstrateError, Transaction};
 
-type IkloSubstrate = iklo_substrate::memory::InMemorySubstrate<Value>;
+/// The default in-memory substrate backing [`RuntimeImage::new`]. Public so
+/// callers (e.g. the CLI) can name `RuntimeImage`'s default backend explicitly.
+pub type IkloSubstrate = iklo_substrate::memory::InMemorySubstrate<Value>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),
+}
+
+/// Wire version tag for [`Value::Number`]: a version byte followed by the
+/// 8-byte little-endian encoding of the `f64`. This is a small, self-contained
+/// format owned by `iklo-runtime`, deliberately independent of the `i64`
+/// codec in `iklo-substrate-turso` (each value type owns its own layout).
+const CODEC_VERSION_NUMBER: u8 = 1;
+
+impl Codec for Value {
+    fn encode(&self) -> Vec<u8> {
+        match self {
+            Value::Number(n) => {
+                let mut out = Vec::with_capacity(1 + 8);
+                out.push(CODEC_VERSION_NUMBER);
+                out.extend_from_slice(&n.to_le_bytes());
+                out
+            }
+        }
+    }
+
+    fn decode(bytes: &[u8]) -> Result<Self, CodecError> {
+        // Panic-safety (identical bar to the `i64` codec): only `.first()` /
+        // `.get(..)` are used, so an empty, 1-byte, or oversized adversarial
+        // slice returns `Err` — never panics.
+        let version = *bytes
+            .first()
+            .ok_or_else(|| CodecError("empty payload: missing version tag".into()))?;
+
+        match version {
+            CODEC_VERSION_NUMBER => {
+                let payload = bytes.get(1..).unwrap_or(&[]);
+                let array: [u8; 8] = payload.try_into().map_err(|_| {
+                    CodecError(format!(
+                        "expected 8-byte f64 payload for Value::Number version \
+                         {CODEC_VERSION_NUMBER}, got {} bytes",
+                        payload.len()
+                    ))
+                })?;
+                Ok(Value::Number(f64::from_le_bytes(array)))
+            }
+            other => Err(CodecError(format!(
+                "unrecognized Value codec version tag: {other}"
+            ))),
+        }
+    }
 }
 
 impl std::fmt::Display for Value {
@@ -52,22 +99,37 @@ impl From<SubstrateError> for RuntimeError {
     }
 }
 
+/// The live interpreter image. Generic over the [`Substrate`] backend, with a
+/// default type parameter of [`IkloSubstrate`] (the in-memory backend) so that
+/// existing callers writing `RuntimeImage` / `RuntimeImage::new()` keep
+/// compiling and behaving exactly as before. Inject any other backend (e.g. a
+/// Turso-backed one) with [`with_substrate`](RuntimeImage::with_substrate).
 #[derive(Debug, Clone)]
-pub struct RuntimeImage {
-    substrate: IkloSubstrate,
+pub struct RuntimeImage<S: Substrate<Value = Value> = IkloSubstrate> {
+    substrate: S,
 }
 
-impl Default for RuntimeImage {
+impl Default for RuntimeImage<IkloSubstrate> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl RuntimeImage {
+impl RuntimeImage<IkloSubstrate> {
+    /// Creates a runtime image backed by a fresh in-memory substrate.
+    /// Behaviourally identical to before this type became generic (FR-002).
     pub fn new() -> Self {
         Self {
             substrate: IkloSubstrate::new(),
         }
+    }
+}
+
+impl<S: Substrate<Value = Value>> RuntimeImage<S> {
+    /// Creates a runtime image backed by an arbitrary, caller-supplied
+    /// [`Substrate`] (e.g. a Turso-backed one).
+    pub fn with_substrate(substrate: S) -> Self {
+        Self { substrate }
     }
 
     pub fn revision(&self) -> u64 {
@@ -175,5 +237,82 @@ mod tests {
         let program = parse("let :answer be 40 + 2").expect("parse");
         let v = image.eval_in_tx(&program).expect("eval");
         assert_eq!(v, Value::Number(42.0));
+    }
+
+    // --- Codec for Value (Part 0): round-trip + panic-safe malformed input ---
+
+    #[test]
+    fn value_codec_round_trips_representative_numbers() {
+        for n in [
+            0.0,
+            -0.0,
+            1.0,
+            -1.0,
+            42.0,
+            3.141_592_653_589_793,
+            f64::MIN,
+            f64::MAX,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ] {
+            let value = Value::Number(n);
+            let encoded = value.encode();
+            let decoded = Value::decode(&encoded).expect("round-trip decode should succeed");
+            assert_eq!(decoded, value, "round-trip mismatch for {n}");
+        }
+    }
+
+    #[test]
+    fn value_codec_round_trips_nan_bitwise() {
+        // NaN != NaN, so compare the underlying bits rather than the Values.
+        let encoded = Value::Number(f64::NAN).encode();
+        match Value::decode(&encoded).expect("NaN round-trip decode should succeed") {
+            Value::Number(n) => assert!(n.is_nan(), "expected NaN back, got {n}"),
+        }
+    }
+
+    #[test]
+    fn value_codec_encodes_with_version_tag_and_length() {
+        let encoded = Value::Number(7.0).encode();
+        assert_eq!(encoded.len(), 1 + 8, "expected 1-byte tag + 8-byte payload");
+        assert_eq!(encoded[0], CODEC_VERSION_NUMBER);
+    }
+
+    #[test]
+    fn value_decode_does_not_panic_on_empty_slice() {
+        let err = Value::decode(&[]).expect_err("empty slice must be rejected, not panic");
+        assert!(!err.0.is_empty(), "decode error must carry a message");
+    }
+
+    #[test]
+    fn value_decode_does_not_panic_on_single_byte_slice() {
+        // Only the version tag, no f64 payload at all.
+        Value::decode(&[CODEC_VERSION_NUMBER])
+            .expect_err("version-tag-only slice must be rejected, not panic");
+    }
+
+    #[test]
+    fn value_decode_rejects_truncated_payload() {
+        // Valid tag, only 3 payload bytes instead of 8.
+        Value::decode(&[CODEC_VERSION_NUMBER, 1, 2, 3])
+            .expect_err("truncated payload must be rejected");
+    }
+
+    #[test]
+    fn value_decode_rejects_oversized_payload() {
+        // Valid tag, too many payload bytes.
+        Value::decode(&[CODEC_VERSION_NUMBER, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+            .expect_err("oversized payload must be rejected");
+    }
+
+    #[test]
+    fn value_decode_rejects_unknown_version_tag() {
+        let err = Value::decode(&[0xFF, 0, 0, 0, 0, 0, 0, 0, 0])
+            .expect_err("unknown version tag must be rejected");
+        assert!(
+            err.0.contains("255"),
+            "expected the unknown tag in the message, got: {}",
+            err.0
+        );
     }
 }

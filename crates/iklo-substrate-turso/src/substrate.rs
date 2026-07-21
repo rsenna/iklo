@@ -2,7 +2,7 @@
 //!
 //! This is the first place the pieces built by the earlier tasks are wired
 //! together: the [`schema`](crate::schema) bootstrap/verify, the version-tagged
-//! [`Codec`](crate::codec::Codec), and the retry/ambiguity policy logic
+//! [`Codec`](iklo_substrate::Codec), and the retry/ambiguity policy logic
 //! ([`classify`](crate::classify) / [`RetryPolicy`](crate::RetryPolicy) /
 //! [`resolve_ambiguous_commit`](crate::resolve_ambiguous_commit)) all live
 //! behind this type.
@@ -38,10 +38,9 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::time::Duration;
 
-use iklo_substrate::{Substrate, SubstrateError, Transaction};
+use iklo_substrate::{Codec, Substrate, SubstrateError, Transaction};
 use turso::Value;
 
-use crate::codec::Codec;
 use crate::{
     classify, resolve_ambiguous_commit, schema, AmbiguousCommitResolution, RetryClass, RetryPolicy,
     TursoSubstrateError,

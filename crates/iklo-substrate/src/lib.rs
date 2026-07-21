@@ -5,8 +5,11 @@
 use std::collections::HashMap;
 use std::fmt;
 
+pub mod codec;
 pub mod contract;
 pub mod memory;
+
+pub use codec::{Codec, CodecError};
 
 /// Errors returned by [`Transaction::commit`] and [`Transaction::rollback`].
 ///

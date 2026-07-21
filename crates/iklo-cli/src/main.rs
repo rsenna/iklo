@@ -7,9 +7,14 @@ use rustyline::{
 };
 
 use iklo_parser::{parse, ParseError};
-use iklo_runtime::RuntimeImage;
+use iklo_runtime::{RuntimeImage, Value};
+use iklo_substrate::Substrate;
 
 const REPL_COMMAND_NAMES: [&str; 3] = ["quit", "revision", "env"];
+
+/// Environment-variable fallback for the Turso database path (used only when
+/// `--turso-db-url` is absent and `--substrate turso` is selected).
+const ENV_TURSO_DB_URL: &str = "IKLO_TURSO_DB_URL";
 
 /// Offers tab-completion for slash-commands, but only when
 /// `is_repl_command_position` confirms we're at a fresh (non-continuation)
@@ -77,29 +82,216 @@ type ReplEditor = rustyline::Editor<ReplHelper, rustyline::history::DefaultHisto
 /// REPL input history, persisted in the current working directory.
 const HISTORY_FILE: &str = ".iklo_history";
 
-fn main() {
-    let mut args = std::env::args().skip(1);
-    if let Some(path) = args.next() {
-        if let Err(err) = run_file(&path) {
-            eprintln!("iklo: {err}");
-            std::process::exit(1);
-        }
-        return;
-    }
-
-    run_repl();
+/// Which substrate backend the runtime image should use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SubstrateKind {
+    Memory,
+    Turso,
 }
 
-fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+/// Raw flags/positionals recovered from the argument vector, before any
+/// env-var resolution or cross-flag validation. Deliberately does **not**
+/// retain the `--turso-auth-token` value: the token is accepted (so setting it
+/// isn't an "unknown flag" error) but is currently a no-op (blocker B001: no
+/// remote/auth connectivity in this epic) and must never be stored, printed,
+/// or logged — not even via this struct's `Debug`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct ParsedArgs {
+    /// Raw value of `--substrate` (unvalidated), if provided.
+    substrate: Option<String>,
+    /// Raw value of `--turso-db-url`, if provided (takes precedence over env).
+    turso_db_url: Option<String>,
+    /// The positional source-file path, if provided.
+    file: Option<String>,
+}
+
+/// The fully-resolved run configuration: which backend, the Turso db path
+/// (present iff `Turso`), and the optional file to evaluate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RunConfig {
+    substrate: SubstrateKind,
+    turso_db_url: Option<String>,
+    file: Option<String>,
+}
+
+/// Hand-rolled argument parser (no `clap`/`pico-args` dependency for a
+/// three-flag surface). Recognizes `--substrate`, `--turso-db-url`,
+/// `--turso-auth-token`, and a single positional file path. Returns a
+/// human-readable error message (never a token value) on malformed input.
+fn parse_args(args: impl Iterator<Item = String>) -> Result<ParsedArgs, String> {
+    let mut parsed = ParsedArgs::default();
+    let mut args = args.peekable();
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--substrate" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--substrate requires a value (memory|turso)".to_string())?;
+                parsed.substrate = Some(value);
+            }
+            "--turso-db-url" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--turso-db-url requires a value (a local file path)".to_string())?;
+                parsed.turso_db_url = Some(value);
+            }
+            "--turso-auth-token" => {
+                // Consume and discard the value: accepted for forward
+                // compatibility (FR-011) but currently unused (B001). Never
+                // stored or echoed — do not surface it in any error message.
+                if args.next().is_none() {
+                    return Err("--turso-auth-token requires a value".to_string());
+                }
+            }
+            other if other.starts_with('-') => {
+                return Err(format!("unknown flag '{other}'"));
+            }
+            _ => {
+                if parsed.file.is_some() {
+                    return Err(format!(
+                        "unexpected extra argument '{arg}' (a single file path is allowed)"
+                    ));
+                }
+                parsed.file = Some(arg);
+            }
+        }
+    }
+
+    Ok(parsed)
+}
+
+/// Applies env-var fallback and cross-flag validation to produce a
+/// [`RunConfig`]. `env_turso_db_url` is threaded in as a parameter (rather than
+/// read from the process environment here) so this stays a pure, unit-testable
+/// function. Flag value takes precedence over the env value (FR); selecting
+/// `turso` without a resolvable db path is a hard error, never a silent
+/// fallback to memory (FR-007).
+fn resolve_config(
+    parsed: ParsedArgs,
+    env_turso_db_url: Option<String>,
+) -> Result<RunConfig, String> {
+    let substrate = match parsed.substrate.as_deref() {
+        None | Some("memory") => SubstrateKind::Memory,
+        Some("turso") => SubstrateKind::Turso,
+        Some(other) => {
+            return Err(format!(
+                "unknown --substrate value '{other}' (expected 'memory' or 'turso')"
+            ));
+        }
+    };
+
+    match substrate {
+        SubstrateKind::Memory => Ok(RunConfig {
+            substrate,
+            // Turso-specific flags/env are ignored entirely in memory mode.
+            turso_db_url: None,
+            file: parsed.file,
+        }),
+        SubstrateKind::Turso => {
+            // Flag wins over env.
+            let db_url = parsed.turso_db_url.or(env_turso_db_url).ok_or_else(|| {
+                format!(
+                    "--substrate turso requires a database path via --turso-db-url \
+                     or the {ENV_TURSO_DB_URL} environment variable"
+                )
+            })?;
+            Ok(RunConfig {
+                substrate,
+                turso_db_url: Some(db_url),
+                file: parsed.file,
+            })
+        }
+    }
+}
+
+fn main() {
+    let parsed = match parse_args(std::env::args().skip(1)) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            eprintln!("iklo: {err}");
+            std::process::exit(2);
+        }
+    };
+
+    let config = match resolve_config(parsed, std::env::var(ENV_TURSO_DB_URL).ok()) {
+        Ok(config) => config,
+        Err(err) => {
+            eprintln!("iklo: {err}");
+            std::process::exit(2);
+        }
+    };
+
+    match config.substrate {
+        SubstrateKind::Memory => {
+            // Default path — behaviourally identical to before flag parsing
+            // existed: a fresh in-memory image, then file-eval or REPL.
+            run_with_image(config.file.as_deref(), RuntimeImage::new());
+        }
+        SubstrateKind::Turso => run_turso(config),
+    }
+}
+
+/// Constructs a Turso-backed image and dispatches to file-eval or REPL.
+/// Split out (and feature-gated) so the memory path never references the
+/// optional `iklo-substrate-turso` crate.
+#[cfg(feature = "turso")]
+fn run_turso(config: RunConfig) {
+    use iklo_substrate_turso::TursoSubstrate;
+
+    // `turso_db_url` is guaranteed `Some` for Turso mode by `resolve_config`.
+    let db_url = config
+        .turso_db_url
+        .expect("resolve_config guarantees a db path for turso mode");
+
+    let substrate = match TursoSubstrate::<Value>::new(&db_url) {
+        Ok(substrate) => substrate,
+        Err(err) => {
+            // Explicit error, non-zero exit, no panic, no fallback (FR-007).
+            eprintln!("iklo: failed to open turso database: {err}");
+            std::process::exit(1);
+        }
+    };
+    run_with_image(config.file.as_deref(), RuntimeImage::with_substrate(substrate));
+}
+
+/// When the `turso` feature is not compiled in, selecting it is a clear error
+/// rather than a silent fallback.
+#[cfg(not(feature = "turso"))]
+fn run_turso(_config: RunConfig) {
+    eprintln!(
+        "iklo: --substrate turso is not available: this binary was built without the \
+         'turso' feature (rebuild with `--features turso`)"
+    );
+    std::process::exit(1);
+}
+
+/// Dispatches to single-file evaluation or the interactive REPL, against an
+/// already-constructed image of whichever backend `S`.
+fn run_with_image<S: Substrate<Value = Value>>(file: Option<&str>, image: RuntimeImage<S>) {
+    match file {
+        Some(path) => {
+            if let Err(err) = run_file(path, image) {
+                eprintln!("iklo: {err}");
+                std::process::exit(1);
+            }
+        }
+        None => run_repl(image),
+    }
+}
+
+fn run_file<S: Substrate<Value = Value>>(
+    path: &str,
+    mut image: RuntimeImage<S>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let src = std::fs::read_to_string(path)?;
     let program = parse(&src)?;
-    let mut image = RuntimeImage::new();
     let value = image.eval_in_tx(&program)?;
     println!("{value}");
     Ok(())
 }
 
-fn run_repl() {
+fn run_repl<S: Substrate<Value = Value>>(mut image: RuntimeImage<S>) {
     println!("iklo IK0 REPL");
     println!("commands (at empty prompt): /quit, /revision, /env");
     println!("(incomplete input continues on the next line; a blank line cancels)\n");
@@ -122,7 +314,6 @@ fn run_repl() {
     // something loaded, not merely whether a file existed.
     let had_existing_history = rl.load_history(history_path).is_ok();
 
-    let mut image = RuntimeImage::new();
     let mut buffer = String::new();
     let mut entries_added_this_session = false;
 
@@ -416,6 +607,160 @@ mod tests {
         let mut image = RuntimeImage::new();
         let value = image.eval_in_tx(&program).expect("eval");
         assert_eq!(value, Value::Number(3.0));
+    }
+
+    // --- CLI flag parsing / substrate selection (T020-T023) ---
+
+    fn args(items: &[&str]) -> ParsedArgs {
+        parse_args(items.iter().map(|s| s.to_string())).expect("parse_args should succeed")
+    }
+
+    #[test]
+    fn parse_args_defaults_are_all_none() {
+        assert_eq!(args(&[]), ParsedArgs::default());
+    }
+
+    #[test]
+    fn parse_args_reads_positional_file_path() {
+        assert_eq!(args(&["prog.ik"]).file.as_deref(), Some("prog.ik"));
+    }
+
+    #[test]
+    fn parse_args_reads_substrate_and_db_url() {
+        let parsed = args(&["--substrate", "turso", "--turso-db-url", "state.db"]);
+        assert_eq!(parsed.substrate.as_deref(), Some("turso"));
+        assert_eq!(parsed.turso_db_url.as_deref(), Some("state.db"));
+    }
+
+    #[test]
+    fn parse_args_accepts_and_discards_auth_token() {
+        // The token is accepted (not an "unknown flag") but never retained.
+        let parsed = args(&["--turso-auth-token", "s3cr3t", "prog.ik"]);
+        assert_eq!(parsed.file.as_deref(), Some("prog.ik"));
+        // Debug output of the parsed args must not leak the token value.
+        assert!(
+            !format!("{parsed:?}").contains("s3cr3t"),
+            "auth token must never appear in ParsedArgs Debug output"
+        );
+    }
+
+    #[test]
+    fn parse_args_rejects_unknown_flag() {
+        let err = parse_args(["--nope".to_string()].into_iter()).expect_err("must reject");
+        assert!(err.contains("unknown flag"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_args_rejects_substrate_without_value() {
+        let err = parse_args(["--substrate".to_string()].into_iter()).expect_err("must reject");
+        assert!(err.contains("--substrate requires a value"), "got: {err}");
+    }
+
+    #[test]
+    fn parse_args_rejects_second_positional() {
+        let err =
+            parse_args(["a.ik", "b.ik"].iter().map(|s| s.to_string())).expect_err("must reject");
+        assert!(err.contains("extra argument"), "got: {err}");
+    }
+
+    #[test]
+    fn resolve_config_defaults_to_memory() {
+        let config = resolve_config(ParsedArgs::default(), None).expect("memory default");
+        assert_eq!(config.substrate, SubstrateKind::Memory);
+        assert_eq!(config.turso_db_url, None);
+    }
+
+    #[test]
+    fn resolve_config_memory_ignores_turso_db_url_and_env() {
+        let parsed = ParsedArgs {
+            substrate: Some("memory".to_string()),
+            turso_db_url: Some("flag.db".to_string()),
+            file: None,
+        };
+        let config =
+            resolve_config(parsed, Some("env.db".to_string())).expect("memory ignores turso opts");
+        assert_eq!(config.substrate, SubstrateKind::Memory);
+        assert_eq!(
+            config.turso_db_url, None,
+            "memory mode must ignore turso db path entirely"
+        );
+    }
+
+    #[test]
+    fn resolve_config_turso_flag_beats_env() {
+        let parsed = ParsedArgs {
+            substrate: Some("turso".to_string()),
+            turso_db_url: Some("flag.db".to_string()),
+            file: None,
+        };
+        let config = resolve_config(parsed, Some("env.db".to_string())).expect("flag wins");
+        assert_eq!(config.substrate, SubstrateKind::Turso);
+        assert_eq!(config.turso_db_url.as_deref(), Some("flag.db"));
+    }
+
+    #[test]
+    fn resolve_config_turso_falls_back_to_env_when_no_flag() {
+        let parsed = ParsedArgs {
+            substrate: Some("turso".to_string()),
+            turso_db_url: None,
+            file: None,
+        };
+        let config = resolve_config(parsed, Some("env.db".to_string())).expect("env fallback");
+        assert_eq!(config.turso_db_url.as_deref(), Some("env.db"));
+    }
+
+    #[test]
+    fn resolve_config_turso_without_db_url_errors_and_does_not_fall_back() {
+        let parsed = ParsedArgs {
+            substrate: Some("turso".to_string()),
+            turso_db_url: None,
+            file: None,
+        };
+        let err = resolve_config(parsed, None).expect_err("turso needs a db path");
+        assert!(err.contains("requires a database path"), "got: {err}");
+        assert!(err.contains(ENV_TURSO_DB_URL), "should name the env var; got: {err}");
+    }
+
+    #[test]
+    fn resolve_config_rejects_unknown_substrate_value() {
+        let parsed = ParsedArgs {
+            substrate: Some("postgres".to_string()),
+            turso_db_url: None,
+            file: None,
+        };
+        let err = resolve_config(parsed, None).expect_err("must reject unknown substrate");
+        assert!(err.contains("unknown --substrate value 'postgres'"), "got: {err}");
+    }
+
+    /// A valid local Turso path yields a working image that actually evaluates
+    /// against the Turso backend. Uses `:memory:` (a fresh, isolated Turso db)
+    /// so the test needs no filesystem cleanup. Only meaningful with the
+    /// `turso` feature compiled in.
+    #[cfg(feature = "turso")]
+    #[test]
+    fn turso_mode_with_valid_path_constructs_and_evaluates() {
+        use iklo_substrate_turso::TursoSubstrate;
+
+        let config = resolve_config(
+            ParsedArgs {
+                substrate: Some("turso".to_string()),
+                turso_db_url: Some(":memory:".to_string()),
+                file: None,
+            },
+            None,
+        )
+        .expect("turso config with a valid path");
+
+        let db_url = config.turso_db_url.expect("turso db path present");
+        let substrate =
+            TursoSubstrate::<Value>::new(&db_url).expect("opening :memory: turso db must succeed");
+        let mut image = RuntimeImage::with_substrate(substrate);
+
+        let program = parse("let :answer be 40 + 2").expect("parse");
+        let value = image.eval_in_tx(&program).expect("eval against turso backend");
+        assert_eq!(value, Value::Number(42.0));
+        assert_eq!(image.revision(), 1);
+        assert_eq!(image.bindings().get("answer"), Some(&Value::Number(42.0)));
     }
 }
 

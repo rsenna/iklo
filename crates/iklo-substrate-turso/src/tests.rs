@@ -12,9 +12,9 @@ use std::time::Duration;
 use turso::Value;
 
 use iklo_substrate::memory::InMemorySubstrate;
-use iklo_substrate::{contract::run_contract_suite, Substrate, Transaction};
+use iklo_substrate::{contract::run_contract_suite, Codec, CodecError, Substrate, Transaction};
 
-use crate::codec::{Codec, CODEC_VERSION_I64};
+use iklo_substrate::codec::CODEC_VERSION_I64;
 use crate::schema;
 use crate::substrate::TursoSubstrate;
 use crate::{
@@ -300,12 +300,16 @@ fn i64_decode_rejects_unknown_version_tag() {
     // Valid-length payload, but a version byte that doesn't exist.
     let bytes = [0xFFu8, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    let err = i64::decode(&bytes).expect_err("unknown version tag must be rejected");
+    let err: CodecError = i64::decode(&bytes).expect_err("unknown version tag must be rejected");
 
-    match err {
-        TursoSubstrateError::UnsupportedCodecVersion { found } => assert_eq!(found, 0xFF),
-        other => panic!("expected UnsupportedCodecVersion, got {other:?}"),
-    }
+    // `Codec::decode` now returns the fixed cross-crate `CodecError` (a
+    // message) rather than a structured backend enum variant; the unknown tag
+    // is reported in that message.
+    assert!(
+        err.0.contains("unsupported codec version tag: 255"),
+        "expected the unknown version tag in the message, got: {}",
+        err.0
+    );
 }
 
 #[test]
@@ -313,12 +317,8 @@ fn i64_decode_rejects_truncated_payload() {
     // Valid version tag, but only 3 payload bytes instead of 8.
     let bytes = [CODEC_VERSION_I64, 1, 2, 3];
 
-    let err = i64::decode(&bytes).expect_err("truncated payload must be rejected");
-
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
+    let err: CodecError = i64::decode(&bytes).expect_err("truncated payload must be rejected");
+    assert!(!err.0.is_empty(), "decode error must carry a message");
 }
 
 #[test]
@@ -326,32 +326,21 @@ fn i64_decode_rejects_oversized_payload() {
     // Valid version tag, but too many payload bytes.
     let bytes = [CODEC_VERSION_I64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    let err = i64::decode(&bytes).expect_err("oversized payload must be rejected");
-
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
+    let err: CodecError = i64::decode(&bytes).expect_err("oversized payload must be rejected");
+    assert!(!err.0.is_empty(), "decode error must carry a message");
 }
 
 #[test]
 fn i64_decode_does_not_panic_on_empty_slice() {
-    let err = i64::decode(&[]).expect_err("empty slice must be rejected, not panic");
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
+    let err: CodecError = i64::decode(&[]).expect_err("empty slice must be rejected, not panic");
+    assert!(!err.0.is_empty(), "decode error must carry a message");
 }
 
 #[test]
 fn i64_decode_does_not_panic_on_single_byte_slice() {
     // Only the version tag, no payload at all.
-    let err = i64::decode(&[CODEC_VERSION_I64])
+    let _err: CodecError = i64::decode(&[CODEC_VERSION_I64])
         .expect_err("version-tag-only slice must be rejected, not panic");
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
 }
 
 // --- retry classification, backoff policy, ambiguous-commit resolution (T009/T010) ---
@@ -418,9 +407,6 @@ fn classify_treats_this_crates_own_error_variants_as_surface_immediately() {
         found: 2,
     };
     assert_eq!(classify(&schema_mismatch), RetryClass::SurfaceImmediately);
-
-    let unsupported_codec = TursoSubstrateError::UnsupportedCodecVersion { found: 0xFF };
-    assert_eq!(classify(&unsupported_codec), RetryClass::SurfaceImmediately);
 
     let codec_decode_failed = TursoSubstrateError::CodecDecodeFailed("bad payload".to_string());
     assert_eq!(

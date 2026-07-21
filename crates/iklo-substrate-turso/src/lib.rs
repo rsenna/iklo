@@ -9,9 +9,6 @@
 use std::fmt;
 
 #[cfg(feature = "turso")]
-pub mod codec;
-
-#[cfg(feature = "turso")]
 pub mod schema;
 
 #[cfg(feature = "turso")]
@@ -43,17 +40,15 @@ pub enum TursoSubstrateError {
         /// The schema version found in the database.
         found: i64,
     },
-    /// A [`codec`] version tag was not recognized. See the `codec` module's
-    /// migration policy docs: with only one version defined today, an
-    /// unrecognized tag is always a hard decode error, never a silent
-    /// best-effort parse.
-    UnsupportedCodecVersion {
-        /// The unrecognized version byte found in the payload.
-        found: u8,
-    },
-    /// A [`codec`] payload had a valid version tag but could not otherwise
-    /// be decoded (e.g. wrong payload length for the version). Carries a
-    /// human-readable description of what went wrong.
+    /// A codec payload could not be decoded — an unrecognized version tag,
+    /// a wrong payload length for its version, or any other malformed input.
+    /// Carries a human-readable description of what went wrong.
+    ///
+    /// This is where a [`iklo_substrate::CodecError`] surfaces after being
+    /// converted (see the `From<CodecError>` impl): the fixed cross-crate
+    /// codec error type carries only a message, so its structured detail (an
+    /// unknown version byte, an exact length) lives in that message rather
+    /// than in dedicated enum fields.
     CodecDecodeFailed(String),
 }
 
@@ -66,9 +61,6 @@ impl fmt::Display for TursoSubstrateError {
                 f,
                 "schema version mismatch: expected {expected}, found {found}"
             ),
-            TursoSubstrateError::UnsupportedCodecVersion { found } => {
-                write!(f, "unsupported codec version tag: {found}")
-            }
             TursoSubstrateError::CodecDecodeFailed(reason) => {
                 write!(f, "codec decode failed: {reason}")
             }
@@ -82,7 +74,6 @@ impl std::error::Error for TursoSubstrateError {
         match self {
             TursoSubstrateError::Turso(err) => Some(err),
             TursoSubstrateError::SchemaVersionMismatch { .. } => None,
-            TursoSubstrateError::UnsupportedCodecVersion { .. } => None,
             TursoSubstrateError::CodecDecodeFailed(_) => None,
         }
     }
@@ -92,6 +83,18 @@ impl std::error::Error for TursoSubstrateError {
 impl From<turso::Error> for TursoSubstrateError {
     fn from(err: turso::Error) -> Self {
         TursoSubstrateError::Turso(err)
+    }
+}
+
+/// Wraps a backend-agnostic [`iklo_substrate::CodecError`] (returned by
+/// `<V as iklo_substrate::Codec>::decode`) into this crate's error enum, so the
+/// `?` operator in the decode path (e.g. [`substrate::load_bindings`]) keeps
+/// working after the `Codec` trait's relocation to `iklo-substrate`. The
+/// codec error's message is preserved verbatim.
+#[cfg(feature = "turso")]
+impl From<iklo_substrate::CodecError> for TursoSubstrateError {
+    fn from(err: iklo_substrate::CodecError) -> Self {
+        TursoSubstrateError::CodecDecodeFailed(err.0)
     }
 }
 
@@ -135,8 +138,7 @@ pub enum RetryClass {
 /// | `TursoSubstrateError` variant | `RetryClass` | Rationale |
 /// |---|---|---|
 /// | `SchemaVersionMismatch` | `SurfaceImmediately` | Retrying doesn't change the on-disk schema version. |
-/// | `UnsupportedCodecVersion` | `SurfaceImmediately` | The payload's version tag won't change on retry. |
-/// | `CodecDecodeFailed` | `SurfaceImmediately` | Malformed bytes stay malformed on retry. |
+/// | `CodecDecodeFailed` | `SurfaceImmediately` | Malformed bytes (bad version tag, wrong length) stay malformed on retry. |
 ///
 /// For the wrapped `turso::Error` (as of `turso` 0.7.0, whose `Error` enum is
 /// NOT `#[non_exhaustive]` — see `turso-0.7.0/src/lib.rs`), each real variant
@@ -173,7 +175,6 @@ pub enum RetryClass {
 pub fn classify(err: &TursoSubstrateError) -> RetryClass {
     match err {
         TursoSubstrateError::SchemaVersionMismatch { .. }
-        | TursoSubstrateError::UnsupportedCodecVersion { .. }
         | TursoSubstrateError::CodecDecodeFailed(_) => RetryClass::SurfaceImmediately,
         TursoSubstrateError::Turso(inner) => match inner {
             turso::Error::Busy(_) | turso::Error::BusySnapshot(_) => RetryClass::Retryable,
