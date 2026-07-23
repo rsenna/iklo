@@ -18,6 +18,12 @@ pub mod codec;
 #[cfg(feature = "turso")]
 pub mod schema;
 
+#[cfg(feature = "turso")]
+pub mod substrate;
+
+#[cfg(feature = "turso")]
+pub use substrate::{TursoSubstrate, TursoTx};
+
 #[cfg(test)]
 mod tests;
 

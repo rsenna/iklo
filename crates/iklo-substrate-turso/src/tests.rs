@@ -11,12 +11,58 @@ use std::time::Duration;
 
 use turso::Value;
 
+use iklo_substrate::{Substrate, Transaction};
+
 use crate::codec::{Codec, CODEC_VERSION_I64};
 use crate::schema;
+use crate::substrate::TursoSubstrate;
 use crate::{
     classify, resolve_ambiguous_commit, AmbiguousCommitResolution, RetryClass, RetryPolicy,
     TursoSubstrateError,
 };
+
+/// Returns a unique, not-yet-existing temp file path for a persistent Turso
+/// database. No `tempfile` crate is in the workspace, so we build a unique
+/// name under `std::env::temp_dir()` ourselves; `TempDbPath`'s `Drop` removes
+/// the file (and Turso's WAL sidecars) on scope exit.
+fn unique_db_path(tag: &str) -> TempDbPath {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock before epoch")
+        .as_nanos();
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let mut path = std::env::temp_dir();
+    path.push(format!(
+        "iklo-turso-test-{tag}-{}-{nanos}-{seq}.db",
+        std::process::id()
+    ));
+    TempDbPath(path)
+}
+
+/// Owns a temp database path and cleans it (plus Turso's `-wal`/`-shm`
+/// sidecars) up on drop, so tests don't litter the temp dir.
+struct TempDbPath(std::path::PathBuf);
+
+impl TempDbPath {
+    fn as_str(&self) -> &str {
+        self.0.to_str().expect("temp path is valid UTF-8")
+    }
+}
+
+impl Drop for TempDbPath {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+        for suffix in ["-wal", "-shm"] {
+            let mut sidecar = self.0.clone();
+            sidecar.as_mut_os_string().push(suffix);
+            let _ = std::fs::remove_file(&sidecar);
+        }
+    }
+}
 
 #[test]
 fn turso_error_converts_to_turso_substrate_error() {
@@ -492,4 +538,126 @@ fn resolve_ambiguous_commit_returns_verification_failed_when_verify_errors_and_n
         resolution,
         AmbiguousCommitResolution::SafeToRetry
     ));
+}
+
+// --- TursoSubstrate end-to-end (T011/T012) ---
+//
+// These exercise the real `TursoSubstrate<i64>` against a real local database
+// file, driving its own owned tokio runtime — so they are plain `#[test]`s,
+// not `#[tokio::test]`s (the substrate owns the runtime; a test-level runtime
+// would nest).
+
+/// T011 (FR-004, spec User Story 1): a committed binding survives dropping the
+/// entire substrate instance and re-opening a brand-new one against the same
+/// file. This is the core persistence-across-restart guarantee.
+#[test]
+fn commit_persists_across_a_fresh_instance() {
+    let path = unique_db_path("persist");
+
+    {
+        let mut substrate =
+            TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+        let mut tx = substrate.begin();
+        tx.set("x", 42);
+        tx.commit().expect("commit of a simple binding must succeed");
+        // Substrate (and its connection/runtime) dropped here at end of scope.
+    }
+
+    // A genuinely new instance: new runtime, new Database, new Connection,
+    // same file on disk. Nothing is reused from the first instance.
+    let reopened =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("re-opening the same file must work");
+    assert_eq!(
+        reopened.snapshot().get("x"),
+        Some(&42),
+        "a committed binding must persist across a full drop + fresh re-open"
+    );
+    assert_eq!(
+        reopened.revision(),
+        1,
+        "the revision counter must also persist across re-open"
+    );
+}
+
+/// T011: a rolled-back transaction leaves no trace — a subsequent transaction
+/// on the same (still-open) substrate does not see the discarded write.
+#[test]
+fn rollback_is_invisible_to_later_transactions() {
+    let path = unique_db_path("rollback");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    let mut tx = substrate.begin();
+    tx.set("x", 42);
+    tx.rollback().expect("rollback must succeed");
+
+    let tx = substrate.begin();
+    assert_eq!(
+        tx.get("x"),
+        None,
+        "a rolled-back write must not be visible to a later transaction"
+    );
+    drop(tx);
+
+    assert_eq!(
+        substrate.revision(),
+        0,
+        "rollback must not increment the revision counter"
+    );
+    assert!(
+        substrate.snapshot().is_empty(),
+        "a rolled-back write must not reach the authoritative store"
+    );
+}
+
+/// T011: revision starts at 0 on a fresh database, increments by exactly 1 per
+/// successful commit (covering two commits to confirm monotonic increment, not
+/// just 0->1), and does not move on rollback.
+#[test]
+fn revision_is_monotonic_across_commits_and_ignores_rollback() {
+    let path = unique_db_path("revision");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    assert_eq!(substrate.revision(), 0, "fresh database starts at revision 0");
+
+    let mut tx = substrate.begin();
+    tx.set("a", 1);
+    tx.commit().expect("first commit must succeed");
+    assert_eq!(substrate.revision(), 1, "first commit -> revision 1");
+
+    let mut tx = substrate.begin();
+    tx.set("b", 2);
+    tx.commit().expect("second commit must succeed");
+    assert_eq!(
+        substrate.revision(),
+        2,
+        "second commit -> revision 2 (monotonic, +1 each)"
+    );
+
+    let mut tx = substrate.begin();
+    tx.set("c", 3);
+    tx.rollback().expect("rollback must succeed");
+    assert_eq!(
+        substrate.revision(),
+        2,
+        "rollback must not change the revision counter"
+    );
+}
+
+/// T012 (reinterpreted for local-file mode per blocker B001): a path that
+/// cannot be opened surfaces an explicit `Err` — not a panic, not a silent
+/// fallback to an in-memory/unpersisted substrate (FR-007).
+#[test]
+fn new_with_unusable_path_surfaces_an_error() {
+    // A path under a directory that does not exist and that `new` has no
+    // business creating. Opening/bootstrapping must fail with an I/O error.
+    let bogus =
+        "/iklo-nonexistent-root-dir-xyz/definitely/not/here/substrate.db";
+
+    let result = TursoSubstrate::<i64>::new(bogus);
+    assert!(
+        result.is_err(),
+        "an unusable database path must return Err, not Ok"
+    );
 }
