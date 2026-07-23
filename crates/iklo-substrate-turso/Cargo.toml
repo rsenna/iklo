@@ -1,0 +1,20 @@
+[package]
+name = "iklo-substrate-turso"
+edition.workspace = true
+version.workspace = true
+license-file = "../../LICENSE"
+
+[dependencies]
+iklo-substrate = { path = "../iklo-substrate" }
+
+# Official embedded/in-process Turso Rust SDK; optional so default builds stay libSQL-free.
+turso = { version = "0.7.0", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }
+
+[features]
+turso = ["dep:turso"]
+
+[lib]
+path = "src/lib.rs"

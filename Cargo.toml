@@ -5,6 +5,7 @@ members = [
     "crates/iklo-parser",
     "crates/iklo-runtime",
     "crates/iklo-substrate",
+    "crates/iklo-substrate-turso",
     "crates/iklo-cli",
 ]
 resolver = "2"
