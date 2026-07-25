@@ -9,11 +9,13 @@
 //! is unaffected.
 #![cfg(feature = "turso")]
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use turso::Value;
 
-use iklo_substrate::{Substrate, Transaction};
+use iklo_substrate::memory::InMemorySubstrate;
+use iklo_substrate::{contract::run_contract_suite, Substrate, Transaction};
 
 use crate::codec::{Codec, CODEC_VERSION_I64};
 use crate::schema;
@@ -761,5 +763,125 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
         substrate.revision(),
         0,
         "an exhausted-retry commit must not have bumped the revision"
+    );
+}
+
+// --- backend-agnostic contract suite (T017/T018, spec User Story 2 / FR-003) ---
+
+/// Proves `TursoSubstrate<i64>` satisfies the exact same backend-agnostic
+/// contract that `InMemorySubstrate<i64>` already passes
+/// (`crates/iklo-substrate/src/contract.rs`, unmodified). Each of the
+/// suite's seven scenarios gets a fresh, isolated `TursoSubstrate<i64>` via
+/// `:memory:` — an in-memory Turso database is a fresh instance per call,
+/// exactly what the generic suite needs; cross-process persistence is
+/// already covered separately by `commit_persists_across_a_fresh_instance`.
+#[test]
+fn turso_substrate_satisfies_contract() {
+    run_contract_suite(|| {
+        TursoSubstrate::<i64>::new(":memory:")
+            .expect("opening a fresh in-memory Turso database must succeed")
+    });
+}
+
+// --- in-memory vs Turso snapshot/revision equivalence (T019, spec User Story 2) ---
+
+/// Runs an identical sequence of committed operations — two committed
+/// transactions each setting multiple bindings, plus one transaction that
+/// sets a value then is rolled back — against whichever `Substrate` is
+/// passed in. Shared by both equivalence tests below so the exact same
+/// operation sequence is guaranteed to be applied to each backend.
+fn apply_equivalence_sequence<S: Substrate<Value = i64>>(substrate: &mut S) {
+    let mut tx = substrate.begin();
+    tx.set("alpha", 1);
+    tx.set("beta", 2);
+    tx.commit().expect("first commit must succeed");
+
+    let mut tx = substrate.begin();
+    tx.set("beta", 20);
+    tx.set("gamma", 3);
+    tx.commit().expect("second commit must succeed");
+
+    let mut tx = substrate.begin();
+    tx.set("delta", 999);
+    tx.rollback().expect("rollback must succeed");
+}
+
+/// Number of successful commits [`apply_equivalence_sequence`] performs (its
+/// one rollback doesn't count). Named so the revision-equivalence assertion
+/// below can't silently drift out of sync with the sequence it describes.
+const EQUIVALENCE_SEQUENCE_COMMIT_COUNT: u64 = 2;
+
+/// Opens a fresh `InMemorySubstrate<i64>` and a fresh in-memory
+/// `TursoSubstrate<i64>`, applies [`apply_equivalence_sequence`] to both, and
+/// returns them. Shared by both equivalence tests below so backend setup and
+/// the applied sequence can't drift between them.
+fn equivalent_substrates_after_the_sequence() -> (InMemorySubstrate<i64>, TursoSubstrate<i64>) {
+    let mut in_memory = InMemorySubstrate::<i64>::new();
+    let mut turso = TursoSubstrate::<i64>::new(":memory:")
+        .expect("opening a fresh in-memory Turso database must succeed");
+
+    apply_equivalence_sequence(&mut in_memory);
+    apply_equivalence_sequence(&mut turso);
+
+    (in_memory, turso)
+}
+
+#[test]
+fn in_memory_and_turso_snapshots_are_equivalent_after_identical_operations() {
+    let (in_memory, turso) = equivalent_substrates_after_the_sequence();
+
+    // Cross-backend equality alone can't catch a bug shared by both
+    // implementations, so also pin down the exact expected content.
+    let expected = HashMap::from([
+        ("alpha".to_string(), 1),
+        ("beta".to_string(), 20),
+        ("gamma".to_string(), 3),
+    ]);
+    assert_eq!(
+        in_memory.snapshot(),
+        expected,
+        "in-memory snapshot must match the sequence's expected final state"
+    );
+    assert_eq!(
+        turso.snapshot(),
+        expected,
+        "Turso snapshot must match the sequence's expected final state"
+    );
+    assert_eq!(
+        in_memory.snapshot(),
+        turso.snapshot(),
+        "both backends must produce equivalent key/value state after the same committed operations"
+    );
+}
+
+#[test]
+fn in_memory_and_turso_revisions_are_equivalent_after_identical_operations() {
+    let (in_memory, turso) = equivalent_substrates_after_the_sequence();
+
+    assert_eq!(
+        in_memory.revision(),
+        EQUIVALENCE_SEQUENCE_COMMIT_COUNT,
+        "in-memory revision must match the sequence's expected commit count"
+    );
+    assert_eq!(
+        turso.revision(),
+        EQUIVALENCE_SEQUENCE_COMMIT_COUNT,
+        "Turso revision must match the sequence's expected commit count"
+    );
+    assert_eq!(
+        in_memory.revision(),
+        turso.revision(),
+        "both backends must agree on the revision counter"
+    );
+
+    assert_eq!(
+        in_memory.snapshot().get("delta"),
+        None,
+        "the rolled-back binding must not appear in the in-memory snapshot"
+    );
+    assert_eq!(
+        turso.snapshot().get("delta"),
+        None,
+        "the rolled-back binding must not appear in the Turso snapshot"
     );
 }
