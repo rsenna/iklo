@@ -65,17 +65,25 @@ const COMMIT_RETRY_POLICY: RetryPolicy = RetryPolicy {
 /// schema before returning. See the [module docs](self) for the sync-over-async
 /// bridge and the panic-on-internal-failure contract.
 pub struct TursoSubstrate<V> {
-    /// Owned runtime that bridges this crate's sync API onto turso's async
-    /// client. Current-thread flavor with the `time` driver enabled.
-    runtime: tokio::runtime::Runtime,
     /// The open database handle. Kept alive alongside `conn` because the
     /// `turso::Connection` is created from it; dropping the `Database` while a
     /// connection is live is not something the vendored 0.7.0 API documents as
-    /// safe, so we hold it for the lifetime of the substrate. The field is
-    /// intentionally unread after construction.
-    _db: turso::Database,
+    /// safe, so we hold it for the lifetime of the substrate. Also used to
+    /// open a fresh, independent connection when verifying an ambiguous
+    /// commit outcome (see [`TursoTx::commit`]) — reading through `conn`
+    /// itself there would see that connection's own uncommitted write.
+    ///
+    /// Declared before `conn` and `runtime` so both are dropped before it —
+    /// `Database` outliving every `Connection` created from it matches the
+    /// invariant the doc above already relies on, and dropping `runtime`
+    /// last means any drop-time cleanup `Connection`/`Database` might still
+    /// need never runs after the runtime that would have driven it is gone.
+    db: turso::Database,
     /// The connection every query/execute runs through.
     conn: turso::Connection,
+    /// Owned runtime that bridges this crate's sync API onto turso's async
+    /// client. Current-thread flavor with the `time` driver enabled.
+    runtime: tokio::runtime::Runtime,
     _marker: PhantomData<V>,
 }
 
@@ -98,6 +106,15 @@ impl<V> TursoSubstrate<V> {
     /// Returns `Err` — never panics, never silently falls back to an
     /// in-memory/unpersisted mode (FR-007) — if the file cannot be opened, the
     /// tables cannot be created, or the on-disk schema version does not match.
+    ///
+    /// # Panics
+    ///
+    /// Every [`Substrate`]/[`Transaction`] method on the returned value
+    /// drives I/O through [`Runtime::block_on`](tokio::runtime::Runtime::block_on)
+    /// (see the [module docs](self)). `block_on` itself panics if called from
+    /// within an already-running async runtime (e.g. from inside a
+    /// `#[tokio::main]` task) — so a `TursoSubstrate` must be constructed and
+    /// used from a synchronous call stack, never from async code.
     pub fn new(path: &str) -> Result<Self, TursoSubstrateError> {
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -117,9 +134,9 @@ impl<V> TursoSubstrate<V> {
         })?;
 
         Ok(Self {
-            runtime,
-            _db: db,
+            db,
             conn,
+            runtime,
             _marker: PhantomData,
         })
     }
@@ -222,6 +239,7 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
     fn commit(self) -> Result<(), SubstrateError> {
         let TursoTx { substrate, working } = self;
         let conn = &substrate.conn;
+        let db = &substrate.db;
         let policy = COMMIT_RETRY_POLICY;
 
         substrate.runtime.block_on(async move {
@@ -259,8 +277,22 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                     // closure precomputed, since that closure cannot itself
                     // await.
                     Err(WriteFailure::CommitStatement(err)) => {
-                        let verification: Result<bool, TursoSubstrateError> =
-                            read_revision(conn).await.map(|after| after != revision_before);
+                        // Verify through a FRESH, independent connection, not
+                        // `conn` itself: a connection always observes its own
+                        // in-flight (even uncommitted) writes, so re-reading
+                        // via `conn` would see the pending revision bump
+                        // regardless of whether COMMIT actually landed,
+                        // making the check spuriously "already applied" on
+                        // every ambiguous failure. A separate connection has
+                        // no view into another connection's uncommitted
+                        // transaction, so it only sees the bump once COMMIT
+                        // has truly landed.
+                        let verification: Result<bool, TursoSubstrateError> = async {
+                            let verify_conn = db.connect()?;
+                            let after = read_revision(&verify_conn).await?;
+                            Ok(after != revision_before)
+                        }
+                        .await;
 
                         match resolve_ambiguous_commit(move || verification) {
                             // Confirmed landed: treat as success. Do NOT retry
@@ -287,7 +319,7 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                             // dangling open transaction and every subsequent
                             // commit() call would fail at its own BEGIN.
                             AmbiguousCommitResolution::SafeToRetry
-                            | AmbiguousCommitResolution::VerificationFailed => {
+                            | AmbiguousCommitResolution::VerificationFailed(_) => {
                                 let _ = conn.execute("ROLLBACK", ()).await;
                                 return Err(err.into());
                             }
@@ -341,7 +373,7 @@ async fn apply_write<V: Codec>(
         let encoded = value.encode();
         conn.execute(
             "INSERT INTO iklo_substrate_bindings (name, value) VALUES (?1, ?2)",
-            (name.clone(), encoded),
+            (name.as_str(), encoded),
         )
         .await
         .map_err(|e| WriteFailure::BeforeCommit(e.into()))?;
