@@ -286,7 +286,7 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                             // dangling open transaction and every subsequent
                             // commit() call would fail at its own BEGIN.
                             AmbiguousCommitResolution::SafeToRetry
-                            | AmbiguousCommitResolution::VerificationFailed => {
+                            | AmbiguousCommitResolution::VerificationFailed(_) => {
                                 let _ = conn.execute("ROLLBACK", ()).await;
                                 return Err(err.into());
                             }
