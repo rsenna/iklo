@@ -145,6 +145,20 @@ impl<V> TursoSubstrate<V> {
     }
 }
 
+#[cfg(test)]
+impl<V> TursoSubstrate<V> {
+    /// Test-only: opens a second connection sharing this substrate's
+    /// underlying database file, so integration tests can simulate real
+    /// write contention against the exact connection [`TursoTx::commit`]
+    /// uses — exercising the retry/ambiguity-resolution wiring end-to-end
+    /// rather than just the isolated [`classify`]/[`RetryPolicy`] units.
+    pub(crate) fn open_second_connection_for_test(&self) -> turso::Connection {
+        self.db
+            .connect()
+            .expect("opening a second connection for a test must succeed")
+    }
+}
+
 impl<V: Clone + fmt::Debug + Codec> Substrate for TursoSubstrate<V> {
     type Value = V;
     type Tx<'a>

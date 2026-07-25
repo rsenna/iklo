@@ -663,3 +663,103 @@ fn new_with_unusable_path_surfaces_an_error() {
         "an unusable database path must return Err, not Ok"
     );
 }
+
+// --- TursoTx::commit retry/ambiguity-resolution wiring (real contention) ---
+//
+// The tests above cover the happy path; `classify`/`RetryPolicy`/
+// `resolve_ambiguous_commit` are unit-tested in isolation further up this
+// file. Neither exercises the actual retry loop wired up inside
+// `TursoTx::commit` — the write-failure -> ROLLBACK -> classify -> backoff ->
+// retry cycle. These two tests drive that loop for real, using a second
+// connection (via `TursoSubstrate::open_second_connection_for_test`, sharing
+// the substrate's own database file) to hold a genuine write lock while
+// `commit()` is in flight.
+
+/// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` for `hold_for`, then
+/// releases it. Runs on its own thread with its own tiny runtime, so it can
+/// genuinely overlap with a `commit()` call blocking the test's main thread.
+fn hold_write_lock_on_background_thread(
+    conn: turso::Connection,
+    hold_for: Duration,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build background-thread runtime");
+        rt.block_on(async move {
+            conn.execute("BEGIN IMMEDIATE", ())
+                .await
+                .expect("acquiring the write lock must succeed");
+            std::thread::sleep(hold_for);
+            let _ = conn.execute("ROLLBACK", ()).await;
+        });
+    })
+}
+
+/// The retry loop must actually retry (not just decide to, in isolation): a
+/// competing writer holds the write lock briefly, `apply_write`'s own first
+/// write hits a real `Busy` error, `classify` marks it `Retryable`, and the
+/// loop backs off and retries until the lock is released and the commit
+/// lands.
+#[test]
+fn commit_retries_past_transient_lock_contention_and_succeeds() {
+    let path = unique_db_path("retry-succeeds");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    let blocker_conn = substrate.open_second_connection_for_test();
+    // Released well within COMMIT_RETRY_POLICY's cumulative backoff budget
+    // (10 + 20 + 40 + 80ms across up to 5 attempts), so the commit should
+    // succeed via retry rather than exhausting its attempts.
+    let blocker = hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(25));
+    // Give the blocker a moment to actually acquire the lock first.
+    std::thread::sleep(Duration::from_millis(5));
+
+    let mut tx = substrate.begin();
+    tx.set("x", 42);
+    tx.commit()
+        .expect("commit must succeed once the transient lock is released, via retry");
+
+    blocker.join().expect("blocker thread must not panic");
+
+    assert_eq!(substrate.snapshot().get("x"), Some(&42));
+    assert_eq!(substrate.revision(), 1);
+}
+
+/// When the lock never clears in time, the retry loop must exhaust
+/// `COMMIT_RETRY_POLICY`'s attempts and surface the classified error rather
+/// than hanging or silently giving up with a misleading `Ok`.
+#[test]
+fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention() {
+    let path = unique_db_path("retry-exhausted");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    let blocker_conn = substrate.open_second_connection_for_test();
+    // Held far longer than the retry policy's total backoff budget (150ms
+    // across attempts 1-4), so every attempt observes the lock still taken.
+    let blocker = hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(5));
+
+    let mut tx = substrate.begin();
+    tx.set("x", 42);
+    let result = tx.commit();
+
+    assert!(
+        result.is_err(),
+        "commit must surface an error once retries are exhausted under sustained contention"
+    );
+
+    blocker.join().expect("blocker thread must not panic");
+
+    assert!(
+        substrate.snapshot().get("x").is_none(),
+        "a commit that never landed must not be visible"
+    );
+    assert_eq!(
+        substrate.revision(),
+        0,
+        "an exhausted-retry commit must not have bumped the revision"
+    );
+}
