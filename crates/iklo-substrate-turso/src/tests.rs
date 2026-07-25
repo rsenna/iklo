@@ -1,5 +1,7 @@
-//! Integration tests for [`crate::schema`] against a real in-memory `turso`
-//! database.
+//! Integration tests for [`crate::schema`] and [`crate::substrate`] against a
+//! real `turso` database — both the in-memory schema-level tests and the
+//! [`TursoSubstrate`](crate::substrate::TursoSubstrate) end-to-end tests,
+//! which use persistent local database files (see [`unique_db_path`]).
 //!
 //! These tests only make sense with the `turso` feature enabled, since they
 //! exercise real `turso::Connection`s. The whole module is a no-op when the
