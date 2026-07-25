@@ -64,6 +64,12 @@ const COMMIT_RETRY_POLICY: RetryPolicy = RetryPolicy {
 /// schema before returning. See the [module docs](self) for the sync-over-async
 /// bridge and the panic-on-internal-failure contract.
 pub struct TursoSubstrate<V> {
+    /// The connection every query/execute runs through. Declared before `db`
+    /// so it is dropped first — dropping the `Database` while a connection
+    /// created from it is still live is not something the vendored 0.7.0 API
+    /// documents as safe (see `db`'s doc below), so `conn` must never outlive
+    /// `db`.
+    conn: turso::Connection,
     /// The open database handle. Kept alive alongside `conn` because the
     /// `turso::Connection` is created from it; dropping the `Database` while a
     /// connection is live is not something the vendored 0.7.0 API documents as
@@ -72,14 +78,11 @@ pub struct TursoSubstrate<V> {
     /// commit outcome (see [`TursoTx::commit`]) — reading through `conn`
     /// itself there would see that connection's own uncommitted write.
     ///
-    /// Declared before `conn` and `runtime` so both are dropped before it —
-    /// `Database` outliving every `Connection` created from it matches the
-    /// invariant the doc above already relies on, and dropping `runtime`
-    /// last means any drop-time cleanup `Connection`/`Database` might still
-    /// need never runs after the runtime that would have driven it is gone.
+    /// Declared after `conn` (so `conn` drops first, per its doc above) and
+    /// before `runtime` (so `runtime` drops last) — dropping `runtime` last
+    /// means any drop-time cleanup `conn`/`db` might still need never runs
+    /// after the runtime that would have driven it is gone.
     db: turso::Database,
-    /// The connection every query/execute runs through.
-    conn: turso::Connection,
     /// Owned runtime that bridges this crate's sync API onto turso's async
     /// client. Current-thread flavor with the `time` driver enabled.
     runtime: tokio::runtime::Runtime,
@@ -133,8 +136,8 @@ impl<V> TursoSubstrate<V> {
         })?;
 
         Ok(Self {
-            db,
             conn,
+            db,
             runtime,
             _marker: PhantomData,
         })
@@ -307,20 +310,32 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                                 attempt += 1;
                                 continue;
                             }
-                            // Safe to retry but out of attempts, or verification
-                            // failed: surface the original commit error. Never
-                            // retry blindly on an unverified ambiguous commit.
-                            // A failed COMMIT typically leaves the SQL
-                            // transaction open pending an explicit ROLLBACK, so
-                            // clear it here (ignoring the rollback's own
-                            // result) before returning — otherwise this
-                            // long-lived connection would be left with a
-                            // dangling open transaction and every subsequent
-                            // commit() call would fail at its own BEGIN.
-                            AmbiguousCommitResolution::SafeToRetry
-                            | AmbiguousCommitResolution::VerificationFailed(_) => {
+                            // Safe to retry but out of attempts: surface the
+                            // original commit error. Never retry blindly on
+                            // an unverified ambiguous commit. A failed COMMIT
+                            // typically leaves the SQL transaction open
+                            // pending an explicit ROLLBACK, so clear it here
+                            // (ignoring the rollback's own result) before
+                            // returning — otherwise this long-lived connection
+                            // would be left with a dangling open transaction
+                            // and every subsequent commit() call would fail at
+                            // its own BEGIN.
+                            AmbiguousCommitResolution::SafeToRetry => {
                                 let _ = conn.execute("ROLLBACK", ()).await;
                                 return Err(err.into());
+                            }
+                            // Verification itself failed: surface the
+                            // verification error rather than the original
+                            // commit error — it's the more actionable
+                            // diagnostic (e.g. an I/O failure on the fresh
+                            // verification connection), and the original
+                            // commit error is folded into the message too so
+                            // nothing is lost.
+                            AmbiguousCommitResolution::VerificationFailed(verify_err) => {
+                                let _ = conn.execute("ROLLBACK", ()).await;
+                                return Err(SubstrateError::BindingFailed(format!(
+                                    "commit failed ({err}) and verifying the ambiguous outcome also failed ({verify_err})"
+                                )));
                             }
                         }
                     }
