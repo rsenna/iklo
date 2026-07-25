@@ -9,6 +9,7 @@
 //! is unaffected.
 #![cfg(feature = "turso")]
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use turso::Value;
@@ -676,26 +677,31 @@ fn turso_substrate_satisfies_contract() {
 /// passed in. Shared by both equivalence tests below so the exact same
 /// operation sequence is guaranteed to be applied to each backend.
 fn apply_equivalence_sequence<S: Substrate<Value = i64>>(substrate: &mut S) {
-    // Commit 1: two bindings.
     let mut tx = substrate.begin();
     tx.set("alpha", 1);
     tx.set("beta", 2);
     tx.commit().expect("first commit must succeed");
 
-    // Commit 2: overwrite one binding, add a new one.
     let mut tx = substrate.begin();
     tx.set("beta", 20);
     tx.set("gamma", 3);
     tx.commit().expect("second commit must succeed");
 
-    // Rolled back: must not appear in the final snapshot on either backend.
     let mut tx = substrate.begin();
     tx.set("delta", 999);
     tx.rollback().expect("rollback must succeed");
 }
 
-#[test]
-fn in_memory_and_turso_snapshots_are_equivalent_after_identical_operations() {
+/// Number of successful commits [`apply_equivalence_sequence`] performs (its
+/// one rollback doesn't count). Named so the revision-equivalence assertion
+/// below can't silently drift out of sync with the sequence it describes.
+const EQUIVALENCE_SEQUENCE_COMMIT_COUNT: u64 = 2;
+
+/// Opens a fresh `InMemorySubstrate<i64>` and a fresh in-memory
+/// `TursoSubstrate<i64>`, applies [`apply_equivalence_sequence`] to both, and
+/// returns them. Shared by both equivalence tests below so backend setup and
+/// the applied sequence can't drift between them.
+fn equivalent_substrates_after_the_sequence() -> (InMemorySubstrate<i64>, TursoSubstrate<i64>) {
     let mut in_memory = InMemorySubstrate::<i64>::new();
     let mut turso = TursoSubstrate::<i64>::new(":memory:")
         .expect("opening a fresh in-memory Turso database must succeed");
@@ -703,6 +709,30 @@ fn in_memory_and_turso_snapshots_are_equivalent_after_identical_operations() {
     apply_equivalence_sequence(&mut in_memory);
     apply_equivalence_sequence(&mut turso);
 
+    (in_memory, turso)
+}
+
+#[test]
+fn in_memory_and_turso_snapshots_are_equivalent_after_identical_operations() {
+    let (in_memory, turso) = equivalent_substrates_after_the_sequence();
+
+    // Cross-backend equality alone can't catch a bug shared by both
+    // implementations, so also pin down the exact expected content.
+    let expected = HashMap::from([
+        ("alpha".to_string(), 1),
+        ("beta".to_string(), 20),
+        ("gamma".to_string(), 3),
+    ]);
+    assert_eq!(
+        in_memory.snapshot(),
+        expected,
+        "in-memory snapshot must match the sequence's expected final state"
+    );
+    assert_eq!(
+        turso.snapshot(),
+        expected,
+        "Turso snapshot must match the sequence's expected final state"
+    );
     assert_eq!(
         in_memory.snapshot(),
         turso.snapshot(),
@@ -712,23 +742,24 @@ fn in_memory_and_turso_snapshots_are_equivalent_after_identical_operations() {
 
 #[test]
 fn in_memory_and_turso_revisions_are_equivalent_after_identical_operations() {
-    let mut in_memory = InMemorySubstrate::<i64>::new();
-    let mut turso = TursoSubstrate::<i64>::new(":memory:")
-        .expect("opening a fresh in-memory Turso database must succeed");
-
-    apply_equivalence_sequence(&mut in_memory);
-    apply_equivalence_sequence(&mut turso);
+    let (in_memory, turso) = equivalent_substrates_after_the_sequence();
 
     assert_eq!(
         in_memory.revision(),
+        EQUIVALENCE_SEQUENCE_COMMIT_COUNT,
+        "in-memory revision must match the sequence's expected commit count"
+    );
+    assert_eq!(
         turso.revision(),
-        "both backends must agree on the revision counter (2 commits, 1 rollback -> 2)"
+        EQUIVALENCE_SEQUENCE_COMMIT_COUNT,
+        "Turso revision must match the sequence's expected commit count"
+    );
+    assert_eq!(
+        in_memory.revision(),
+        turso.revision(),
+        "both backends must agree on the revision counter"
     );
 
-    // Sanity-check the expected sequence of both assertions actually happened
-    // as documented, not just that the two backends happen to agree on a
-    // wrong shared value.
-    assert_eq!(in_memory.revision(), 2);
     assert_eq!(
         in_memory.snapshot().get("delta"),
         None,
