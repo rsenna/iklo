@@ -125,24 +125,20 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<ParsedArgs, String> 
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--substrate" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--substrate requires a value (memory|turso)".to_string())?;
-                parsed.substrate = Some(value);
+                parsed.substrate = Some(required_value(&mut args, "--substrate", "memory|turso")?);
             }
             "--turso-db-url" => {
-                let value = args
-                    .next()
-                    .ok_or_else(|| "--turso-db-url requires a value (a local file path)".to_string())?;
-                parsed.turso_db_url = Some(value);
+                parsed.turso_db_url = Some(required_value(
+                    &mut args,
+                    "--turso-db-url",
+                    "a local file path",
+                )?);
             }
             "--turso-auth-token" => {
                 // Consume and discard the value: accepted for forward
                 // compatibility (FR-011) but currently unused (B001). Never
                 // stored or echoed — do not surface it in any error message.
-                if args.next().is_none() {
-                    return Err("--turso-auth-token requires a value".to_string());
-                }
+                required_value(&mut args, "--turso-auth-token", "a token")?;
             }
             other if other.starts_with('-') => {
                 return Err(format!("unknown flag '{other}'"));
@@ -161,6 +157,36 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<ParsedArgs, String> 
     Ok(parsed)
 }
 
+/// Usage text printed to stdout by `main` for `--help`/`-h`, checked before
+/// `parse_args` runs so it's available even when other flags on the line
+/// would otherwise fail to parse.
+const USAGE: &str = "\
+Usage: iklo [--substrate memory|turso] [--turso-db-url PATH] [--turso-auth-token TOKEN] [FILE]
+
+Runs FILE if given, otherwise starts the interactive REPL.";
+
+/// Consumes and returns the next argument as `flag`'s value, or a
+/// human-readable error if there isn't one — including when the next token
+/// looks like another flag (starts with `-`), which is treated as a missing
+/// value rather than silently consumed as this flag's value. Without this
+/// check, e.g. `--turso-db-url --substrate turso` would consume `--substrate`
+/// as the URL and let `turso` fall through as an unexpected positional
+/// argument, instead of failing clearly on the actually-missing URL.
+fn required_value(
+    args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
+    flag: &str,
+    value_description: &str,
+) -> Result<String, String> {
+    match args.peek() {
+        Some(next) if next.starts_with('-') => {
+            Err(format!("{flag} requires a value ({value_description})"))
+        }
+        _ => args
+            .next()
+            .ok_or_else(|| format!("{flag} requires a value ({value_description})")),
+    }
+}
+
 /// Applies env-var fallback and cross-flag validation to produce a
 /// [`RunConfig`]. `env_turso_db_url` is threaded in as a parameter (rather than
 /// read from the process environment here) so this stays a pure, unit-testable
@@ -169,7 +195,7 @@ fn parse_args(args: impl Iterator<Item = String>) -> Result<ParsedArgs, String> 
 /// fallback to memory (FR-007).
 fn resolve_config(
     parsed: ParsedArgs,
-    env_turso_db_url: Option<String>,
+    #[cfg_attr(not(feature = "turso"), allow(unused_variables))] env_turso_db_url: Option<String>,
 ) -> Result<RunConfig, String> {
     let substrate = match parsed.substrate.as_deref() {
         None | Some("memory") => SubstrateKind::Memory,
@@ -189,38 +215,53 @@ fn resolve_config(
             file: parsed.file,
         }),
         SubstrateKind::Turso => {
+            // Checked before the db-path requirement below: in a binary
+            // built without the `turso` feature, a missing db path is not
+            // the actionable error — the feature being unavailable at all is.
+            #[cfg(not(feature = "turso"))]
+            {
+                return Err(
+                    "--substrate turso is not available: this binary was built without the \
+                     'turso' feature (rebuild with `--features turso`)"
+                        .to_string(),
+                );
+            }
+
             // Flag wins over env.
-            let db_url = parsed.turso_db_url.or(env_turso_db_url).ok_or_else(|| {
-                format!(
-                    "--substrate turso requires a database path via --turso-db-url \
-                     or the {ENV_TURSO_DB_URL} environment variable"
-                )
-            })?;
-            Ok(RunConfig {
-                substrate,
-                turso_db_url: Some(db_url),
-                file: parsed.file,
-            })
+            #[cfg(feature = "turso")]
+            {
+                let db_url = parsed.turso_db_url.or(env_turso_db_url).ok_or_else(|| {
+                    format!(
+                        "--substrate turso requires a database path via --turso-db-url \
+                         or the {ENV_TURSO_DB_URL} environment variable"
+                    )
+                })?;
+                Ok(RunConfig {
+                    substrate,
+                    turso_db_url: Some(db_url),
+                    file: parsed.file,
+                })
+            }
         }
     }
 }
 
 fn main() {
-    let parsed = match parse_args(std::env::args().skip(1)) {
-        Ok(parsed) => parsed,
-        Err(err) => {
-            eprintln!("iklo: {err}");
-            std::process::exit(2);
-        }
-    };
+    let raw_args: Vec<String> = std::env::args().skip(1).collect();
+    if raw_args.iter().any(|a| a == "--help" || a == "-h") {
+        println!("{USAGE}");
+        std::process::exit(0);
+    }
 
-    let config = match resolve_config(parsed, std::env::var(ENV_TURSO_DB_URL).ok()) {
-        Ok(config) => config,
-        Err(err) => {
-            eprintln!("iklo: {err}");
-            std::process::exit(2);
-        }
-    };
+    let parsed = parse_args(raw_args.into_iter()).unwrap_or_else(|err| {
+        eprintln!("iklo: {err}");
+        std::process::exit(2);
+    });
+
+    let config = resolve_config(parsed, std::env::var(ENV_TURSO_DB_URL).ok()).unwrap_or_else(|err| {
+        eprintln!("iklo: {err}");
+        std::process::exit(2);
+    });
 
     match config.substrate {
         SubstrateKind::Memory => {
@@ -686,6 +727,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "turso")]
     #[test]
     fn resolve_config_turso_flag_beats_env() {
         let parsed = ParsedArgs {
@@ -698,6 +740,7 @@ mod tests {
         assert_eq!(config.turso_db_url.as_deref(), Some("flag.db"));
     }
 
+    #[cfg(feature = "turso")]
     #[test]
     fn resolve_config_turso_falls_back_to_env_when_no_flag() {
         let parsed = ParsedArgs {
@@ -709,6 +752,7 @@ mod tests {
         assert_eq!(config.turso_db_url.as_deref(), Some("env.db"));
     }
 
+    #[cfg(feature = "turso")]
     #[test]
     fn resolve_config_turso_without_db_url_errors_and_does_not_fall_back() {
         let parsed = ParsedArgs {
@@ -719,6 +763,25 @@ mod tests {
         let err = resolve_config(parsed, None).expect_err("turso needs a db path");
         assert!(err.contains("requires a database path"), "got: {err}");
         assert!(err.contains(ENV_TURSO_DB_URL), "should name the env var; got: {err}");
+    }
+
+    #[cfg(not(feature = "turso"))]
+    #[test]
+    fn resolve_config_turso_without_the_feature_reports_feature_unavailable_not_missing_path() {
+        let parsed = ParsedArgs {
+            substrate: Some("turso".to_string()),
+            turso_db_url: None,
+            file: None,
+        };
+        let err = resolve_config(parsed, None).expect_err("turso needs the feature compiled in");
+        assert!(
+            err.contains("not available") && err.contains("turso"),
+            "expected a feature-unavailable error, got: {err}"
+        );
+        assert!(
+            !err.contains("requires a database path"),
+            "must not report the missing-db-path error when the feature isn't compiled in; got: {err}"
+        );
     }
 
     #[test]
