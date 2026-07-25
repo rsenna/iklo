@@ -16,8 +16,12 @@ pub enum Value {
 /// Wire version tag for [`Value::Number`]: a version byte followed by the
 /// 8-byte little-endian encoding of the `f64`. This is a small, self-contained
 /// format owned by `iklo-runtime`, deliberately independent of the `i64`
-/// codec in `iklo-substrate-turso` (each value type owns its own layout).
-const CODEC_VERSION_NUMBER: u8 = 1;
+/// codec in `iklo-substrate` (each value type owns its own layout). Set to
+/// `2`, distinct from `iklo_substrate::codec::CODEC_VERSION_I64` (`1`) — both
+/// tags share the same 1-byte-tag + 8-byte-payload shape, so a colliding
+/// value would let a database written as one value type be silently
+/// reopened and misdecoded as the other.
+const CODEC_VERSION_NUMBER: u8 = 2;
 
 impl Codec for Value {
     fn encode(&self) -> Vec<u8> {
@@ -257,18 +261,33 @@ mod tests {
         ] {
             let value = Value::Number(n);
             let encoded = value.encode();
-            let decoded = Value::decode(&encoded).expect("round-trip decode should succeed");
-            assert_eq!(decoded, value, "round-trip mismatch for {n}");
+            let Value::Number(decoded) =
+                Value::decode(&encoded).expect("round-trip decode should succeed");
+            // Compare exact bits, not `==`: IEEE 754 equality treats -0.0 as
+            // equal to 0.0, which would let a codec that normalizes away the
+            // sign of zero still pass a plain `assert_eq!(decoded, value)`.
+            assert_eq!(
+                decoded.to_bits(),
+                n.to_bits(),
+                "round-trip must preserve the exact bit pattern for {n} (sign of zero included)"
+            );
         }
     }
 
     #[test]
     fn value_codec_round_trips_nan_bitwise() {
-        // NaN != NaN, so compare the underlying bits rather than the Values.
-        let encoded = Value::Number(f64::NAN).encode();
-        match Value::decode(&encoded).expect("NaN round-trip decode should succeed") {
-            Value::Number(n) => assert!(n.is_nan(), "expected NaN back, got {n}"),
-        }
+        // NaN != NaN under `==`, and `is_nan()` alone would also pass for a
+        // codec that changed NaN's payload bits — compare the exact bit
+        // pattern to actually verify the promised wire round trip.
+        let original = f64::NAN;
+        let encoded = Value::Number(original).encode();
+        let Value::Number(decoded) =
+            Value::decode(&encoded).expect("NaN round-trip decode should succeed");
+        assert_eq!(
+            decoded.to_bits(),
+            original.to_bits(),
+            "round-trip must preserve NaN's exact bit pattern, not just is_nan()"
+        );
     }
 
     #[test]

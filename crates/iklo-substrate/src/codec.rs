@@ -81,15 +81,12 @@ impl Codec for i64 {
     }
 
     fn decode(bytes: &[u8]) -> Result<Self, CodecError> {
-        // Panic-safety: only `.first()` / `.get(..)` are used, so an empty,
-        // 1-byte, or oversized adversarial slice returns `Err`, never panics.
-        let version = *bytes
-            .first()
-            .ok_or_else(|| CodecError("empty payload: missing version tag".into()))?;
-
-        match version {
-            CODEC_VERSION_I64 => {
-                let payload = bytes.get(1..).unwrap_or(&[]);
+        // Panic-safety: slice patterns only ever bind sub-slices of `bytes`,
+        // so an empty, 1-byte, or oversized adversarial slice returns `Err`,
+        // never panics.
+        match bytes {
+            [] => Err(CodecError("empty payload: missing version tag".into())),
+            [CODEC_VERSION_I64, payload @ ..] => {
                 let array: [u8; 8] = payload.try_into().map_err(|_| {
                     CodecError(format!(
                         "expected 8-byte i64 payload for version {CODEC_VERSION_I64}, got {} bytes",
@@ -98,7 +95,7 @@ impl Codec for i64 {
                 })?;
                 Ok(i64::from_le_bytes(array))
             }
-            other => Err(CodecError(format!("unsupported codec version tag: {other}"))),
+            [other, ..] => Err(CodecError(format!("unsupported codec version tag: {other}"))),
         }
     }
 }
