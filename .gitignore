@@ -37,4 +37,6 @@ node_modules/
 
 # Supermemory local container-tag config (user-specific hashes)
 /.claude/.supermemory-claude/
+/.claude/worktrees/
+
 
