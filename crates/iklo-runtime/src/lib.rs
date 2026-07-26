@@ -36,16 +36,12 @@ impl Codec for Value {
     }
 
     fn decode(bytes: &[u8]) -> Result<Self, CodecError> {
-        // Panic-safety (identical bar to the `i64` codec): only `.first()` /
-        // `.get(..)` are used, so an empty, 1-byte, or oversized adversarial
-        // slice returns `Err` — never panics.
-        let version = *bytes
-            .first()
-            .ok_or_else(|| CodecError("empty payload: missing version tag".into()))?;
-
-        match version {
-            CODEC_VERSION_NUMBER => {
-                let payload = bytes.get(1..).unwrap_or(&[]);
+        // Panic-safety (identical bar to the `i64` codec): slice patterns
+        // only ever bind sub-slices of `bytes`, so an empty, 1-byte, or
+        // oversized adversarial slice returns `Err` — never panics.
+        match bytes {
+            [] => Err(CodecError("empty payload: missing version tag".into())),
+            [CODEC_VERSION_NUMBER, payload @ ..] => {
                 let array: [u8; 8] = payload.try_into().map_err(|_| {
                     CodecError(format!(
                         "expected 8-byte f64 payload for Value::Number version \
@@ -55,7 +51,7 @@ impl Codec for Value {
                 })?;
                 Ok(Value::Number(f64::from_le_bytes(array)))
             }
-            other => Err(CodecError(format!(
+            [other, ..] => Err(CodecError(format!(
                 "unrecognized Value codec version tag: {other}"
             ))),
         }

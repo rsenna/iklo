@@ -165,20 +165,35 @@ Usage: iklo [--substrate memory|turso] [--turso-db-url PATH] [--turso-auth-token
 
 Runs FILE if given, otherwise starts the interactive REPL.";
 
+/// Recognized flag tokens — used by `required_value` to distinguish "the next
+/// token is actually another flag" from "the next token happens to start
+/// with `-`" (e.g. a Turso db path or auth token that legitimately begins
+/// with a dash). Kept in sync with `parse_args`'s match arms by hand, since
+/// this is a small, fixed, three-flag surface.
+const KNOWN_FLAGS: [&str; 5] = [
+    "--substrate",
+    "--turso-db-url",
+    "--turso-auth-token",
+    "--help",
+    "-h",
+];
+
 /// Consumes and returns the next argument as `flag`'s value, or a
-/// human-readable error if there isn't one — including when the next token
-/// looks like another flag (starts with `-`), which is treated as a missing
-/// value rather than silently consumed as this flag's value. Without this
-/// check, e.g. `--turso-db-url --substrate turso` would consume `--substrate`
-/// as the URL and let `turso` fall through as an unexpected positional
-/// argument, instead of failing clearly on the actually-missing URL.
+/// human-readable error if there isn't one — including when the next token is
+/// itself a recognized flag, which is treated as a missing value rather than
+/// silently consumed as this flag's value. Without this check, e.g.
+/// `--turso-db-url --substrate turso` would consume `--substrate` as the URL
+/// and let `turso` fall through as an unexpected positional argument, instead
+/// of failing clearly on the actually-missing URL. Only *recognized* flags
+/// are treated this way (not every `-`-prefixed token) so a Turso db path or
+/// auth token that legitimately starts with `-` still works.
 fn required_value(
     args: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     flag: &str,
     value_description: &str,
 ) -> Result<String, String> {
     match args.peek() {
-        Some(next) if next.starts_with('-') => {
+        Some(next) if KNOWN_FLAGS.contains(&next.as_str()) => {
             Err(format!("{flag} requires a value ({value_description})"))
         }
         _ => args
