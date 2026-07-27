@@ -1121,6 +1121,8 @@ version = "0.1.0"
 dependencies = [
  "iklo-parser",
  "iklo-runtime",
+ "iklo-substrate",
+ "iklo-substrate-turso",
  "rustyline",
 ]
 

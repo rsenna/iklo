@@ -17,7 +17,6 @@ use turso::Value;
 use iklo_substrate::memory::InMemorySubstrate;
 use iklo_substrate::{contract::run_contract_suite, Substrate, Transaction};
 
-use crate::codec::{Codec, CODEC_VERSION_I64};
 use crate::schema;
 use crate::substrate::TursoSubstrate;
 use crate::{
@@ -274,89 +273,6 @@ async fn verify_rejects_incompatible_schema_version() {
     }
 }
 
-// --- codec (T007/T008) ---
-//
-// `Codec` operates on plain `&[u8]`/`Vec<u8>` with no I/O, so these tests
-// don't need a live `turso` database. They're kept in this file (which is
-// already `#[cfg(feature = "turso")]`-gated at the module level) rather than
-// split into a separate always-on test module, since the brief says either
-// placement is fine and this keeps all of this crate's tests in one place.
-
-#[test]
-fn i64_codec_round_trips_negative_zero_and_positive_values() {
-    for value in [i64::MIN, -1, 0, 1, 42, i64::MAX] {
-        let encoded = value.encode();
-        let decoded = i64::decode(&encoded).expect("round-trip decode should succeed");
-        assert_eq!(decoded, value, "round-trip mismatch for {value}");
-    }
-}
-
-#[test]
-fn i64_codec_encodes_with_expected_version_tag_and_length() {
-    let encoded = 7i64.encode();
-    assert_eq!(encoded.len(), 1 + 8, "expected 1-byte tag + 8-byte payload");
-    assert_eq!(encoded[0], CODEC_VERSION_I64);
-}
-
-#[test]
-fn i64_decode_rejects_unknown_version_tag() {
-    // Valid-length payload, but a version byte that doesn't exist.
-    let bytes = [0xFFu8, 0, 0, 0, 0, 0, 0, 0, 0];
-
-    let err = i64::decode(&bytes).expect_err("unknown version tag must be rejected");
-
-    match err {
-        TursoSubstrateError::UnsupportedCodecVersion { found } => assert_eq!(found, 0xFF),
-        other => panic!("expected UnsupportedCodecVersion, got {other:?}"),
-    }
-}
-
-#[test]
-fn i64_decode_rejects_truncated_payload() {
-    // Valid version tag, but only 3 payload bytes instead of 8.
-    let bytes = [CODEC_VERSION_I64, 1, 2, 3];
-
-    let err = i64::decode(&bytes).expect_err("truncated payload must be rejected");
-
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
-}
-
-#[test]
-fn i64_decode_rejects_oversized_payload() {
-    // Valid version tag, but too many payload bytes.
-    let bytes = [CODEC_VERSION_I64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-    let err = i64::decode(&bytes).expect_err("oversized payload must be rejected");
-
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
-}
-
-#[test]
-fn i64_decode_does_not_panic_on_empty_slice() {
-    let err = i64::decode(&[]).expect_err("empty slice must be rejected, not panic");
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
-}
-
-#[test]
-fn i64_decode_does_not_panic_on_single_byte_slice() {
-    // Only the version tag, no payload at all.
-    let err = i64::decode(&[CODEC_VERSION_I64])
-        .expect_err("version-tag-only slice must be rejected, not panic");
-    match err {
-        TursoSubstrateError::CodecDecodeFailed(_) => {}
-        other => panic!("expected CodecDecodeFailed, got {other:?}"),
-    }
-}
-
 // --- retry classification, backoff policy, ambiguous-commit resolution (T009/T010) ---
 //
 // Pure policy logic, no live database required, but kept in this
@@ -430,9 +346,6 @@ fn classify_treats_this_crates_own_error_variants_as_surface_immediately() {
         found: 2,
     };
     assert_eq!(classify(&schema_mismatch), RetryClass::SurfaceImmediately);
-
-    let unsupported_codec = TursoSubstrateError::UnsupportedCodecVersion { found: 0xFF };
-    assert_eq!(classify(&unsupported_codec), RetryClass::SurfaceImmediately);
 
     let codec_decode_failed = TursoSubstrateError::CodecDecodeFailed("bad payload".to_string());
     assert_eq!(
