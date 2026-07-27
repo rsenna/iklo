@@ -1,6 +1,6 @@
 ---
 description: "Task list for Turso-backed substrate backend"
-status: draft
+status: shipped
 ---
 
 # Tasks: Turso-backed Substrate Backend
@@ -43,10 +43,10 @@ Allowed `Classification` values:
 
 **Purpose**: Create backend crate and integration scaffolding.
 
-- [ ] **T001** [US1] Add `crates/iklo-substrate-turso/` to workspace and scaffold `Cargo.toml` + `src/lib.rs`, gated behind an explicit Cargo feature per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md) sequencing.
-- [ ] **T002** [US1] Select and pin Turso Rust client dependency in `crates/iklo-substrate-turso/Cargo.toml` under that feature gate, with a short rationale comment in plan-aligned notes.
-- [ ] **T003** [US1] Define crate-level error types and conversion boundaries in `crates/iklo-substrate-turso/src/lib.rs`.
-- [ ] **T004** [US1] Add schema bootstrap module `crates/iklo-substrate-turso/src/schema.rs` with idempotent create/verify entrypoints.
+- [x] **T001** [US1] Add `crates/iklo-substrate-turso/` to workspace and scaffold `Cargo.toml` + `src/lib.rs`, gated behind an explicit Cargo feature per [ADR-0001](../../specs/decisions/ADR-0001-substrate-boundary.md) sequencing.
+- [x] **T002** [US1] Select and pin Turso Rust client dependency in `crates/iklo-substrate-turso/Cargo.toml` under that feature gate, with a short rationale comment in plan-aligned notes.
+- [x] **T003** [US1] Define crate-level error types and conversion boundaries in `crates/iklo-substrate-turso/src/lib.rs`.
+- [x] **T004** [US1] Add schema bootstrap module `crates/iklo-substrate-turso/src/schema.rs` with idempotent create/verify entrypoints.
 
 ---
 
@@ -56,12 +56,12 @@ Allowed `Classification` values:
 
 **CRITICAL**: No user-story implementation starts before this phase is complete.
 
-- [ ] **T005** [US1] Write RED tests for schema bootstrap idempotency and incompatible schema version failure in `crates/iklo-substrate-turso/src/tests.rs`.
-- [ ] **T006** [US1] Implement schema versioning + compatibility checks in `schema.rs` (commit together with T005 as one red→green cycle).
-- [ ] **T007** [US1] Write RED tests for versioned persisted-`V` codec behavior (supported/unsupported shapes, decode failures) in `crates/iklo-substrate-turso/src/tests.rs`.
-- [ ] **T008** [US1] Implement codec module `crates/iklo-substrate-turso/src/codec.rs` with explicit version tag handling.
-- [ ] **T009** [US1] Write RED tests for retry classification, contention behavior, and ambiguous commit-result handling on transient transport failures in `crates/iklo-substrate-turso/src/tests.rs`.
-- [ ] **T010** [US1] Define retry policy helpers and error classification (retryable vs surface-immediately), including post-timeout commit-outcome verification before retry, in `crates/iklo-substrate-turso/src/lib.rs`.
+- [x] **T005** [US1] Write RED tests for schema bootstrap idempotency and incompatible schema version failure in `crates/iklo-substrate-turso/src/tests.rs`.
+- [x] **T006** [US1] Implement schema versioning + compatibility checks in `schema.rs` (commit together with T005 as one red→green cycle).
+- [x] **T007** [US1] Write RED tests for versioned persisted-`V` codec behavior (supported/unsupported shapes, decode failures) in `crates/iklo-substrate-turso/src/tests.rs`.
+- [x] **T008** [US1] Implement codec module `crates/iklo-substrate-turso/src/codec.rs` with explicit version tag handling.
+- [x] **T009** [US1] Write RED tests for retry classification, contention behavior, and ambiguous commit-result handling on transient transport failures in `crates/iklo-substrate-turso/src/tests.rs`.
+- [x] **T010** [US1] Define retry policy helpers and error classification (retryable vs surface-immediately), including post-timeout commit-outcome verification before retry, in `crates/iklo-substrate-turso/src/lib.rs`.
 
 **Checkpoint**: Schema + codec + retry/ambiguity policy in place.
 
@@ -75,15 +75,15 @@ Allowed `Classification` values:
 
 ### Tests for User Story 1 (write first)
 
-- [ ] **T011** [US1] Add RED tests for commit persistence, rollback invisibility, and revision increment semantics in `crates/iklo-substrate-turso/src/tests.rs`.
-- [ ] **T012** [US1] Add RED tests for connectivity/auth failure surfaces (no silent fallback) in `crates/iklo-substrate-turso/src/tests.rs`.
+- [x] **T011** [US1] Add RED tests for commit persistence, rollback invisibility, and revision increment semantics in `crates/iklo-substrate-turso/src/tests.rs`.
+- [x] **T012** [US1] Add RED tests for connectivity/auth failure surfaces (no silent fallback) in `crates/iklo-substrate-turso/src/tests.rs`.
 
 ### Implementation for User Story 1
 
-- [ ] **T013** [US1] Implement `TursoSubstrate<V>` struct and constructor/config parsing in `crates/iklo-substrate-turso/src/lib.rs`.
-- [ ] **T014** [US1] Implement `Substrate` trait for `TursoSubstrate<V>` (begin/revision/snapshot).
-- [ ] **T015** [US1] Implement transactional type for `Transaction` trait (get/set/commit/rollback) with atomic visibility guarantees.
-- [ ] **T016** [US1] Wire retry policy into transactional operations with bounded retries/backoff for retryable classes only.
+- [x] **T013** [US1] Implement `TursoSubstrate<V>` struct and constructor/config parsing in `crates/iklo-substrate-turso/src/lib.rs`.
+- [x] **T014** [US1] Implement `Substrate` trait for `TursoSubstrate<V>` (begin/revision/snapshot).
+- [x] **T015** [US1] Implement transactional type for `Transaction` trait (get/set/commit/rollback) with atomic visibility guarantees.
+- [x] **T016** [US1] Wire retry policy into transactional operations with bounded retries/backoff for retryable classes only.
 
 **Checkpoint**: US1 behavior passes backend-local tests.
 
@@ -97,12 +97,12 @@ Allowed `Classification` values:
 
 ### Tests for User Story 2 (write first)
 
-- [ ] **T017** [US2] Add RED contract-suite harness in `crates/iklo-substrate-turso/src/tests.rs` calling `run_contract_suite(...)`.
+- [x] **T017** [US2] Add RED contract-suite harness in `crates/iklo-substrate-turso/src/tests.rs` calling `run_contract_suite(...)`.
 
 ### Implementation for User Story 2
 
-- [ ] **T018** [US2] Satisfy remaining trait-contract mismatches revealed by T017 without changing contract case bodies.
-- [ ] **T019** [US2] Add snapshot equivalence tests (in-memory vs Turso) for identical committed operations.
+- [x] **T018** [US2] Satisfy remaining trait-contract mismatches revealed by T017 without changing contract case bodies.
+- [x] **T019** [US2] Add snapshot equivalence tests (in-memory vs Turso) for identical committed operations.
 
 **Checkpoint**: US1 + US2 green with contract parity.
 
@@ -116,13 +116,13 @@ Allowed `Classification` values:
 
 ### Tests for User Story 3 (write first)
 
-- [ ] **T020** [US3] Add RED CLI tests for precedence (`flags > env`), required fields by mode, invalid-combination errors, and persistence behavior through CLI mode selection in `crates/iklo-cli/src/main.rs` tests.
+- [x] **T020** [US3] Add RED CLI tests for precedence (`flags > env`), required fields by mode, invalid-combination errors, and persistence behavior through CLI mode selection in `crates/iklo-cli/src/main.rs` tests.
 
 ### Implementation for User Story 3
 
-- [ ] **T021** [US3] Add CLI parsing/wiring for `--substrate`, `--turso-db-url`, and auth-token input with secure handling (prefer env var in docs/examples, redact from output/logs) plus env fallback in `crates/iklo-cli/src/main.rs`.
-- [ ] **T022** [US3] Keep in-memory mode as default path; ensure no implicit fallback from Turso failures.
-- [ ] **T023** [US3] Integrate runtime/bootstrap path to construct selected substrate mode.
+- [x] **T021** [US3] Add CLI parsing/wiring for `--substrate`, `--turso-db-url`, and auth-token input with secure handling (redact from output/logs) plus env fallback for `--turso-db-url` (`IKLO_TURSO_DB_URL`) in `crates/iklo-cli/src/main.rs`. No env var exists for `--turso-auth-token`: it is accepted but currently a no-op (see FR-011, blocker `B001`).
+- [x] **T022** [US3] Keep in-memory mode as default path; ensure no implicit fallback from Turso failures.
+- [x] **T023** [US3] Integrate runtime/bootstrap path to construct selected substrate mode.
 
 **Checkpoint**: All user stories independently testable.
 
@@ -132,12 +132,12 @@ Allowed `Classification` values:
 
 **Purpose**: Close readiness gaps and enforce traceability.
 
-- [ ] **T024** [US1] Validate and maintain the FR→Task traceability section in this file (required for SC-008).
-- [ ] **T025** [US1] During implementation, record every blocker in canonical inventory with full schema fields.
-- [ ] **T026** [US1] If any blocker is `fork-required`, open follow-up ADR/epic before any fork code change.
-- [ ] **T027** [US1] Add an explicit baseline-capture task: record the `main` baseline commit SHA in the implementation PR description (FR-024).
-- [ ] **T028** [US1] Update `README.md`, `AGENTS.md`, and `LANGUAGE.md` for substrate modes and configuration semantics.
-- [ ] **T029** [US1] Run final gate: `cargo test --workspace && make test && make build && make release`.
+- [x] **T024** [US1] Validate and maintain the FR→Task traceability section in this file (required for SC-008).
+- [x] **T025** [US1] During implementation, record every blocker in canonical inventory with full schema fields.
+- [x] **T026** [US1] If any blocker is `fork-required`, open follow-up ADR/epic before any fork code change.
+- [x] **T027** [US1] Add an explicit baseline-capture task: record the `main` baseline commit SHA in the implementation PR description (FR-024).
+- [x] **T028** [US1] Update `README.md`, `AGENTS.md`, and `LANGUAGE.md` for substrate modes and configuration semantics.
+- [x] **T029** [US1] Run final gate: `cargo test --workspace && make test && make build && make release`.
 
 ---
 
