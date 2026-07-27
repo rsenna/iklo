@@ -159,6 +159,20 @@ impl<V> TursoSubstrate<V> {
     }
 }
 
+/// Test-only: records the highest attempt number reached by the most recent
+/// [`TursoTx::commit`] call on the current thread, so retry-contention
+/// integration tests can assert the retry loop actually ran more than once
+/// rather than inferring it indirectly from timing.
+#[cfg(test)]
+thread_local! {
+    static LAST_COMMIT_ATTEMPT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(crate) fn last_commit_attempt_for_test() -> u32 {
+    LAST_COMMIT_ATTEMPT.with(|c| c.get())
+}
+
 impl<V: Clone + fmt::Debug + Codec> Substrate for TursoSubstrate<V> {
     type Value = V;
     type Tx<'a>
@@ -262,6 +276,9 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
         substrate.runtime.block_on(async move {
             let mut attempt: u32 = 1;
             loop {
+                #[cfg(test)]
+                LAST_COMMIT_ATTEMPT.with(|c| c.set(attempt));
+
                 // Step 1: snapshot the revision *before* attempting the write,
                 // so an ambiguous COMMIT can be resolved by comparing after.
                 let revision_before = read_revision(conn).await?;

@@ -677,14 +677,44 @@ fn new_with_unusable_path_surfaces_an_error() {
 // the substrate's own database file) to hold a genuine write lock while
 // `commit()` is in flight.
 
+/// Joins its wrapped thread on drop if it hasn't been joined already —
+/// guarantees the background lock-holder is never left detached, even if a
+/// `commit()` call or assertion between spawn and the explicit join panics.
+struct JoinOnDrop(Option<std::thread::JoinHandle<()>>);
+
+impl JoinOnDrop {
+    fn join(mut self) {
+        self.0
+            .take()
+            .expect("join_on_drop: handle already taken")
+            .join()
+            .expect("blocker thread must not panic");
+    }
+}
+
+impl Drop for JoinOnDrop {
+    fn drop(&mut self) {
+        if let Some(handle) = self.0.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
 /// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` for `hold_for`, then
 /// releases it. Runs on its own thread with its own tiny runtime, so it can
 /// genuinely overlap with a `commit()` call blocking the test's main thread.
+///
+/// Returns the join handle together with a rendezvous receiver that fires
+/// only once the lock is actually held — the caller must `recv()` on it
+/// before proceeding, instead of guessing with a fixed sleep. A zero-capacity
+/// (`sync_channel(0)`) channel is used specifically so `send` cannot
+/// complete before the corresponding `recv` is ready to receive it.
 fn hold_write_lock_on_background_thread(
     conn: turso::Connection,
     hold_for: Duration,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
+) -> (JoinOnDrop, std::sync::mpsc::Receiver<()>) {
+    let (lock_acquired_tx, lock_acquired_rx) = std::sync::mpsc::sync_channel(0);
+    let handle = std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -693,10 +723,17 @@ fn hold_write_lock_on_background_thread(
             conn.execute("BEGIN IMMEDIATE", ())
                 .await
                 .expect("acquiring the write lock must succeed");
-            std::thread::sleep(hold_for);
-            let _ = conn.execute("ROLLBACK", ()).await;
+            // Ignore a send failure: it only means the receiver was already
+            // dropped (e.g. the test failed before reaching `recv`), and
+            // this thread must still release the lock via ROLLBACK below.
+            let _ = lock_acquired_tx.send(());
+            tokio::time::sleep(hold_for).await;
+            conn.execute("ROLLBACK", ())
+                .await
+                .expect("releasing the write lock (ROLLBACK) must succeed");
         });
-    })
+    });
+    (JoinOnDrop(Some(handle)), lock_acquired_rx)
 }
 
 /// The retry loop must actually retry (not just decide to, in isolation): a
@@ -714,17 +751,27 @@ fn commit_retries_past_transient_lock_contention_and_succeeds() {
     // Released well within COMMIT_RETRY_POLICY's cumulative backoff budget
     // (10 + 20 + 40 + 80ms across up to 5 attempts), so the commit should
     // succeed via retry rather than exhausting its attempts.
-    let blocker = hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(25));
-    // Give the blocker a moment to actually acquire the lock first.
-    std::thread::sleep(Duration::from_millis(5));
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(25));
+    // Block until the blocker thread confirms it actually holds the write
+    // lock — no timing guesswork, so `commit()`'s first attempt is
+    // guaranteed to observe real contention.
+    lock_acquired
+        .recv()
+        .expect("blocker thread must signal lock acquisition before being dropped");
 
     let mut tx = substrate.begin();
     tx.set("x", 42);
     tx.commit()
         .expect("commit must succeed once the transient lock is released, via retry");
 
-    blocker.join().expect("blocker thread must not panic");
+    blocker.join();
 
+    assert!(
+        crate::substrate::last_commit_attempt_for_test() > 1,
+        "the first attempt was guaranteed to observe the lock held, so a \
+         successful commit must have gone through at least one retry"
+    );
     assert_eq!(substrate.snapshot().get("x"), Some(&42));
     assert_eq!(substrate.revision(), 1);
 }
@@ -741,8 +788,11 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
     let blocker_conn = substrate.open_second_connection_for_test();
     // Held far longer than the retry policy's total backoff budget (150ms
     // across attempts 1-4), so every attempt observes the lock still taken.
-    let blocker = hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(500));
-    std::thread::sleep(Duration::from_millis(5));
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(500));
+    lock_acquired
+        .recv()
+        .expect("blocker thread must signal lock acquisition before being dropped");
 
     let mut tx = substrate.begin();
     tx.set("x", 42);
@@ -753,8 +803,13 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
         "commit must surface an error once retries are exhausted under sustained contention"
     );
 
-    blocker.join().expect("blocker thread must not panic");
+    blocker.join();
 
+    assert_eq!(
+        crate::substrate::last_commit_attempt_for_test(),
+        5,
+        "must have run every attempt allowed by COMMIT_RETRY_POLICY before surfacing the error"
+    );
     assert!(
         substrate.snapshot().get("x").is_none(),
         "a commit that never landed must not be visible"
