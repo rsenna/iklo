@@ -163,14 +163,43 @@ impl<V> TursoSubstrate<V> {
 /// [`TursoTx::commit`] call on the current thread, so retry-contention
 /// integration tests can assert the retry loop actually ran more than once
 /// rather than inferring it indirectly from timing.
+///
+/// `ON_RETRY_HOOK`, if set, is fired (best-effort, via `try_send`) the moment
+/// the loop decides to back off and retry — i.e. the moment a retryable
+/// failure has actually been observed. Retry-contention tests use this to
+/// release a competing lock-holder deterministically, instead of guessing
+/// how long contention needs to be held with a fixed sleep: the loop only
+/// ever backs off *after* observing real contention, so firing here can
+/// never race ahead of that observation.
 #[cfg(test)]
 thread_local! {
     static LAST_COMMIT_ATTEMPT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    static ON_RETRY_HOOK: std::cell::RefCell<Option<std::sync::mpsc::SyncSender<()>>> =
+        const { std::cell::RefCell::new(None) };
 }
 
 #[cfg(test)]
 pub(crate) fn last_commit_attempt_for_test() -> u32 {
     LAST_COMMIT_ATTEMPT.with(|c| c.get())
+}
+
+#[cfg(test)]
+pub(crate) fn set_on_retry_hook_for_test(hook: std::sync::mpsc::SyncSender<()>) {
+    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = Some(hook));
+}
+
+#[cfg(test)]
+pub(crate) fn clear_on_retry_hook_for_test() {
+    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = None);
+}
+
+#[cfg(test)]
+fn fire_on_retry_hook_for_test() {
+    ON_RETRY_HOOK.with(|h| {
+        if let Some(tx) = h.borrow().as_ref() {
+            let _ = tx.try_send(());
+        }
+    });
 }
 
 impl<V: Clone + fmt::Debug + Codec> Substrate for TursoSubstrate<V> {
@@ -294,6 +323,8 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                         let _ = conn.execute("ROLLBACK", ()).await;
                         match classify(&err) {
                             RetryClass::Retryable if attempt < policy.max_attempts => {
+                                #[cfg(test)]
+                                fire_on_retry_hook_for_test();
                                 tokio::time::sleep(policy.backoff_for(attempt)).await;
                                 attempt += 1;
                                 continue;
@@ -338,6 +369,8 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                                 if attempt < policy.max_attempts =>
                             {
                                 let _ = conn.execute("ROLLBACK", ()).await;
+                                #[cfg(test)]
+                                fire_on_retry_hook_for_test();
                                 tokio::time::sleep(policy.backoff_for(attempt)).await;
                                 attempt += 1;
                                 continue;

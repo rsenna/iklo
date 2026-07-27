@@ -700,18 +700,27 @@ impl Drop for JoinOnDrop {
     }
 }
 
-/// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` for `hold_for`, then
-/// releases it. Runs on its own thread with its own tiny runtime, so it can
-/// genuinely overlap with a `commit()` call blocking the test's main thread.
+/// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` until told to release via
+/// `release_signal`, then releases it. Runs on its own thread with its own
+/// tiny runtime, so it can genuinely overlap with a `commit()` call blocking
+/// the test's main thread.
+///
+/// Deliberately takes no fixed duration to hold for: a timed sleep can
+/// expire before `commit()` actually runs on a delayed/loaded CI worker,
+/// making the asserted contention non-deterministic. Callers instead choose
+/// what feeds `release_signal` — e.g. `crate::substrate`'s test-only
+/// on-retry hook, which only fires once the retry loop has itself observed
+/// a retryable failure, so the release can never race ahead of that
+/// observation.
 ///
 /// Returns the join handle together with a rendezvous receiver that fires
 /// only once the lock is actually held — the caller must `recv()` on it
-/// before proceeding, instead of guessing with a fixed sleep. A zero-capacity
-/// (`sync_channel(0)`) channel is used specifically so `send` cannot
-/// complete before the corresponding `recv` is ready to receive it.
+/// before proceeding. A zero-capacity (`sync_channel(0)`) channel is used
+/// specifically so `send` cannot complete before the corresponding `recv` is
+/// ready to receive it.
 fn hold_write_lock_on_background_thread(
     conn: turso::Connection,
-    hold_for: Duration,
+    release_signal: std::sync::mpsc::Receiver<()>,
 ) -> (JoinOnDrop, std::sync::mpsc::Receiver<()>) {
     let (lock_acquired_tx, lock_acquired_rx) = std::sync::mpsc::sync_channel(0);
     let handle = std::thread::spawn(move || {
@@ -719,15 +728,20 @@ fn hold_write_lock_on_background_thread(
             .enable_all()
             .build()
             .expect("failed to build background-thread runtime");
-        rt.block_on(async move {
+        rt.block_on(async {
             conn.execute("BEGIN IMMEDIATE", ())
                 .await
                 .expect("acquiring the write lock must succeed");
-            // Ignore a send failure: it only means the receiver was already
-            // dropped (e.g. the test failed before reaching `recv`), and
-            // this thread must still release the lock via ROLLBACK below.
-            let _ = lock_acquired_tx.send(());
-            tokio::time::sleep(hold_for).await;
+        });
+        // Ignore a send failure: it only means the receiver was already
+        // dropped (e.g. the test failed before reaching `recv`), and this
+        // thread must still release the lock via ROLLBACK below.
+        let _ = lock_acquired_tx.send(());
+        // Blocks this dedicated, single-purpose OS thread — nothing else
+        // needs it — until the caller-chosen signal fires. No fixed sleep
+        // anywhere in this function.
+        let _ = release_signal.recv();
+        rt.block_on(async {
             conn.execute("ROLLBACK", ())
                 .await
                 .expect("releasing the write lock (ROLLBACK) must succeed");
@@ -748,11 +762,14 @@ fn commit_retries_past_transient_lock_contention_and_succeeds() {
         TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
 
     let blocker_conn = substrate.open_second_connection_for_test();
-    // Released well within COMMIT_RETRY_POLICY's cumulative backoff budget
-    // (10 + 20 + 40 + 80ms across up to 5 attempts), so the commit should
-    // succeed via retry rather than exhausting its attempts.
-    let (blocker, lock_acquired) =
-        hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(25));
+    // The blocker releases the lock the moment TursoTx::commit's retry loop
+    // itself observes the contention and decides to back off — driven by
+    // the on-retry hook below, not a fixed sleep — so this is deterministic
+    // regardless of CI scheduling delays.
+    let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+    crate::substrate::set_on_retry_hook_for_test(release_tx);
+
+    let (blocker, lock_acquired) = hold_write_lock_on_background_thread(blocker_conn, release_rx);
     // Block until the blocker thread confirms it actually holds the write
     // lock — no timing guesswork, so `commit()`'s first attempt is
     // guaranteed to observe real contention.
@@ -765,6 +782,7 @@ fn commit_retries_past_transient_lock_contention_and_succeeds() {
     tx.commit()
         .expect("commit must succeed once the transient lock is released, via retry");
 
+    crate::substrate::clear_on_retry_hook_for_test();
     blocker.join();
 
     assert!(
@@ -786,10 +804,12 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
         TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
 
     let blocker_conn = substrate.open_second_connection_for_test();
-    // Held far longer than the retry policy's total backoff budget (150ms
-    // across attempts 1-4), so every attempt observes the lock still taken.
-    let (blocker, lock_acquired) =
-        hold_write_lock_on_background_thread(blocker_conn, Duration::from_millis(500));
+    // Deliberately never fed by the on-retry hook: the lock must stay held
+    // through every attempt so the loop genuinely exhausts its budget. Only
+    // released manually below, after commit() has already returned, purely
+    // so the background thread can clean up.
+    let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+    let (blocker, lock_acquired) = hold_write_lock_on_background_thread(blocker_conn, release_rx);
     lock_acquired
         .recv()
         .expect("blocker thread must signal lock acquisition before being dropped");
@@ -798,13 +818,13 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
     tx.set("x", 42);
     let result = tx.commit();
 
+    let _ = release_tx.send(());
+    blocker.join();
+
     assert!(
         result.is_err(),
         "commit must surface an error once retries are exhausted under sustained contention"
     );
-
-    blocker.join();
-
     assert_eq!(
         crate::substrate::last_commit_attempt_for_test(),
         5,
