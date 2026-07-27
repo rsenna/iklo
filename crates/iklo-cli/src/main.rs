@@ -720,6 +720,17 @@ mod tests {
     }
 
     #[test]
+    fn parse_args_accepts_dash_prefixed_turso_db_url_value() {
+        let parsed = parse_args(
+            ["--turso-db-url", "-weird-name.db"]
+                .iter()
+                .map(|s| s.to_string()),
+        )
+        .expect("a dash-prefixed value that isn't a known flag must be accepted");
+        assert_eq!(parsed.turso_db_url, Some("-weird-name.db".to_string()));
+    }
+
+    #[test]
     fn resolve_config_defaults_to_memory() {
         let config = resolve_config(ParsedArgs::default(), None).expect("memory default");
         assert_eq!(config.substrate, SubstrateKind::Memory);
