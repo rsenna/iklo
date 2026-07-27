@@ -22,6 +22,8 @@ In this document, `A -> B` means:
 
 ### 1. Epic 004 — Turso-backed Substrate Backend
 
+- **Status**: Done — all done criteria below are met (spec.md status:
+  Implemented; tasks.md: all tasks checked).
 - **Spec**: [004-turso-substrate-backend/spec.md](004-turso-substrate-backend/spec.md)
 - **Start criteria**:
   - Spec 004 is in Draft and marked as the active implementation epic.

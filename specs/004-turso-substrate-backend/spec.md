@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: Implement the next milestone committed by [ADR-0001](../decisions/ADR-0001-substrate-boundary.md): add a Turso-backed `Substrate` implementation as a separate crate, keeping `iklo-runtime` as the semantic reference and deferring all VDBE compiler work.
 
@@ -104,7 +104,7 @@ A CLI user can run with either in-memory behavior (default) or Turso-backed pers
 - **FR-008**: This epic MUST NOT introduce VDBE bytecode compilation, opcode work, or Turso forks; scope is storage backend only.
 - **FR-009**: `make test`, `make build`, and `make release` MUST pass with Turso support enabled in CI-reproducible configuration.
 - **FR-010**: Documentation (`AGENTS.md`, `README.md`, `LANGUAGE.md`) MUST describe both substrate modes and the default selection behavior accurately.
-- **FR-011**: CLI substrate selection MUST be explicit and stable: `--substrate memory|turso` (default `memory`) and Turso mode MUST require `--turso-db-url <url>` (or `IKLO_TURSO_DB_URL`) plus optional `--turso-auth-token <token>` (or `IKLO_TURSO_AUTH_TOKEN`).
+- **FR-011**: CLI substrate selection MUST be explicit and stable: `--substrate memory|turso` (default `memory`) and Turso mode MUST require `--turso-db-url <url>` (or `IKLO_TURSO_DB_URL`) plus an optional `--turso-auth-token <token>` — accepted for forward compatibility but currently a no-op (no remote/cloud connectivity in this epic, see blocker `B001`); there is no corresponding env var.
 - **FR-012**: Schema bootstrap MUST be idempotent and validated on startup; incompatible schema versions MUST fail with an explicit migration/version error.
 - **FR-013**: Multi-instance contention behavior MUST be defined by transactional correctness guarantees (atomic commit/rollback visibility), with conflicts surfaced as explicit errors or retries per backend semantics.
 - **FR-014**: Implementation sequencing MUST be adapter-first: `iklo-substrate-turso` starts with no Turso fork and uses only exposed/stable interfaces.

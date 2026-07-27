@@ -17,8 +17,8 @@ Today it ships as a workspace centered on a REPL/file runner executable named
 - Runtime (`iklo-runtime`) with transactional evaluation over the live image.
 - Substrate boundary (`iklo-substrate`) with in-memory implementation.
   A Turso-backed alternative (`iklo-substrate-turso`, local-file-only) is
-  available opt-in behind a Cargo feature and CLI flag; in-memory remains
-  the default.
+  available by enabling the `turso` Cargo feature and passing
+  `--substrate turso --turso-db-url <path>`; in-memory remains the default.
 - CLI (`iklo-cli`) REPL and file runner (`iklo` executable).
 
 ## Quickstart
