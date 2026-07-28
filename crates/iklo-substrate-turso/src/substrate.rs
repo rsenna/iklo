@@ -144,6 +144,73 @@ impl<V> TursoSubstrate<V> {
     }
 }
 
+#[cfg(test)]
+impl<V> TursoSubstrate<V> {
+    /// Test-only: opens a second connection sharing this substrate's
+    /// underlying database file, so integration tests can simulate real
+    /// write contention against the exact connection [`TursoTx::commit`]
+    /// uses — exercising the retry/ambiguity-resolution wiring end-to-end
+    /// rather than just the isolated [`classify`]/[`RetryPolicy`] units.
+    pub(crate) fn open_second_connection_for_test(&self) -> turso::Connection {
+        self.db
+            .connect()
+            .expect("opening a second connection for a test must succeed")
+    }
+}
+
+/// Test-only: records the highest attempt number reached by the most recent
+/// [`TursoTx::commit`] call on the current thread, so retry-contention
+/// integration tests can assert the retry loop actually ran more than once
+/// rather than inferring it indirectly from timing.
+///
+/// `ON_RETRY_HOOK`, if set, fires (best-effort, via `try_send`) the moment
+/// the loop decides to back off and retry — i.e. the moment a retryable
+/// failure has actually been observed — then *blocks* on `rollback_done`
+/// until the competing lock-holder confirms it has actually released the
+/// lock, before the loop is allowed to continue into its backoff sleep and
+/// the next attempt. This is deliberately synchronous rather than
+/// fire-and-forget: merely queuing the release request and hoping the
+/// backoff window is long enough for it to complete is still a race on a
+/// slow/delayed worker. The hook is consumed (taken) on first use, so later
+/// retries within the same `commit()` call are unaffected.
+#[cfg(test)]
+thread_local! {
+    static LAST_COMMIT_ATTEMPT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+    static ON_RETRY_HOOK: std::cell::RefCell<
+        Option<(std::sync::mpsc::SyncSender<()>, std::sync::mpsc::Receiver<()>)>,
+    > = const { std::cell::RefCell::new(None) };
+}
+
+#[cfg(test)]
+pub(crate) fn last_commit_attempt_for_test() -> u32 {
+    LAST_COMMIT_ATTEMPT.with(|c| c.get())
+}
+
+#[cfg(test)]
+pub(crate) fn set_on_retry_hook_for_test(
+    release: std::sync::mpsc::SyncSender<()>,
+    rollback_done: std::sync::mpsc::Receiver<()>,
+) {
+    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = Some((release, rollback_done)));
+}
+
+#[cfg(test)]
+pub(crate) fn clear_on_retry_hook_for_test() {
+    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = None);
+}
+
+#[cfg(test)]
+fn fire_on_retry_hook_for_test() {
+    let hook = ON_RETRY_HOOK.with(|h| h.borrow_mut().take());
+    if let Some((release, rollback_done)) = hook {
+        let _ = release.try_send(());
+        // Block until the lock-holder confirms ROLLBACK actually completed
+        // — not just that the release request was queued — so the next
+        // attempt is guaranteed to run against a released lock.
+        let _ = rollback_done.recv();
+    }
+}
+
 impl<V: Clone + fmt::Debug + Codec> Substrate for TursoSubstrate<V> {
     type Value = V;
     type Tx<'a>
@@ -247,6 +314,9 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
         substrate.runtime.block_on(async move {
             let mut attempt: u32 = 1;
             loop {
+                #[cfg(test)]
+                LAST_COMMIT_ATTEMPT.with(|c| c.set(attempt));
+
                 // Step 1: snapshot the revision *before* attempting the write,
                 // so an ambiguous COMMIT can be resolved by comparing after.
                 let revision_before = read_revision(conn).await?;
@@ -262,6 +332,8 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                         let _ = conn.execute("ROLLBACK", ()).await;
                         match classify(&err) {
                             RetryClass::Retryable if attempt < policy.max_attempts => {
+                                #[cfg(test)]
+                                fire_on_retry_hook_for_test();
                                 tokio::time::sleep(policy.backoff_for(attempt)).await;
                                 attempt += 1;
                                 continue;
@@ -306,6 +378,8 @@ impl<'a, V: Clone + fmt::Debug + Codec> Transaction for TursoTx<'a, V> {
                                 if attempt < policy.max_attempts =>
                             {
                                 let _ = conn.execute("ROLLBACK", ()).await;
+                                #[cfg(test)]
+                                fire_on_retry_hook_for_test();
                                 tokio::time::sleep(policy.backoff_for(attempt)).await;
                                 attempt += 1;
                                 continue;

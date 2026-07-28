@@ -579,6 +579,230 @@ fn new_with_unusable_path_surfaces_an_error() {
     );
 }
 
+// --- TursoTx::commit retry/ambiguity-resolution wiring (real contention) ---
+//
+// The tests above cover the happy path; `classify`/`RetryPolicy`/
+// `resolve_ambiguous_commit` are unit-tested in isolation further up this
+// file. Neither exercises the actual retry loop wired up inside
+// `TursoTx::commit` — the write-failure -> ROLLBACK -> classify -> backoff ->
+// retry cycle. These two tests drive that loop for real, using a second
+// connection (via `TursoSubstrate::open_second_connection_for_test`, sharing
+// the substrate's own database file) to hold a genuine write lock while
+// `commit()` is in flight.
+
+/// Joins its wrapped thread on drop if it hasn't been joined already —
+/// guarantees the background lock-holder is never left detached, even if a
+/// `commit()` call or assertion between spawn and the explicit join panics.
+///
+/// `cancelled` is set *before* joining on the drop path: the spawned thread
+/// polls its release channel with a bounded timeout (see
+/// `hold_write_lock_on_background_thread`) rather than blocking on it
+/// forever, so a panic before the normal release signal is ever sent can't
+/// leave `join()` waiting indefinitely and hanging the whole test runner —
+/// it wakes up within one poll interval, notices the flag, and exits.
+struct JoinOnDrop {
+    handle: Option<std::thread::JoinHandle<()>>,
+    cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl JoinOnDrop {
+    fn join(mut self) {
+        self.handle
+            .take()
+            .expect("join_on_drop: handle already taken")
+            .join()
+            .expect("blocker thread must not panic");
+    }
+}
+
+impl Drop for JoinOnDrop {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            self.cancelled
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = handle.join();
+        }
+    }
+}
+
+/// How often the blocker thread wakes up to check whether it has been
+/// cancelled (see `JoinOnDrop`) while waiting for `release_signal`. Bounds
+/// the worst case for a hung-test scenario without adding any delay to the
+/// normal, signal-driven release path.
+const RELEASE_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` until told to release via
+/// `release_signal`, then releases it and — if `rollback_done` is set —
+/// confirms completion back to the caller. Runs on its own thread with its
+/// own tiny runtime, so it can genuinely overlap with a `commit()` call
+/// blocking the test's main thread.
+///
+/// Deliberately takes no fixed duration to hold for: a timed sleep can
+/// expire before `commit()` actually runs on a delayed/loaded CI worker,
+/// making the asserted contention non-deterministic. Callers instead choose
+/// what feeds `release_signal` — e.g. `crate::substrate`'s test-only
+/// on-retry hook, which only fires once the retry loop has itself observed
+/// a retryable failure, so the release can never race ahead of that
+/// observation.
+///
+/// Waits on `release_signal` via a bounded poll loop rather than a plain
+/// blocking `recv()`, so a caller panic before the signal is ever sent can't
+/// hang this thread (and therefore `JoinOnDrop::drop`'s `join()`) forever —
+/// see `JoinOnDrop`.
+///
+/// Returns the join handle together with a rendezvous receiver that fires
+/// only once the lock is actually held — the caller must `recv()` on it
+/// before proceeding. A zero-capacity (`sync_channel(0)`) channel is used
+/// specifically so `send` cannot complete before the corresponding `recv` is
+/// ready to receive it.
+fn hold_write_lock_on_background_thread(
+    conn: turso::Connection,
+    release_signal: std::sync::mpsc::Receiver<()>,
+    rollback_done: Option<std::sync::mpsc::SyncSender<()>>,
+) -> (JoinOnDrop, std::sync::mpsc::Receiver<()>) {
+    let (lock_acquired_tx, lock_acquired_rx) = std::sync::mpsc::sync_channel(0);
+    let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let cancelled_for_thread = std::sync::Arc::clone(&cancelled);
+    let handle = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build background-thread runtime");
+        rt.block_on(async {
+            conn.execute("BEGIN IMMEDIATE", ())
+                .await
+                .expect("acquiring the write lock must succeed");
+        });
+        // Ignore a send failure: it only means the receiver was already
+        // dropped (e.g. the test failed before reaching `recv`), and this
+        // thread must still release the lock via ROLLBACK below.
+        let _ = lock_acquired_tx.send(());
+        loop {
+            match release_signal.recv_timeout(RELEASE_POLL_INTERVAL) {
+                Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if cancelled_for_thread.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                }
+            }
+        }
+        rt.block_on(async {
+            conn.execute("ROLLBACK", ())
+                .await
+                .expect("releasing the write lock (ROLLBACK) must succeed");
+        });
+        if let Some(done) = rollback_done {
+            let _ = done.send(());
+        }
+    });
+    (
+        JoinOnDrop {
+            handle: Some(handle),
+            cancelled,
+        },
+        lock_acquired_rx,
+    )
+}
+
+/// The retry loop must actually retry (not just decide to, in isolation): a
+/// competing writer holds the write lock briefly, `apply_write`'s own first
+/// write hits a real `Busy` error, `classify` marks it `Retryable`, and the
+/// loop backs off and retries until the lock is released and the commit
+/// lands.
+#[test]
+fn commit_retries_past_transient_lock_contention_and_succeeds() {
+    let path = unique_db_path("retry-succeeds");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    let blocker_conn = substrate.open_second_connection_for_test();
+    // The blocker releases the lock the moment TursoTx::commit's retry loop
+    // itself observes the contention and decides to back off — driven by
+    // the on-retry hook below, not a fixed sleep — so this is deterministic
+    // regardless of CI scheduling delays. The hook additionally blocks on
+    // `rollback_done` until the blocker confirms ROLLBACK actually
+    // completed, so the next attempt is guaranteed to see a released lock
+    // rather than merely hoping the backoff window was long enough.
+    let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+    let (rollback_done_tx, rollback_done_rx) = std::sync::mpsc::sync_channel(1);
+    crate::substrate::set_on_retry_hook_for_test(release_tx, rollback_done_rx);
+
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, release_rx, Some(rollback_done_tx));
+    // Block until the blocker thread confirms it actually holds the write
+    // lock — no timing guesswork, so `commit()`'s first attempt is
+    // guaranteed to observe real contention.
+    lock_acquired
+        .recv()
+        .expect("blocker thread must signal lock acquisition before being dropped");
+
+    let mut tx = substrate.begin();
+    tx.set("x", 42);
+    tx.commit()
+        .expect("commit must succeed once the transient lock is released, via retry");
+
+    crate::substrate::clear_on_retry_hook_for_test();
+    blocker.join();
+
+    assert!(
+        crate::substrate::last_commit_attempt_for_test() > 1,
+        "the first attempt was guaranteed to observe the lock held, so a \
+         successful commit must have gone through at least one retry"
+    );
+    assert_eq!(substrate.snapshot().get("x"), Some(&42));
+    assert_eq!(substrate.revision(), 1);
+}
+
+/// When the lock never clears in time, the retry loop must exhaust
+/// `COMMIT_RETRY_POLICY`'s attempts and surface the classified error rather
+/// than hanging or silently giving up with a misleading `Ok`.
+#[test]
+fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention() {
+    let path = unique_db_path("retry-exhausted");
+    let mut substrate =
+        TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
+
+    let blocker_conn = substrate.open_second_connection_for_test();
+    // Deliberately never fed by the on-retry hook: the lock must stay held
+    // through every attempt so the loop genuinely exhausts its budget. Only
+    // released manually below, after commit() has already returned, purely
+    // so the background thread can clean up. No rollback-done ack needed
+    // here since nothing waits on it.
+    let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, release_rx, None);
+    lock_acquired
+        .recv()
+        .expect("blocker thread must signal lock acquisition before being dropped");
+
+    let mut tx = substrate.begin();
+    tx.set("x", 42);
+    let result = tx.commit();
+
+    let _ = release_tx.send(());
+    blocker.join();
+
+    assert!(
+        result.is_err(),
+        "commit must surface an error once retries are exhausted under sustained contention"
+    );
+    assert_eq!(
+        crate::substrate::last_commit_attempt_for_test(),
+        5,
+        "must have run every attempt allowed by COMMIT_RETRY_POLICY before surfacing the error"
+    );
+    assert!(
+        substrate.snapshot().get("x").is_none(),
+        "a commit that never landed must not be visible"
+    );
+    assert_eq!(
+        substrate.revision(),
+        0,
+        "an exhausted-retry commit must not have bumped the revision"
+    );
+}
+
 // --- backend-agnostic contract suite (T017/T018, spec User Story 2 / FR-003) ---
 
 /// Proves `TursoSubstrate<i64>` satisfies the exact same backend-agnostic
