@@ -249,7 +249,7 @@ mod tests {
             1.0,
             -1.0,
             42.0,
-            3.141_592_653_589_793,
+            std::f64::consts::PI,
             f64::MIN,
             f64::MAX,
             f64::INFINITY,
