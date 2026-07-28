@@ -55,11 +55,12 @@ issue's own Milestone note).
   declared at the workflow or job level, and every action reference pinned
   to a reviewed commit SHA with a trailing version comment from the start
   (folds in issue #32's T001/T002).
-  **Done 2026-07-29**: combined with T004 in the same PR — a workflow with
+  **Done 2026-07-28**: combined with T004 in the same PR — a workflow with
   no build/test steps isn't independently meaningful, so they shipped
-  together (`actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-  # v7.0.1`, `dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
-  # v1`, `permissions: contents: read`).
+  together. Pinned actions:
+  `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1` and
+  `dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1`.
+  `permissions: contents: read` set at workflow level.
 - [ ] **T002** [US1] Add `Swatinem/rust-cache` (or `actions/cache` on
   `~/.cargo`/`target/`), SHA-pinned, between checkout and build/test steps
   in `ci.yml` (folds in issue #32's T003).
@@ -67,7 +68,7 @@ issue's own Milestone note).
   package-ecosystem entry (folds in issue #32's T004).
 - [x] **T004** [US1] Wire `ci.yml` to run `make build` and `make test`,
   failing the check on either failing (FR-001).
-  **Done 2026-07-29**: shipped together with T001 (see above).
+  **Done 2026-07-28**: shipped together with T001 (see above).
 
 **Checkpoint**: Opening this phase's own PR is the acceptance test — CI must
 show a check, fail it if `make build`/`make test` fail, pass otherwise.
