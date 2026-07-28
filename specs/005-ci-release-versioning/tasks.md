@@ -129,9 +129,11 @@ created with the packaged CLI binary attached.
 - [ ] **T008** [US2] Create `.github/workflows/release.yml` triggered on
   SemVer tag pushes (`v[0-9]*`), least-privilege `permissions:` including
   `contents: write` for release creation, actions pinned per T001's
-  convention. Calls T005's version/tag validation as its first real step —
-  fails fast before any build/package work on mismatch (FR-002, FR-004,
-  FR-010, SC-006).
+  convention. **Checkout step MUST use `fetch-depth: 0`** (full history) —
+  unlike `ci.yml`'s shallow default, T014's release-notes script needs full
+  tag/commit history to run `git describe` against previous tags. Calls
+  T005's version/tag validation as its first real step — fails fast before
+  any build/package work on mismatch (FR-002, FR-004, FR-010, SC-006).
 - [ ] **T009** [US2] Build the `iklo` executable in release mode
   (`cargo build --release -p iklo-cli`) only after `make test` passes
   (FR-002).
