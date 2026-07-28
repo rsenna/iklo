@@ -33,8 +33,9 @@ the commands directly.
   a `plan.md`/`tasks.md`). T001 must not start before this exits with "go."
   **Files**: none (decision only).
   **Resolved 2026-07-29**: go — maintainer (RG Senna) decided to start epic
-  005 now. `specs/005-ci-release-versioning/plan.md` and `tasks.md` added in
-  the same PR that resolves this task; T001-T004 below now live as that
+  005 now. `specs/005-ci-release-versioning/plan.md` and `tasks.md` were
+  added in the same PR that resolves this task; T001-T004 below now live as
+  that
   epic's own Phase 1 tasks (`specs/005-ci-release-versioning/tasks.md`
   T001-T004) rather than here — this file stays as the historical record for
   #32.

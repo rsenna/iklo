@@ -68,6 +68,9 @@ expected, aside from a possible small xtask/script for release notes).
 - No paid/external CI services — GitHub Actions only.
 - Actions pinned to commit SHAs from day one; mutable tags (`@v4`, `@main`,
   `@latest`) are never acceptable, per repo convention.
+- `release.yml`'s checkout MUST use `fetch-depth: 0` (full history) so the
+  release-notes script can traverse tags/commits; `ci.yml`'s checkout stays
+  shallow since it has no such need.
 - Explicit least-privilege `permissions:` on every workflow/job — no relying
   on the default `GITHUB_TOKEN` scope.
 - Canonical version source is `Cargo.toml` `[workspace.package].version`
@@ -165,7 +168,12 @@ GitHub Actions convention and keeping it out of the Rust workspace's own
    fallback bucket for unmatched commits (FR-007), and falls back to
    full-history notes when there's no previous tag (FR-009). Keeping this
    in-repo (not a marketplace action) keeps the logic auditable and
-   test-covered like any other repo artifact.
+   test-covered like any other repo artifact. **Requires `release.yml`'s
+   `actions/checkout` step to use `fetch-depth: 0`** — the default shallow
+   clone (`fetch-depth: 1`) has no tag history and no parent commits, so
+   `git describe ... <current_tag>^` would fail to find any previous tag
+   even when one exists. `ci.yml`'s checkout stays shallow (default) since
+   it never needs tag history — this only applies to `release.yml`.
 
 5. **CI hardening ships from the first PR, not as a follow-up.** Caching,
    SHA-pinning, least-privilege `permissions:`, and `dependabot.yml` land in
