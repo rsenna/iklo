@@ -1,3 +1,5 @@
+![Iklo's "happy" mascot](./refs/iklo-turtle.jpeg?raw=true "Iklo's mascot")
+
 # Iklo
 
 Iklo is a Rust-implemented language and runtime with a transactional live image.
