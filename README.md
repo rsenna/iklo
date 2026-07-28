@@ -1,6 +1,6 @@
-![Iklo's "happy" mascot](./refs/iklo-turtle.jpeg?raw=true "Iklo's mascot")
-
 # Iklo
+
+<img src="./refs/iklo-turtle.jpeg" width="600" alt="Nolo: Iklo's 'happy' mascot and Animal Spirit!"/>
 
 Iklo is a Rust-implemented language and runtime with a transactional live image.
 Today it ships as a workspace centered on a REPL/file runner executable named
