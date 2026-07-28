@@ -1,6 +1,6 @@
 # Implementation Plan: CI Release Pipeline and Semantic Versioning
 
-**Branch**: `005-ci-release-versioning` | **Date**: 2026-07-29 | **Spec**: [spec.md](spec.md)
+**Branch**: `005-ci-release-versioning` | **Date**: 2026-07-28 | **Spec**: [spec.md](spec.md)
 
 **Input**: Feature specification from `/specs/005-ci-release-versioning/spec.md`
 
@@ -11,11 +11,12 @@ Add a GitHub Actions CI workflow that gates every pull request to `main` on
 validates the SemVer tag against the workspace version, builds the `iklo`
 executable in release mode, generates commit-derived release notes with a
 deterministic build identifier, and publishes the binary plus SHA-256
-checksums to a GitHub Release. Ships cached-and-pinned from the first PR,
-folding in the caching/SHA-pinning/least-privilege asks already scoped in
-issue [#32](https://github.com/rsenna/iklo/issues/32) and its task breakdown
-(`tasks/issue-32-chore-ci-hardening.md`) rather than as a follow-up hardening
-pass.
+checksums to a GitHub Release. Ships SHA-pinned actions and least-privilege
+`permissions:` in the first PR; caching (`Swatinem/rust-cache`) and
+`dependabot.yml` are tracked as immediate Phase 1 follow-up tasks (T002/T003)
+rather than a separate, later hardening epic — folding in the analysis
+already scoped in issue [#32](https://github.com/rsenna/iklo/issues/32) and
+its task breakdown (`tasks/issue-32-chore-ci-hardening.md`).
 
 ## Technical Context
 
@@ -175,11 +176,12 @@ GitHub Actions convention and keeping it out of the Rust workspace's own
    even when one exists. `ci.yml`'s checkout stays shallow (default) since
    it never needs tag history — this only applies to `release.yml`.
 
-5. **CI hardening ships from the first PR, not as a follow-up.** Caching,
-   SHA-pinning, least-privilege `permissions:`, and `dependabot.yml` land in
-   `ci.yml`'s very first task (Phase 1 below), directly reusing the analysis
-   already done for issue #32 rather than re-deriving it — see that issue's
-   task breakdown, which explicitly recommended folding into this epic.
+5. **CI hardening lands in Phase 1, not a separate later epic.** SHA-pinning
+   and least-privilege `permissions:` ship in `ci.yml`'s very first PR
+   (T001/T004); caching (T002) and `dependabot.yml` (T003) are the
+   immediately-following Phase 1 tasks, not deferred indefinitely — directly
+   reusing the analysis already done for issue #32 rather than re-deriving
+   it, per that issue's own recommendation to fold into this epic.
 
 6. **Checksums.** SHA-256 checksums for every release artifact (FR-012) are
    generated as a release-workflow step immediately after packaging, using
