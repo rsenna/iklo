@@ -3,16 +3,13 @@
 **Source issue**: https://github.com/rsenna/iklo/issues/32
 **Enrichment**: posted as a comment on #32 (see there for full analysis).
 
-**Prerequisite (blocking all tasks below)**: this repo has no
-`.github/workflows/` yet. T001-T004 below are drafted as the *first*
-CI-workflow task epic 005 (`specs/005-ci-release-versioning/spec.md`, FR-001)
-would need anyway — the intent is for them to become that epic's initial
-task(s) once it gets a real `plan.md`/`tasks.md`, not to run as a second,
-independent CI-creation effort in parallel with it. See the enrichment
-comment's Open Questions before starting: epic 005 is technically unblocked
-(epic 004 left Draft in PR #31) but `specs/execution-queue.md` records a
-maintainer preference to defer it until epics 007/010 stabilize.
-**Do not start T001 without resolving that first.**
+T001-T004 below are drafted as the *first* CI-workflow task epic 005
+(`specs/005-ci-release-versioning/spec.md`, FR-001) would need anyway — the
+intent is for them to become that epic's initial task(s) once it gets a real
+`plan.md`/`tasks.md`, not to run as a second, independent CI-creation effort
+in parallel with it. The blocking prerequisite is represented as **T000**
+below, not just prose, so importing this list into a tracker doesn't make
+T001 look immediately runnable.
 
 ## Format
 
@@ -28,7 +25,15 @@ the commands directly.
 
 ---
 
-- [ ] **T001** 🔒 Create a minimal `.github/workflows/ci.yml` triggered on
+- [ ] **T000** Maintainer decision (owner: repo maintainer; not implementation
+  work): resolve the enrichment comment's Open Questions on #32 — confirm
+  whether epic 005 should actually start now that epic 004 left Draft, or
+  stays queued behind epics 007/010 per `specs/execution-queue.md`.
+  **Exit criterion**: an explicit go/no-go recorded on #32 (or epic 005 gets
+  a `plan.md`/`tasks.md`). T001 must not start before this exits with "go."
+  **Files**: none (decision only).
+
+- [ ] **T001** 🔒 [depends: T000] Create a minimal `.github/workflows/ci.yml` triggered on
   pull requests targeting `main`, running `make build` and `make test`
   (epic 005 FR-001 baseline), with explicit least-privilege `permissions:`
   for `GITHUB_TOKEN` declared at the workflow or job level from the start
@@ -76,17 +81,20 @@ the commands directly.
   toolchain/checkout actions from T002 and the cache action from T003) get
   automated update PRs.
   **Acceptance**: GitHub's config-validation check passes on the PR adding
-  this file; a subsequent Dependabot run is able to open an update PR for a
-  pinned action.
+  this file. Dependabot successfully opening an update PR is only expected
+  *if* a newer pinned revision actually exists at that time for some action
+  — Dependabot has nothing to update otherwise, so a run producing zero PRs
+  when everything is already current is not a failure.
   **Verify**: GitHub's own Dependabot config validation; no Rust changes, so
   the quality gate is unaffected.
   **Files**: `.github/dependabot.yml` (new)
 
 ## Dependency order
 
-T001 → T002 → T003 → T004 (fully serial: T003 needs T002's pinning
-convention already established to pin the cache action itself, and T004
-needs every action from both T002 and T003 present to cover them all).
+T000 → T001 → T002 → T003 → T004 (fully serial: T001 cannot start before
+T000's go/no-go; T003 needs T002's pinning convention already established
+to pin the cache action itself; T004 needs every action from both T002 and
+T003 present to cover them all).
 
 ## Milestone note
 
