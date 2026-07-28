@@ -680,11 +680,21 @@ fn new_with_unusable_path_surfaces_an_error() {
 /// Joins its wrapped thread on drop if it hasn't been joined already —
 /// guarantees the background lock-holder is never left detached, even if a
 /// `commit()` call or assertion between spawn and the explicit join panics.
-struct JoinOnDrop(Option<std::thread::JoinHandle<()>>);
+///
+/// `cancelled` is set *before* joining on the drop path: the spawned thread
+/// polls its release channel with a bounded timeout (see
+/// `hold_write_lock_on_background_thread`) rather than blocking on it
+/// forever, so a panic before the normal release signal is ever sent can't
+/// leave `join()` waiting indefinitely and hanging the whole test runner —
+/// it wakes up within one poll interval, notices the flag, and exits.
+struct JoinOnDrop {
+    handle: Option<std::thread::JoinHandle<()>>,
+    cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
 
 impl JoinOnDrop {
     fn join(mut self) {
-        self.0
+        self.handle
             .take()
             .expect("join_on_drop: handle already taken")
             .join()
@@ -694,16 +704,25 @@ impl JoinOnDrop {
 
 impl Drop for JoinOnDrop {
     fn drop(&mut self) {
-        if let Some(handle) = self.0.take() {
+        if let Some(handle) = self.handle.take() {
+            self.cancelled
+                .store(true, std::sync::atomic::Ordering::SeqCst);
             let _ = handle.join();
         }
     }
 }
 
+/// How often the blocker thread wakes up to check whether it has been
+/// cancelled (see `JoinOnDrop`) while waiting for `release_signal`. Bounds
+/// the worst case for a hung-test scenario without adding any delay to the
+/// normal, signal-driven release path.
+const RELEASE_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
 /// Holds a write lock (`BEGIN IMMEDIATE`) on `conn` until told to release via
-/// `release_signal`, then releases it. Runs on its own thread with its own
-/// tiny runtime, so it can genuinely overlap with a `commit()` call blocking
-/// the test's main thread.
+/// `release_signal`, then releases it and — if `rollback_done` is set —
+/// confirms completion back to the caller. Runs on its own thread with its
+/// own tiny runtime, so it can genuinely overlap with a `commit()` call
+/// blocking the test's main thread.
 ///
 /// Deliberately takes no fixed duration to hold for: a timed sleep can
 /// expire before `commit()` actually runs on a delayed/loaded CI worker,
@@ -713,6 +732,11 @@ impl Drop for JoinOnDrop {
 /// a retryable failure, so the release can never race ahead of that
 /// observation.
 ///
+/// Waits on `release_signal` via a bounded poll loop rather than a plain
+/// blocking `recv()`, so a caller panic before the signal is ever sent can't
+/// hang this thread (and therefore `JoinOnDrop::drop`'s `join()`) forever —
+/// see `JoinOnDrop`.
+///
 /// Returns the join handle together with a rendezvous receiver that fires
 /// only once the lock is actually held — the caller must `recv()` on it
 /// before proceeding. A zero-capacity (`sync_channel(0)`) channel is used
@@ -721,8 +745,11 @@ impl Drop for JoinOnDrop {
 fn hold_write_lock_on_background_thread(
     conn: turso::Connection,
     release_signal: std::sync::mpsc::Receiver<()>,
+    rollback_done: Option<std::sync::mpsc::SyncSender<()>>,
 ) -> (JoinOnDrop, std::sync::mpsc::Receiver<()>) {
     let (lock_acquired_tx, lock_acquired_rx) = std::sync::mpsc::sync_channel(0);
+    let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let cancelled_for_thread = std::sync::Arc::clone(&cancelled);
     let handle = std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -737,17 +764,32 @@ fn hold_write_lock_on_background_thread(
         // dropped (e.g. the test failed before reaching `recv`), and this
         // thread must still release the lock via ROLLBACK below.
         let _ = lock_acquired_tx.send(());
-        // Blocks this dedicated, single-purpose OS thread — nothing else
-        // needs it — until the caller-chosen signal fires. No fixed sleep
-        // anywhere in this function.
-        let _ = release_signal.recv();
+        loop {
+            match release_signal.recv_timeout(RELEASE_POLL_INTERVAL) {
+                Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    if cancelled_for_thread.load(std::sync::atomic::Ordering::SeqCst) {
+                        break;
+                    }
+                }
+            }
+        }
         rt.block_on(async {
             conn.execute("ROLLBACK", ())
                 .await
                 .expect("releasing the write lock (ROLLBACK) must succeed");
         });
+        if let Some(done) = rollback_done {
+            let _ = done.send(());
+        }
     });
-    (JoinOnDrop(Some(handle)), lock_acquired_rx)
+    (
+        JoinOnDrop {
+            handle: Some(handle),
+            cancelled,
+        },
+        lock_acquired_rx,
+    )
 }
 
 /// The retry loop must actually retry (not just decide to, in isolation): a
@@ -765,11 +807,16 @@ fn commit_retries_past_transient_lock_contention_and_succeeds() {
     // The blocker releases the lock the moment TursoTx::commit's retry loop
     // itself observes the contention and decides to back off — driven by
     // the on-retry hook below, not a fixed sleep — so this is deterministic
-    // regardless of CI scheduling delays.
+    // regardless of CI scheduling delays. The hook additionally blocks on
+    // `rollback_done` until the blocker confirms ROLLBACK actually
+    // completed, so the next attempt is guaranteed to see a released lock
+    // rather than merely hoping the backoff window was long enough.
     let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
-    crate::substrate::set_on_retry_hook_for_test(release_tx);
+    let (rollback_done_tx, rollback_done_rx) = std::sync::mpsc::sync_channel(1);
+    crate::substrate::set_on_retry_hook_for_test(release_tx, rollback_done_rx);
 
-    let (blocker, lock_acquired) = hold_write_lock_on_background_thread(blocker_conn, release_rx);
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, release_rx, Some(rollback_done_tx));
     // Block until the blocker thread confirms it actually holds the write
     // lock — no timing guesswork, so `commit()`'s first attempt is
     // guaranteed to observe real contention.
@@ -807,9 +854,11 @@ fn commit_surfaces_an_error_after_exhausting_retries_under_sustained_contention(
     // Deliberately never fed by the on-retry hook: the lock must stay held
     // through every attempt so the loop genuinely exhausts its budget. Only
     // released manually below, after commit() has already returned, purely
-    // so the background thread can clean up.
+    // so the background thread can clean up. No rollback-done ack needed
+    // here since nothing waits on it.
     let (release_tx, release_rx) = std::sync::mpsc::sync_channel(1);
-    let (blocker, lock_acquired) = hold_write_lock_on_background_thread(blocker_conn, release_rx);
+    let (blocker, lock_acquired) =
+        hold_write_lock_on_background_thread(blocker_conn, release_rx, None);
     lock_acquired
         .recv()
         .expect("blocker thread must signal lock acquisition before being dropped");

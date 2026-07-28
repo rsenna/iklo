@@ -164,18 +164,22 @@ impl<V> TursoSubstrate<V> {
 /// integration tests can assert the retry loop actually ran more than once
 /// rather than inferring it indirectly from timing.
 ///
-/// `ON_RETRY_HOOK`, if set, is fired (best-effort, via `try_send`) the moment
+/// `ON_RETRY_HOOK`, if set, fires (best-effort, via `try_send`) the moment
 /// the loop decides to back off and retry — i.e. the moment a retryable
-/// failure has actually been observed. Retry-contention tests use this to
-/// release a competing lock-holder deterministically, instead of guessing
-/// how long contention needs to be held with a fixed sleep: the loop only
-/// ever backs off *after* observing real contention, so firing here can
-/// never race ahead of that observation.
+/// failure has actually been observed — then *blocks* on `rollback_done`
+/// until the competing lock-holder confirms it has actually released the
+/// lock, before the loop is allowed to continue into its backoff sleep and
+/// the next attempt. This is deliberately synchronous rather than
+/// fire-and-forget: merely queuing the release request and hoping the
+/// backoff window is long enough for it to complete is still a race on a
+/// slow/delayed worker. The hook is consumed (taken) on first use, so later
+/// retries within the same `commit()` call are unaffected.
 #[cfg(test)]
 thread_local! {
     static LAST_COMMIT_ATTEMPT: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
-    static ON_RETRY_HOOK: std::cell::RefCell<Option<std::sync::mpsc::SyncSender<()>>> =
-        const { std::cell::RefCell::new(None) };
+    static ON_RETRY_HOOK: std::cell::RefCell<
+        Option<(std::sync::mpsc::SyncSender<()>, std::sync::mpsc::Receiver<()>)>,
+    > = const { std::cell::RefCell::new(None) };
 }
 
 #[cfg(test)]
@@ -184,8 +188,11 @@ pub(crate) fn last_commit_attempt_for_test() -> u32 {
 }
 
 #[cfg(test)]
-pub(crate) fn set_on_retry_hook_for_test(hook: std::sync::mpsc::SyncSender<()>) {
-    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = Some(hook));
+pub(crate) fn set_on_retry_hook_for_test(
+    release: std::sync::mpsc::SyncSender<()>,
+    rollback_done: std::sync::mpsc::Receiver<()>,
+) {
+    ON_RETRY_HOOK.with(|h| *h.borrow_mut() = Some((release, rollback_done)));
 }
 
 #[cfg(test)]
@@ -195,11 +202,14 @@ pub(crate) fn clear_on_retry_hook_for_test() {
 
 #[cfg(test)]
 fn fire_on_retry_hook_for_test() {
-    ON_RETRY_HOOK.with(|h| {
-        if let Some(tx) = h.borrow().as_ref() {
-            let _ = tx.try_send(());
-        }
-    });
+    let hook = ON_RETRY_HOOK.with(|h| h.borrow_mut().take());
+    if let Some((release, rollback_done)) = hook {
+        let _ = release.try_send(());
+        // Block until the lock-holder confirms ROLLBACK actually completed
+        // — not just that the release request was queued — so the next
+        // attempt is guaranteed to run against a released lock.
+        let _ = rollback_done.recv();
+    }
 }
 
 impl<V: Clone + fmt::Debug + Codec> Substrate for TursoSubstrate<V> {
