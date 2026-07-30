@@ -96,10 +96,13 @@ shared by both release publishing (US2) and versioning/notes (US3).
   Also implements `previous_release_tag` selection (FR-011): nearest
   reachable prior SemVer tag via `git describe --tags --match "v[0-9]*"
   --abbrev=0 <current_tag>^`.
-- [ ] **T006** Implement build-identifier computation: deterministic
+- [x] **T006** Implement build-identifier computation: deterministic
   `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT` (FR-005), evaluated numerically as
   `(GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)` for "strictly increasing" checks
   (SC-003).
+  **Done 2026-07-30**: `.github/scripts/build-identifier.sh`, with fixture
+  tests under `.github/scripts/tests/test-build-identifier.sh` covering
+  missing/non-numeric env vars, not just the happy path.
 
 **Checkpoint**: Version/tag validation and build-identifier logic available
 for both release publishing and notes generation.
