@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+**Status**: Draft
 
 **Input**: Add a basic GitHub Actions pipeline that validates Iklo and publishes the `iklo` executable as a GitHub Release asset, while introducing explicit semantic versioning and release notes generated from commit history between releases.
 

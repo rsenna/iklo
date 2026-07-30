@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+# Least-privilege: this workflow only reads the repo to build/test it — no
+# write access to contents, packages, or anything else is ever needed here.
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # This job only reads the repo to build/test it — no authenticated
+          # git operations happen after checkout, so don't leave a token
+          # sitting in local git config for later steps to (mis)use.
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Build (make build)
+        run: make build
+
+      - name: Test (make test)
+        run: make test

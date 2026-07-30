@@ -25,13 +25,20 @@ the commands directly.
 
 ---
 
-- [ ] **T000** Maintainer decision (owner: repo maintainer; not implementation
+- [x] **T000** Maintainer decision (owner: repo maintainer; not implementation
   work): resolve the enrichment comment's Open Questions on #32 — confirm
   whether epic 005 should actually start now that epic 004 left Draft, or
   stays queued behind epics 007/010 per `specs/execution-queue.md`.
   **Exit criterion**: an explicit go/no-go recorded on #32 (or epic 005 gets
   a `plan.md`/`tasks.md`). T001 must not start before this exits with "go."
   **Files**: none (decision only).
+  **Resolved 2026-07-28**: go — maintainer (RG Senna) decided to start epic
+  005 now. `specs/005-ci-release-versioning/plan.md` and `tasks.md` were
+  added in the same PR that resolves this task; T001-T004 below now live as
+  that
+  epic's own Phase 1 tasks (`specs/005-ci-release-versioning/tasks.md`
+  T001-T004) rather than here — this file stays as the historical record for
+  #32.
 
 - [ ] **T001** 🔒 [depends: T000] Create a minimal `.github/workflows/ci.yml` triggered on
   pull requests targeting `main`, running `make build` and `make test`

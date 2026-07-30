@@ -9,6 +9,8 @@ minimum start/done criteria for each one.
 
 Epic `005` may start after `004`, but is preferred after `007/010` stabilization
 to reduce release-policy churn while language/runtime semantics are changing.
+**Overridden 2026-07-28**: maintainer (RG Senna) decided to start epic 005
+now rather than wait — see that epic's entry below.
 
 ### Dependency semantics
 
@@ -99,6 +101,10 @@ In this document, `A -> B` means:
 
 ### 7. Epic 005 — CI/Release/Versioning Implementation
 
+- **Status**: Active — started 2026-07-28 (maintainer decision to start now
+  rather than wait for 007/010 stabilization; see override note above and
+  issue [#32](https://github.com/rsenna/iklo/issues/32) T000). Has
+  `plan.md`/`tasks.md`.
 - **Spec**: [005-ci-release-versioning/spec.md](005-ci-release-versioning/spec.md)
 - **Start criteria**:
   - Epic 004 is no longer Draft.
