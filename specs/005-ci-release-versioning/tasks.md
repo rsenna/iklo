@@ -66,8 +66,10 @@ issue's own Milestone note).
   in `ci.yml` (folds in issue #32's T003).
   **Done 2026-07-30**: added `Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1`
   after the toolchain-install step and before `make build`.
-- [ ] **T003** [US1] Add `.github/dependabot.yml` with a `github-actions`
+- [x] **T003** [US1] Add `.github/dependabot.yml` with a `github-actions`
   package-ecosystem entry (folds in issue #32's T004).
+  **Done 2026-07-30**: weekly `github-actions` update schedule for the
+  repo root.
 - [x] **T004** [US1] Wire `ci.yml` to run `make build` and `make test`,
   failing the check on either failing (FR-001).
   **Done 2026-07-28**: shipped together with T001 (see above).
