@@ -61,9 +61,11 @@ issue's own Milestone note).
   `actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1` and
   `dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1`.
   `permissions: contents: read` set at workflow level.
-- [ ] **T002** [US1] Add `Swatinem/rust-cache` (or `actions/cache` on
+- [x] **T002** [US1] Add `Swatinem/rust-cache` (or `actions/cache` on
   `~/.cargo`/`target/`), SHA-pinned, between checkout and build/test steps
   in `ci.yml` (folds in issue #32's T003).
+  **Done 2026-07-30**: added `Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1`
+  after the toolchain-install step and before `make build`.
 - [ ] **T003** [US1] Add `.github/dependabot.yml` with a `github-actions`
   package-ecosystem entry (folds in issue #32's T004).
 - [x] **T004** [US1] Wire `ci.yml` to run `make build` and `make test`,
