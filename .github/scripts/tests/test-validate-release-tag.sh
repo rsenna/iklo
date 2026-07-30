@@ -15,26 +15,28 @@ fail=0
 
 assert_ok() {
   local desc="$1"; shift
-  if "$@" >/tmp/out.$$ 2>&1; then
+  local capture; capture="$(mktemp "$tmp/out.XXXXXX")"
+  if "$@" >"$capture" 2>&1; then
     pass=$((pass + 1))
   else
     fail=$((fail + 1))
     echo "FAIL (expected success): $desc"
-    cat /tmp/out.$$
+    cat "$capture"
   fi
-  rm -f /tmp/out.$$
+  rm -f "$capture"
 }
 
 assert_fail() {
   local desc="$1"; shift
-  if "$@" >/tmp/out.$$ 2>&1; then
+  local capture; capture="$(mktemp "$tmp/out.XXXXXX")"
+  if "$@" >"$capture" 2>&1; then
     fail=$((fail + 1))
     echo "FAIL (expected failure but succeeded): $desc"
-    cat /tmp/out.$$
+    cat "$capture"
   else
     pass=$((pass + 1))
   fi
-  rm -f /tmp/out.$$
+  rm -f "$capture"
 }
 
 cargo_toml="$tmp/Cargo.toml"

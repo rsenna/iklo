@@ -56,6 +56,10 @@ assert_fail() {
 
   echo "three" >file.txt
   git commit -q -am "third"
+  tag v1.1.0-rc1
+
+  echo "four" >file.txt
+  git commit -q -am "fourth"
   tag v2.0.0
 )
 
@@ -63,7 +67,7 @@ out="$(cd "$tmp" && bash "$script" "v1.1.0")"
 check_eq "previous tag for v1.1.0 is v1.0.0" "v1.0.0" "$out"
 
 out="$(cd "$tmp" && bash "$script" "v2.0.0")"
-check_eq "previous tag for v2.0.0 is v1.1.0" "v1.1.0" "$out"
+check_eq "previous tag for v2.0.0 is v1.1.0, not the intervening v1.1.0-rc1 prerelease" "v1.1.0" "$out"
 
 out="$(cd "$tmp" && bash "$script" "v1.0.0")"
 check_eq "first release has no previous tag (empty output, FR-009 fallback)" "" "$out"

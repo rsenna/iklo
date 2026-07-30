@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Validates a release tag against Cargo.toml's canonical workspace version
-# (FR-010), and resolves the previous release tag for release-notes
-# generation (FR-011). See specs/005-ci-release-versioning/spec.md.
+# (FR-010). Previous-release-tag resolution (FR-011) is a separate concern,
+# implemented in previous-release-tag.sh. See
+# specs/005-ci-release-versioning/spec.md.
 set -euo pipefail
 
 usage() {
@@ -24,9 +25,9 @@ if ! [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 workspace_version="$(awk '
-  /^\[workspace\.package\]/ { in_section = 1; next }
-  /^\[/ { in_section = 0 }
-  in_section && /^version[[:space:]]*=/ {
+  /^[[:space:]]*\[workspace\.package\]/ { in_section = 1; next }
+  /^[[:space:]]*\[/ { in_section = 0 }
+  in_section && /^[[:space:]]*version[[:space:]]*=/ {
     match($0, /"[^"]+"/)
     print substr($0, RSTART + 1, RLENGTH - 2)
     exit
