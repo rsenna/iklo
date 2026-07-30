@@ -233,3 +233,48 @@ unchanged — tree-walker remains the semantic reference, the `Substrate`
 boundary and in-memory implementation land first, and this entire direction
 waits on that epic shipping and being exercised before a single line of fork
 code is written.
+
+**Decision (2026-07-30):** A BEAM/Mnesia-backed `Substrate` is recorded as a
+**long-term objective**, distinct from (and not competing with) the
+Turso-backed milestone above.
+
+The appeal is two separate BEAM/OTP properties, worth naming precisely
+rather than blurring together: BEAM's *immutable, structurally-shared data
+structures* (no in-place mutation, cheap structural sharing across
+versions — a data-structure property, not a durability one) and, on top
+of that, Mnesia's *own* built-in distributed, replicated, disk-backed
+tables (the actual durability/persistence layer). Together they'd give the
+runtime image durability and multi-node replication essentially for free —
+a different value proposition than Turso's embedded-SQL/VDBE angle,
+oriented toward clustering rather than in-process query power.
+
+The blocker, identified while scoping this, is not primarily about process
+boundaries — NIFs call into BEAM in-process, same address space, no
+RPC/serialization involved; only ports and the Erlang distribution
+protocol are genuinely out-of-process. The real mismatch is API shape:
+`Substrate::begin` returns a `Tx<'a>` GAT — a *handle* that mutably
+borrows `&mut self` for the transaction's entire lifetime, with the
+compile-time borrow-checker enforcing that only one transaction is live at
+a time (see `Substrate`'s trait-level doc comment,
+`crates/iklo-substrate/src/lib.rs`: "A `Substrate` owns the authoritative
+binding state... Callers access state exclusively through `Transaction`s
+obtained via `begin`"). Mnesia's transaction API is *closure*-based —
+`mnesia:transaction(fun() -> ... end)`, retried automatically by Mnesia on
+conflict, with no handle object the caller holds, commits, or rolls back
+explicitly. A handle-based, single-live-transaction contract and a
+retried-closure contract are different shapes of abstraction; reconciling
+them needs its own trait design (or a redesign of `Substrate` itself), not
+just a new backend slotting in under the existing trait the way
+`iklo-substrate-turso` does.
+
+**Open question for whoever picks this up:** does bridging to a
+retried-closure, distributed transaction model push `Substrate` toward an
+async or message-passing shape, rather than the current synchronous
+`&mut self` one? Not answered here — flagged so the next ADR on this
+starts from the question rather than rediscovering it.
+
+**What this note does not do:** propose a concrete design, a new trait
+shape, or a timeline. It exists so the objective is not lost, and so a
+future ADR revisiting it starts from "closure-based vs. handle-based
+transactions is the actual obstacle, not process boundaries" rather than
+rediscovering that constraint from scratch.
