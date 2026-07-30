@@ -64,8 +64,10 @@ issue's own Milestone note).
 - [ ] **T002** [US1] Add `Swatinem/rust-cache` (or `actions/cache` on
   `~/.cargo`/`target/`), SHA-pinned, between checkout and build/test steps
   in `ci.yml` (folds in issue #32's T003).
-- [ ] **T003** [US1] Add `.github/dependabot.yml` with a `github-actions`
+- [x] **T003** [US1] Add `.github/dependabot.yml` with a `github-actions`
   package-ecosystem entry (folds in issue #32's T004).
+  **Done 2026-07-30**: weekly `github-actions` update schedule for the
+  repo root.
 - [x] **T004** [US1] Wire `ci.yml` to run `make build` and `make test`,
   failing the check on either failing (FR-001).
   **Done 2026-07-28**: shipped together with T001 (see above).
