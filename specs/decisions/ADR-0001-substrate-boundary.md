@@ -233,3 +233,31 @@ unchanged — tree-walker remains the semantic reference, the `Substrate`
 boundary and in-memory implementation land first, and this entire direction
 waits on that epic shipping and being exercised before a single line of fork
 code is written.
+
+**Decision (2026-07-30):** A BEAM/Mnesia-backed `Substrate` is recorded as a
+**long-term objective**, distinct from (and not competing with) the
+Turso-backed milestone above.
+
+The appeal: BEAM's persistent, structurally-shared data structures and
+Mnesia's built-in distributed, replicated tables would give the runtime
+image durability and multi-node replication essentially for free — a
+different value proposition than Turso's embedded-SQL/VDBE angle, oriented
+toward clustering rather than in-process query power.
+
+The blocker, identified while scoping this: `Substrate::begin` returns a
+`Tx<'a>` GAT that mutably borrows `&mut self` for the transaction's entire
+lifetime — the compile-time borrow-checker *is* the transaction contract
+(see the trait's doc comment in `crates/iklo-substrate/src/lib.rs`). BEAM
+is not an in-process Rust value; a Mnesia-backed substrate can only be
+reached over a port, NIF, or the Erlang distribution protocol, which turns
+every `Transaction` call into an RPC/serialization boundary. That is not a
+new backend slotting under the existing trait the way
+`iklo-substrate-turso` does — it is a different shape of abstraction
+entirely, and would need its own trait design (or a redesign of
+`Substrate` itself) before any implementation work could start.
+
+**What this note does not do:** propose a concrete design, a new trait
+shape, or a timeline. It exists so the objective is not lost, and so a
+future ADR revisiting it starts from "the current `Substrate` trait's
+synchronous, borrow-checked contract is the actual obstacle" rather than
+rediscovering that constraint from scratch.
