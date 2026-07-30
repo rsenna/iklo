@@ -107,4 +107,3 @@ Each release follows SemVer and includes an incrementing build identifier plus a
 - Commit history is available in CI with sufficient depth to compare against previous tags.
 - Existing Makefile targets remain the quality gate baseline.
 - This epic introduces release automation only; package manager distribution channels (Homebrew, apt, etc.) are out of scope.
-- This epic is queued and does not supersede the active epic-004 implementation work.
