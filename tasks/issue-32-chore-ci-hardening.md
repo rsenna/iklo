@@ -40,7 +40,10 @@ the commands directly.
   T001-T004) rather than here — this file stays as the historical record for
   #32.
 
-- [ ] **T001** 🔒 [depends: T000] Create a minimal `.github/workflows/ci.yml` triggered on
+- [x] **T001** — **Moved to `specs/005-ci-release-versioning/tasks.md` T001**
+  (done there, PR #38). Closed here to prevent duplicate execution; body
+  below kept for historical record only.
+  🔒 [depends: T000] Create a minimal `.github/workflows/ci.yml` triggered on
   pull requests targeting `main`, running `make build` and `make test`
   (epic 005 FR-001 baseline), with explicit least-privilege `permissions:`
   for `GITHUB_TOKEN` declared at the workflow or job level from the start
@@ -56,7 +59,11 @@ the commands directly.
   on its own PR.
   **Files**: `.github/workflows/ci.yml` (new)
 
-- [ ] **T002** 🔒 [depends: T001] Pin every action reference in `ci.yml`
+- [x] **T002** — **Moved to `specs/005-ci-release-versioning/tasks.md` T001**
+  (SHA-pinning shipped as part of T001 there, PR #38, rather than as a
+  separate follow-up). Closed here to prevent duplicate execution; body
+  below kept for historical record only.
+  🔒 [depends: T001] Pin every action reference in `ci.yml`
   (`actions/checkout`, any setup-toolchain action) to a reviewed commit SHA,
   with the version kept as a trailing comment — the exact pattern already
   documented in
@@ -68,7 +75,10 @@ the commands directly.
   file's convention.
   **Files**: `.github/workflows/ci.yml`
 
-- [ ] **T003** 🔒 [depends: T001, T002] Add `Swatinem/rust-cache` (or
+- [x] **T003** — **Moved to `specs/005-ci-release-versioning/tasks.md T002`**
+  (still open there, not yet implemented). Closed here to prevent duplicate
+  execution; body below kept for historical record only.
+  🔒 [depends: T001, T002] Add `Swatinem/rust-cache` (or
   `actions/cache` on `~/.cargo` and `target/`) between checkout and the
   build/test steps in `ci.yml`, pinned per T002's convention (the cache
   action is itself an action reference, so it can't be added correctly
@@ -83,7 +93,10 @@ the commands directly.
   configuration and (when applicable) a hit; local quality gate unaffected.
   **Files**: `.github/workflows/ci.yml`
 
-- [ ] **T004** [depends: T002, T003] Add `.github/dependabot.yml` with a
+- [x] **T004** — **Moved to `specs/005-ci-release-versioning/tasks.md T003`**
+  (still open there, not yet implemented). Closed here to prevent duplicate
+  execution; body below kept for historical record only.
+  [depends: T002, T003] Add `.github/dependabot.yml` with a
   `github-actions` package-ecosystem entry so pinned SHAs (both the
   toolchain/checkout actions from T002 and the cache action from T003) get
   automated update PRs.

@@ -188,6 +188,16 @@ GitHub Actions convention and keeping it out of the Rust workspace's own
    `sha256sum`/`shasum -a 256` (whichever the runner provides) — no
    additional dependency.
 
+7. **Release publication is the last step, not an incremental one.** Build,
+   test, checksum generation, and release-notes generation all complete
+   *before* the GitHub Release object is created — the Release is created in
+   a single call (e.g. `gh release create <tag> <asset>... --notes-file
+   ...`) that supplies every asset and the notes body at once, rather than
+   creating the Release first and uploading assets to it in separate later
+   steps. This means a failure at any earlier step (build, checksum,
+   note-generation) leaves no Release object at all — never a Release
+   that exists but is missing an asset or has empty notes (FR-008).
+
 ## Complexity Tracking
 
 None currently. The release-notes script is the one piece of genuinely new

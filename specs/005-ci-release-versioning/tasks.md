@@ -145,7 +145,12 @@ created with the packaged CLI binary attached.
 - [ ] **T012** [US2] Ensure any failure — tag format, build, tests,
   packaging, checksum, or note generation — stops the workflow and avoids
   publishing a partial/invalid release (FR-008); reject re-publishing an
-  existing tag/version (edge case in spec.md).
+  existing tag/version (edge case in spec.md). The GitHub Release object
+  itself MUST be created only after T009-T011 and T014 (build, checksums,
+  release notes) all succeed, in one call that supplies every asset and
+  the notes body at once (plan.md Key Design Decision #7) — a failure in
+  any earlier step must leave no Release object at all, not a Release
+  missing an asset or with empty notes.
 
 **Checkpoint**: US2 independently testable — a real tag push produces a
 complete, checksummed release or a clean failure, never a partial one.
