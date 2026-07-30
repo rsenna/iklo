@@ -82,12 +82,16 @@ shared by both release publishing (US2) and versioning/notes (US3).
 
 **CRITICAL**: No US2/US3 task starts before this phase is complete.
 
-- [ ] **T005** Implement version/tag validation: canonical version source is
-  `Cargo.toml` `[workspace.package].version` (FR-010); release tag MUST
-  equal `v<workspace-version>`; mismatch fails before any build/publish
-  step, with an error message naming both values (SC-006). Also implements
-  `previous_release_tag` selection (FR-011): nearest reachable prior SemVer
-  tag via `git describe --tags --match "v[0-9]*" --abbrev=0 <current_tag>^`.
+- [ ] **T005** [Test-first, per Constitution I] Write a fixture-based test
+  for version/tag validation *before* implementing it: asserts a
+  `v<tag>`/`Cargo.toml` mismatch fails with an error naming both values
+  (SC-006), and that re-publishing an existing tag is rejected. Then
+  implement: canonical version source is `Cargo.toml`
+  `[workspace.package].version` (FR-010); release tag MUST equal
+  `v<workspace-version>`; mismatch fails before any build/publish step.
+  Also implements `previous_release_tag` selection (FR-011): nearest
+  reachable prior SemVer tag via `git describe --tags --match "v[0-9]*"
+  --abbrev=0 <current_tag>^`.
 - [ ] **T006** Implement build-identifier computation: deterministic
   `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT` (FR-005), evaluated numerically as
   `(GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)` for "strictly increasing" checks
@@ -141,11 +145,19 @@ created with the packaged CLI binary attached.
 - [ ] **T010** [US2] Package and upload the built executable as a GitHub
   Release asset (FR-003, SC-002).
 - [ ] **T011** [US2] Generate and publish SHA-256 checksums for every
-  release artifact (FR-012, SC-007).
+  release artifact (FR-012, SC-007). Include a test verifying each
+  published checksum file actually matches its artifact's content (e.g.
+  `sha256sum -c` against the built binary), not just that a checksum file
+  exists.
 - [ ] **T012** [US2] Ensure any failure — tag format, build, tests,
   packaging, checksum, or note generation — stops the workflow and avoids
   publishing a partial/invalid release (FR-008); reject re-publishing an
-  existing tag/version (edge case in spec.md).
+  existing tag/version (edge case in spec.md). The GitHub Release object
+  itself MUST be created only after T009-T011 and T014 (build, checksums,
+  release notes) all succeed, in one call that supplies every asset and
+  the notes body at once (plan.md Key Design Decision #7) — a failure in
+  any earlier step must leave no Release object at all, not a Release
+  missing an asset or with empty notes.
 
 **Checkpoint**: US2 independently testable — a real tag push produces a
 complete, checksummed release or a clean failure, never a partial one.
