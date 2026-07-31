@@ -278,3 +278,45 @@ shape, or a timeline. It exists so the objective is not lost, and so a
 future ADR revisiting it starts from "closure-based vs. handle-based
 transactions is the actual obstacle, not process boundaries" rather than
 rediscovering that constraint from scratch.
+
+**Decision (2026-07-31):** Two clarifications from a follow-up discussion,
+both scoped as reasoning to preserve, not new commitments.
+
+**Iklo-as-a-shell constrains BEAM to optional, never required.** A shell
+must start in milliseconds and ship as essentially one binary — that's
+the reason `iklo-cli` is a Rust binary at all. BEAM has no story for that:
+it isn't vendorable as a library the way `im`/`rpds`/Turso are, so making
+it a hard dependency would mean requiring a system-installed Erlang/OTP —
+a shell dependency on par with requiring a JVM to run `ls`. This sharpens
+the previous note's "long-term objective" framing: BEAM/Mnesia support
+(as a target for **Iklo the language**, not the shell) can only ever be
+opt-in — a `//db` or reactive-engine plugin for a machine that already
+runs a BEAM node — never load-bearing for the interpreter itself.
+Iklo-as-a-shell is confirmed as the primary target for now; Iklo-as-a-
+language (including a possible future BEAM target) is explicitly
+secondary, a nice-to-have whose consequences remain unclear and are not
+re-litigated here.
+
+**VDBE-as-compilation-target gives none of the language's runtime
+properties for free, and doesn't make Iklo "compiled."** Worth stating
+starkly, since earlier notes discussed the *calling-convention/memory-model*
+cost of targeting VDBE without spelling out that the cost is total: VDBE
+has no GC (SQLite/Turso manage memory via explicit ref-counting and
+cursor-lifetime scoping, not a collector), no persistent/structurally-shared
+data structures (its values are SQL scalars and B-tree cursors), and no
+laziness (opcodes execute eagerly, driven by query-step semantics). All
+three — GC, persistent structures, laziness — would have to be built from
+scratch on top of VDBE's opcode set if this path is ever taken; none of
+LANGUAGE.md's aspirations for a "proper" functional language arrive by
+virtue of targeting VDBE. Separately: VDBE execution is *always*
+interpreted (a fetch-decode-execute loop, no JIT, no machine-code
+emission) — targeting it does not turn Iklo into an ahead-of-time-compiled
+language. The natural granularity for a REPL language is compiling one
+top-level form to a small VDBE program right before running it (mirroring
+how a single SQL statement already works, and matching this ADR's own
+"every top-level evaluation is a transaction" model), not a whole-program
+batch-compile step. This timing question is orthogonal to the real
+unknowns (calling convention, memory model, whether laziness/persistence
+are representable in VDBE's opcode set at all) — those remain exactly as
+open as the earlier notes describe, regardless of per-form vs. per-program
+compilation.
