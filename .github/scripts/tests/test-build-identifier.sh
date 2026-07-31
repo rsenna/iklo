@@ -37,14 +37,16 @@ out="$(GITHUB_RUN_NUMBER=1 GITHUB_RUN_ATTEMPT=3 bash "$script")"
 check_eq "retry attempt" "1.3" "$out"
 
 assert_fail "missing GITHUB_RUN_NUMBER fails" env -u GITHUB_RUN_NUMBER GITHUB_RUN_ATTEMPT=1 bash "$script"
-assert_fail "missing GITHUB_RUN_ATTEMPT fails" env GITHUB_RUN_NUMBER=1 -u GITHUB_RUN_ATTEMPT bash "$script"
+assert_fail "missing GITHUB_RUN_ATTEMPT fails" env -u GITHUB_RUN_ATTEMPT GITHUB_RUN_NUMBER=1 bash "$script"
 assert_fail "non-numeric run number fails" env GITHUB_RUN_NUMBER=abc GITHUB_RUN_ATTEMPT=1 bash "$script"
 assert_fail "non-numeric run attempt fails" env GITHUB_RUN_NUMBER=1 GITHUB_RUN_ATTEMPT=abc bash "$script"
 assert_fail "negative number fails (not base-10 unsigned per FR-005)" env GITHUB_RUN_NUMBER=-1 GITHUB_RUN_ATTEMPT=1 bash "$script"
 
 # Numeric-pair ordering sanity (SC-003's "strictly increasing" comparison
-# basis) -- not exercised by the script itself, but documents the contract
-# callers must use rather than lexicographic string comparison.
+# basis, (GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)) -- not exercised by the
+# script itself, but documents the contract callers must use rather than
+# lexicographic string comparison: run-number is the primary key, and a
+# tie is broken by attempt (a same-run retry still counts as "later").
 a_run=9; a_attempt=9
 b_run=10; b_attempt=1
 if [ "$a_run" -lt "$b_run" ]; then
@@ -52,6 +54,15 @@ if [ "$a_run" -lt "$b_run" ]; then
 else
   fail=$((fail + 1))
   echo "FAIL: numeric run-number comparison sanity check"
+fi
+
+a_run=5; a_attempt=1
+b_run=5; b_attempt=2
+if [ "$a_run" -eq "$b_run" ] && [ "$a_attempt" -lt "$b_attempt" ]; then
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+  echo "FAIL: same-run-number, attempt-breaks-tie sanity check"
 fi
 
 echo "----"
