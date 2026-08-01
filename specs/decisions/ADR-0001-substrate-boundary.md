@@ -286,23 +286,25 @@ both scoped as reasoning to preserve, not new commitments.
 must start in milliseconds and ship as essentially one binary — that's
 the reason `iklo-cli` is a Rust binary at all. BEAM has no story for that:
 it isn't vendorable as a library the way `im`/`rpds`/Turso are, so making
-it a hard dependency would mean requiring a system-installed Erlang/OTP —
-a shell dependency on par with requiring a JVM to run `ls`. This sharpens
-the previous note's "long-term objective" framing: BEAM/Mnesia support
-(as a target for **Iklo the language**, not the shell) can only ever be
-opt-in — a `//db` or reactive-engine plugin for a machine that already
-runs a BEAM node — never load-bearing for the interpreter itself.
-Iklo-as-a-shell is confirmed as the primary target for now; Iklo-as-a-
-language (including a possible future BEAM target) is explicitly
-secondary, a nice-to-have whose consequences remain unclear and are not
-re-litigated here.
+it a hard dependency would mean shipping or provisioning an OTP runtime
+(ERTS plus selected applications, e.g. via an Erlang/OTP target-system
+release) — a shell dependency on par with requiring a JVM to run `ls`.
+This sharpens the previous note's "long-term objective" framing:
+BEAM/Mnesia support (as a target for **Iklo the language**, not the
+shell) can only ever be opt-in — a `//db` or reactive-engine plugin for a
+machine that already runs a BEAM node — never load-bearing for the
+interpreter itself. Iklo-as-a-shell is confirmed as the primary target
+for now; Iklo-as-a-language (including a possible future BEAM target) is
+explicitly secondary, a nice-to-have whose consequences remain unclear
+and are not re-litigated here.
 
 **VDBE-as-compilation-target gives none of the language's runtime
 properties for free, and doesn't make Iklo "compiled."** Worth stating
 starkly, since earlier notes discussed the *calling-convention/memory-model*
 cost of targeting VDBE without spelling out that the cost is total: VDBE
-has no GC (SQLite/Turso manage memory via explicit ref-counting and
-cursor-lifetime scoping, not a collector), no persistent/structurally-shared
+has no GC (SQLite/Turso manage memory via scoped, deterministic
+allocation tied to statement/cursor lifetime, not a collector or general
+reference counting), no persistent/structurally-shared
 data structures (its values are SQL scalars and B-tree cursors), and no
 laziness (opcodes execute eagerly, driven by query-step semantics). All
 three — GC, persistent structures, laziness — would have to be built from
