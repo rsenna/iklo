@@ -274,12 +274,18 @@ So
 
 Today's rule above ("operators may be separated from neighbour tokens by
 spaces... or not") means spacing around an operator is *cosmetic*, with one
-concrete exception already in the language: the option literal `-foo`
-(sugar for `option%{ foo }`) is glued to its token, while `-` is also a
-unary/binary arithmetic operator (`-1 + +2`). Nothing currently states
-whether `- foo` (space after `-`) is unary-minus-of-`foo` or the same
-option literal with cosmetic spacing — this is an existing ambiguity, not
-a hypothetical one.
+concrete exception already in the *documented* language: the option
+literal `-foo` (sugar for `option%{ foo }`) is glued to its token, while
+`-` is also a unary/binary arithmetic operator (`-1 + +2`). This is design
+ambiguity, not a behavioral one: the current lexer/parser implement
+neither the option-literal nor a unary-minus production (per AGENTS.md's
+"what is actually implemented today"), so `-foo` and `- foo` tokenize
+identically right now, as `-` followed by an identifier. Nothing currently
+states whether `- foo` (space after `-`) is *meant* to be
+unary-minus-of-`foo` or the same option literal with cosmetic spacing —
+this is an existing gap in the design as documented, not a hypothetical
+one, but it doesn't yet manifest as conflicting runtime behavior since
+neither form is implemented.
 
 One direction being considered: generalize spacing into a first-class part
 of every operator's declaration — a "short" form (glued to its argument,
@@ -294,7 +300,7 @@ ad-hoc exception.
 
 Open tension worth naming honestly: the "Evaluation Model" section below
 states there should be *no parsing ambivalence* — "no exceptions, or
-subtle different ways were certain forms could be evaluated." A
+subtly different ways where certain forms could be evaluated." A
 per-operator short/far override is in some tension with that stated goal,
 even though it's *identical by default* for most operators: the reader
 still has to know, per operator, whether its spacing is significant before
@@ -659,7 +665,7 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
 
 - There should be *no parsing ambivalence*.
     - There must be only one possible way that a block of code might be parsed.
-    - And no exceptions, or subtle different ways were certain forms could be evaluated.
+    - And no exceptions, or subtly different ways where certain forms could be evaluated.
     - Evaluation Model must be **uniform** and as simple as possible.
 
 - Procedures *must* declare its *default cardinality* in case they accept a variable amount of arguments.
