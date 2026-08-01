@@ -86,7 +86,7 @@ shared by both release publishing (US2) and versioning/notes (US3).
 
 **CRITICAL**: No US2/US3 task starts before this phase is complete.
 
-- [ ] **T005** [Test-first, per Constitution I] Write a fixture-based test
+- [x] **T005** [Test-first, per Constitution I] Write a fixture-based test
   for version/tag validation *before* implementing it: asserts a
   `v<tag>`/`Cargo.toml` mismatch fails with an error naming both values
   (SC-006), and that re-publishing an existing tag is rejected. Then
@@ -96,10 +96,22 @@ shared by both release publishing (US2) and versioning/notes (US3).
   Also implements `previous_release_tag` selection (FR-011): nearest
   reachable prior SemVer tag via `git describe --tags --match "v[0-9]*"
   --abbrev=0 <current_tag>^`.
-- [ ] **T006** Implement build-identifier computation: deterministic
+  **Done 2026-07-30**: `.github/scripts/validate-release-tag.sh` (tag
+  format + version match, SC-006 error message) and
+  `.github/scripts/previous-release-tag.sh` (FR-011), each with fixture
+  tests under `.github/scripts/tests/` run against a throwaway git repo
+  fixture (not the real repo's tags). Re-publishing-an-existing-tag
+  rejection is **not** in these scripts — it needs to check the real
+  GitHub Release API (does a release already exist for this tag?), which
+  is T012's concern in `release.yml`, not something these offline,
+  git-only scripts can determine.
+- [x] **T006** Implement build-identifier computation: deterministic
   `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT` (FR-005), evaluated numerically as
   `(GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)` for "strictly increasing" checks
   (SC-003).
+  **Done 2026-07-30**: `.github/scripts/build-identifier.sh`, with fixture
+  tests under `.github/scripts/tests/test-build-identifier.sh` covering
+  missing/non-numeric env vars, not just the happy path.
 
 **Checkpoint**: Version/tag validation and build-identifier logic available
 for both release publishing and notes generation.
