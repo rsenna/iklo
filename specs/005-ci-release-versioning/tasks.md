@@ -105,10 +105,13 @@ shared by both release publishing (US2) and versioning/notes (US3).
   GitHub Release API (does a release already exist for this tag?), which
   is T012's concern in `release.yml`, not something these offline,
   git-only scripts can determine.
-- [ ] **T006** Implement build-identifier computation: deterministic
+- [x] **T006** Implement build-identifier computation: deterministic
   `GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT` (FR-005), evaluated numerically as
   `(GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT)` for "strictly increasing" checks
   (SC-003).
+  **Done 2026-07-30**: `.github/scripts/build-identifier.sh`, with fixture
+  tests under `.github/scripts/tests/test-build-identifier.sh` covering
+  missing/non-numeric env vars, not just the happy path.
 
 **Checkpoint**: Version/tag validation and build-identifier logic available
 for both release publishing and notes generation.
