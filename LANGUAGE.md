@@ -299,9 +299,10 @@ literal, `- foo` (far) as unary minus. This would resolve the existing
 ad-hoc exception.
 
 Open tension worth naming honestly: the "Evaluation Model" section below
-states there should be *no parsing ambivalence* — "no exceptions, or
-subtly different ways where certain forms could be evaluated." A
-per-operator short/far override is in some tension with that stated goal,
+(specifically its first bullet, "no parsing ambivalence") states there
+should be *no parsing ambivalence* — "no exceptions, or subtly different
+ways where certain forms could be evaluated." A per-operator short/far
+override is in some tension with that stated goal,
 even though it's *identical by default* for most operators: the reader
 still has to know, per operator, whether its spacing is significant before
 they can read code correctly. Whether that tension is acceptable (a small,
