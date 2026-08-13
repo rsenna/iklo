@@ -5,8 +5,9 @@ on:
     tags:
       - 'v[0-9]*'
 
-# Least-privilege: through T009 this workflow only reads the repo -- it
-# validates the tag, tests, and builds, but publishes nothing.
+# Least-privilege: through T011 this workflow only reads the repo -- it
+# validates the tag, tests, builds, packages, and checksums, but
+# publishes nothing.
 # `contents: write` is deferred until T012, the task that actually creates
 # the GitHub Release -- granting it here would hand a compromised build
 # step needless write access to the repo via the default token.
@@ -17,6 +18,11 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      # Single platform for now, per spec.md's Assumptions; a matrix
+      # build is a later expansion. Job-level so the packaging and
+      # checksum steps can't drift out of sync with each other.
+      TARGET: x86_64-unknown-linux-gnu
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,10 +67,9 @@ jobs:
         # consume. Per plan.md's Key Design Decision #7, the actual GitHub
         # Release is created once, atomically, in T012 -- this step only
         # prepares the asset; it does not create or upload to a Release.
-        # Single platform for now (ubuntu-latest / ${{ env.TARGET }}), per
-        # spec.md's Assumptions; a matrix build is a later expansion.
-        env:
-          TARGET: x86_64-unknown-linux-gnu
         run: |
           mkdir -p dist
           cp target/release/iklo "dist/iklo-${GITHUB_REF_NAME}-${TARGET}"
+
+      - name: Generate SHA-256 checksums (FR-012)
+        run: .github/scripts/generate-checksums.sh "dist/iklo-${GITHUB_REF_NAME}-${TARGET}"

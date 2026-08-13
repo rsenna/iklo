@@ -217,11 +217,32 @@ created with the packaged CLI binary attached.
   exact packaging commands from the workflow (with
   `GITHUB_REF_NAME=v0.1.0` standing in for the real tag-push env var),
   confirmed the staged file is present, executable, and correctly named.
-- [ ] **T011** [US2] Generate and publish SHA-256 checksums for every
-  release artifact (FR-012, SC-007). Include a test verifying each
-  published checksum file actually matches its artifact's content (e.g.
-  `sha256sum -c` against the built binary), not just that a checksum file
-  exists.
+- [x] **T011** [US2] Generate SHA-256 checksums for every release
+  artifact (FR-012, SC-007). Actual publishing (upload to a GitHub
+  Release asset) happens in T012's atomic release-creation call, per
+  plan.md's Key Design Decision #7 -- same staging-now/publish-in-T012
+  split as T010. Include a test verifying each generated checksum file
+  actually matches its artifact's content (e.g. `sha256sum -c` against
+  the built binary), not just that a checksum file exists.
+  **Done 2026-08-13**: `.github/scripts/generate-checksums.sh` --
+  `sha256sum` if present, `shasum -a 256` fallback (macOS has no
+  `sha256sum` by default), no additional dependency, per Key Design
+  Decision #6. Writes `<file>.sha256` referencing the artifact by
+  basename (not the build machine's absolute path -- release assets
+  download flat, side-by-side, so an absolute-path checksum file would
+  fail verification for every downloader). Test-first (Constitution I):
+  `.github/scripts/tests/test-generate-checksums.sh` written and
+  confirmed red (script didn't exist) before implementing; green after
+  (8/8 assertions) -- happy path, checksum-references-basename-not-path,
+  a genuine `sha256sum -c` verification against real content, a negative
+  case (tampered artifact must fail verification), multiple artifacts in
+  ONE invocation (a real multi-arg call exercising the for-loop, not two
+  separate single-arg calls), missing-argument and nonexistent-file
+  failure cases.
+  Wired into `release.yml` immediately after T010's packaging step.
+  Verified end-to-end locally against the real release binary: built,
+  packaged, checksummed, then `shasum -a 256 -c` against the generated
+  file reported `OK`.
 - [ ] **T012** [US2] Ensure any failure — tag format, build, tests,
   packaging, checksum, or note generation — stops the workflow and avoids
   publishing a partial/invalid release (FR-008); reject re-publishing an
