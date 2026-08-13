@@ -133,17 +133,15 @@ workflow runs `make test` and `make build`, failing on regressions.
   branch, or reasoning from the workflow YAML directly) since this is
   largely already covered by T001-T004's own acceptance criteria.
   **Done 2026-08-13**: two-part verification, no throwaway PR needed.
-  (1) YAML reasoning: `ci.yml`'s `Build (make build)` and `Test (make
-  test)` steps are plain `run:` shell steps with no `continue-on-error`
-  anywhere in the workflow — GitHub Actions' default behavior fails the
-  step (and the job/check) on any nonzero exit. (2) Empirical: locally
-  broke a runtime test's assertion
-  (`crates/iklo-runtime/src/lib.rs`'s `rollback_keeps_image_unchanged`),
-  ran `make test`, confirmed `make: *** [test] Error 101` (nonzero exit,
-  the same command CI runs); reverted, confirmed `make build` and
-  `make test` both exit 0 clean. Together these confirm a broken PR fails
-  the check and a clean PR passes, without polluting CI history with an
-  intentionally-broken push.
+  (1) YAML reasoning: in `.github/workflows/ci.yml`'s `build-and-test` job,
+  the `Build (make build)` and `Test (make test)` steps are plain `run:`
+  shell steps with no `continue-on-error` anywhere in the workflow —
+  GitHub Actions' default behavior fails the step (and the job/check) on
+  any nonzero exit. (2) Empirical: locally broke a runtime test's
+  assertion (`crates/iklo-runtime/src/lib.rs`'s
+  `rollback_keeps_image_unchanged`), ran `make test`, confirmed
+  `make: *** [test] Error 101`; reverted, confirmed `make build` and
+  `make test` both exit 0 clean.
 
 **Checkpoint**: US1 fully satisfied by Phase 1 + this verification task.
 
