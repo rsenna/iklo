@@ -54,3 +54,17 @@ jobs:
         # if Cargo.lock has drifted from the manifests rather than silently
         # building against dependency versions the lock file never recorded.
         run: cargo build --release -p iklo-cli --locked
+
+      - name: Package release binary (FR-003)
+        # Stages a target-triple-named copy under a dedicated dist/
+        # directory for T011 (checksums) and T012 (release creation) to
+        # consume. Per plan.md's Key Design Decision #7, the actual GitHub
+        # Release is created once, atomically, in T012 -- this step only
+        # prepares the asset; it does not create or upload to a Release.
+        # Single platform for now (ubuntu-latest / ${{ env.TARGET }}), per
+        # spec.md's Assumptions; a matrix build is a later expansion.
+        env:
+          TARGET: x86_64-unknown-linux-gnu
+        run: |
+          mkdir -p dist
+          cp target/release/iklo "dist/iklo-${GITHUB_REF_NAME}-${TARGET}"

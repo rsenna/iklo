@@ -203,8 +203,20 @@ created with the packaged CLI binary attached.
   defeated the release build's own `--locked` guarantee by the time it
   ran. Scoped to `release.yml` only, not `Makefile`/`ci.yml` (those are a
   separate concern about local-dev/PR-check strictness, not this task).
-- [ ] **T010** [US2] Package and upload the built executable as a GitHub
-  Release asset (FR-003, SC-002).
+- [x] **T010** [US2] Package the built executable for release (FR-003,
+  SC-002). Actual upload to a GitHub Release asset happens in T012's
+  atomic release-creation call, per plan.md's Key Design Decision #7 --
+  this task only stages the named artifact.
+  **Done 2026-08-13**: `release.yml` copies `target/release/iklo` to
+  `dist/iklo-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu` -- single
+  platform for now, per spec.md's Assumptions. Per plan.md's Key Design
+  Decision #7, this step only *stages* the named artifact; it does not
+  create or upload to a GitHub Release -- the Release itself is created
+  atomically in T012, after checksums (T011) and release notes (T014)
+  both succeed too. Verified locally: built the release binary, ran the
+  exact packaging commands from the workflow (with
+  `GITHUB_REF_NAME=v0.1.0` standing in for the real tag-push env var),
+  confirmed the staged file is present, executable, and correctly named.
 - [ ] **T011** [US2] Generate and publish SHA-256 checksums for every
   release artifact (FR-012, SC-007). Include a test verifying each
   published checksum file actually matches its artifact's content (e.g.
@@ -311,7 +323,7 @@ issue #32's T000 decision as fulfilled.
 |---|---|
 | FR-001 | T001, T004, T007 |
 | FR-002 | T008, T009, T012 |
-| FR-003 | T010 |
+| FR-003 | T010, T012 |
 | FR-004 | T008 |
 | FR-005 | T006, T015, T016 |
 | FR-006 | T013, T014 |
