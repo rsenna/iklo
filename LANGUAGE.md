@@ -270,6 +270,46 @@ So
   - Valid: `1**2 == 1 ** 2` is `-true`
   - Invalid: `1 * * 2` is a syntax error
 
+#### Open question: "short" vs "far" operator forms (BET)
+
+Today's rule above ("operators may be separated from neighbour tokens by
+spaces... or not") means spacing around an operator is *cosmetic*, with one
+concrete exception already in the *documented* language: the option
+literal `-foo` (sugar for `option%{ foo }`) is glued to its token, while
+`-` is also a unary/binary arithmetic operator (`-1 + +2`). This is design
+ambiguity, not a behavioral one: the current lexer/parser implement
+neither the option-literal nor a unary-minus production (per AGENTS.md's
+"what is actually implemented today"), so `-foo` and `- foo` tokenize
+identically right now, as `-` followed by an identifier. Nothing currently
+states whether `- foo` (space after `-`) is *meant* to be
+unary-minus-of-`foo` or the same option literal with cosmetic spacing —
+this is an existing gap in the design as documented, not a hypothetical
+one, but it doesn't yet manifest as conflicting runtime behavior since
+neither form is implemented.
+
+One direction being considered: generalize spacing into a first-class part
+of every operator's declaration — a "short" form (glued to its argument,
+e.g. `a.b`) and a "far" form (space-separated, e.g. `a . b`). By default,
+short and far would mean *exactly the same thing* for the large majority
+of operators (preserving today's "spacing is cosmetic" behavior almost
+everywhere), but an operator's declaration could *override* one form to
+mean something distinct from the other — e.g. `-foo` (short) as the option
+literal, `- foo` (far) as unary minus. This would resolve the existing
+`-foo` ambiguity as a special case of a general mechanism, rather than an
+ad-hoc exception.
+
+Open tension worth naming honestly: the "Evaluation Model" section below
+(specifically its first bullet, "no parsing ambivalence") states there
+should be *no parsing ambivalence* — "no exceptions, or subtly different
+ways where certain forms could be evaluated." A per-operator short/far
+override is in some tension with that stated goal,
+even though it's *identical by default* for most operators: the reader
+still has to know, per operator, whether its spacing is significant before
+they can read code correctly. Whether that tension is acceptable (a small,
+closed, well-documented set of overrides) or a reason to reject the whole
+direction is genuinely undecided — recorded here so the question isn't
+lost, not because an answer has been reached.
+
 #### Par-expr behavior
 
 The rough algorithm is:
@@ -626,7 +666,7 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
 
 - There should be *no parsing ambivalence*.
     - There must be only one possible way that a block of code might be parsed.
-    - And no exceptions, or subtle different ways were certain forms could be evaluated.
+    - And no exceptions, or subtly different ways where certain forms could be evaluated.
     - Evaluation Model must be **uniform** and as simple as possible.
 
 - Procedures *must* declare its *default cardinality* in case they accept a variable amount of arguments.
