@@ -147,7 +147,7 @@ created with the packaged CLI binary attached.
 
 ### Implementation for User Story 2
 
-- [ ] **T008** [US2] Create `.github/workflows/release.yml` triggered on
+- [x] **T008** [US2] Create `.github/workflows/release.yml` triggered on
   SemVer tag pushes (`v[0-9]*`), least-privilege `permissions:` including
   `contents: write` for release creation, actions pinned per T001's
   convention. **Checkout step MUST use `fetch-depth: 0`** (full history) —
@@ -155,6 +155,19 @@ created with the packaged CLI binary attached.
   tag/commit history to run `git describe` against previous tags. Calls
   T005's version/tag validation as its first real step — fails fast before
   any build/package work on mismatch (FR-002, FR-004, FR-010, SC-006).
+  **Done 2026-08-13**: `.github/workflows/release.yml` — triggers on
+  `v[0-9]*` tag pushes, `contents: write` only, pinned `actions/checkout`
+  matching `ci.yml`'s SHA, `fetch-depth: 0` + `persist-credentials: false`.
+  Its only step beyond checkout calls `validate-release-tag.sh` against
+  `$GITHUB_REF_NAME` (a plain env-var expansion inside `run:`, not a
+  `${{ }}` template interpolation, to avoid the tag-name shell-injection
+  footgun that pattern has). Verified: YAML parses (Ruby's `Psych`, no
+  `pyyaml` available locally); `validate-release-tag.sh` itself already has
+  fixture tests (T005) and was re-run manually against this repo's real
+  `Cargo.toml` version for both a matching and a mismatched tag. Build,
+  packaging, checksums, and the atomic release-creation step are separate
+  tasks (T009-T012) — this workflow does nothing on a real tag push yet
+  beyond validating it.
 - [ ] **T009** [US2] Build the `iklo` executable in release mode
   (`cargo build --release -p iklo-cli`) only after `make test` passes
   (FR-002).

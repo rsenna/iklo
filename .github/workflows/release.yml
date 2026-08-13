@@ -1,0 +1,34 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+# Least-privilege: this phase (T008) only validates the tag against the
+# workspace version, no build/package/checksum/publish work yet (that's
+# T009-T012). `contents: write` is what release *creation* will eventually
+# need; nothing broader is required at any point in this workflow.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Unlike ci.yml's shallow default: T014's release-notes script
+          # needs full tag/commit history to run `git describe` against
+          # previous tags.
+          fetch-depth: 0
+          # No authenticated git operations happen after checkout in this
+          # phase; a later phase that needs to authenticate (e.g. `gh
+          # release create`) does so via an explicit token, not a
+          # persisted git credential.
+          persist-credentials: false
+
+      - name: Validate release tag against workspace version (FR-002, FR-004, FR-010)
+        run: .github/scripts/validate-release-tag.sh "${GITHUB_REF_NAME}"
