@@ -196,6 +196,13 @@ created with the packaged CLI binary attached.
   --locked` exits 0 and produces `target/release/iklo`. Also updated the
   workflow's least-privilege header comment, which still described the
   T008-only state before this task added test/build steps.
+  Follow-up fix
+  after cubic-dev-ai review: the test step now runs `cargo test --locked`
+  directly rather than `make test`'s plain `cargo test` -- an unlocked
+  test run silently rewrites a drifted `Cargo.lock`, which would have
+  defeated the release build's own `--locked` guarantee by the time it
+  ran. Scoped to `release.yml` only, not `Makefile`/`ci.yml` (those are a
+  separate concern about local-dev/PR-check strictness, not this task).
 - [ ] **T010** [US2] Package and upload the built executable as a GitHub
   Release asset (FR-003, SC-002).
 - [ ] **T011** [US2] Generate and publish SHA-256 checksums for every
