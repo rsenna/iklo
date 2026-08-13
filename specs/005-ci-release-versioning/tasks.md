@@ -156,7 +156,10 @@ created with the packaged CLI binary attached.
   T005's version/tag validation as its first real step — fails fast before
   any build/package work on mismatch (FR-002, FR-004, FR-010, SC-006).
   **Done 2026-08-13**: `.github/workflows/release.yml` — triggers on
-  `v[0-9]*` tag pushes, `contents: write` only, pinned `actions/checkout`
+  `v[0-9]*` tag pushes, `contents: read` (tightened from an initial
+  `contents: write` after cubic-dev-ai/sourcery review feedback — this
+  phase writes nothing; `write` is deferred to T012, which actually
+  creates the Release), pinned `actions/checkout`
   matching `ci.yml`'s SHA, `fetch-depth: 0` + `persist-credentials: false`.
   Its only step beyond checkout calls `validate-release-tag.sh` against
   `$GITHUB_REF_NAME` (a plain env-var expansion inside `run:`, not a

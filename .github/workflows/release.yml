@@ -6,11 +6,12 @@ on:
       - 'v[0-9]*'
 
 # Least-privilege: this phase (T008) only validates the tag against the
-# workspace version, no build/package/checksum/publish work yet (that's
-# T009-T012). `contents: write` is what release *creation* will eventually
-# need; nothing broader is required at any point in this workflow.
+# workspace version and writes nothing. `contents: write` is deferred until
+# T012, the task that actually creates the GitHub Release -- granting it
+# here would hand a compromised validation step needless write access to
+# the repo via the default token.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
