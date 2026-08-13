@@ -126,12 +126,22 @@ the check.
 **Independent Test**: Open a PR that touches Rust code and verify the
 workflow runs `make test` and `make build`, failing on regressions.
 
-- [ ] **T007** [US1] Verify the acceptance scenario end-to-end: confirm a PR
+- [x] **T007** [US1] Verify the acceptance scenario end-to-end: confirm a PR
   with an intentionally broken build/test (verified locally, not actually
   pushed broken) would fail the check per T001-T004's wiring, and that a
   clean PR passes. Record the verification method used (e.g. a scratch
   branch, or reasoning from the workflow YAML directly) since this is
   largely already covered by T001-T004's own acceptance criteria.
+  **Done 2026-08-13**: two-part verification, no throwaway PR needed.
+  (1) YAML reasoning: in `.github/workflows/ci.yml`'s `build-and-test` job,
+  the `Build (make build)` and `Test (make test)` steps are plain `run:`
+  shell steps with no `continue-on-error` anywhere in the workflow —
+  GitHub Actions' default behavior fails the step (and the job/check) on
+  any nonzero exit. (2) Empirical: locally broke a runtime test's
+  assertion (`crates/iklo-runtime/src/lib.rs`'s
+  `rollback_keeps_image_unchanged`), ran `make test`, confirmed
+  `make: *** [test] Error 101`; reverted, confirmed `make build` and
+  `make test` both exit 0 clean.
 
 **Checkpoint**: US1 fully satisfied by Phase 1 + this verification task.
 
