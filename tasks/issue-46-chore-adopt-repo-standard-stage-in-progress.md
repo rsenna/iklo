@@ -4,7 +4,7 @@ Source: https://github.com/rsenna/iklo/issues/46
 
 ## Tasks
 
-- [ ] **T001 — Create `repo.toml` with `stage = "in-progress"`**
+- [x] **T001 — Create `repo.toml` with `stage = "in-progress"`** — ✅ merged (#50)
   Acceptance: `repo.toml` exists at the repo root and contains
   `stage = "in-progress"`; `/repo-standard audit` reports clean (every other
   required `in-progress`-tier path — `AGENTS.md`, `README.md`, `specs/`,
