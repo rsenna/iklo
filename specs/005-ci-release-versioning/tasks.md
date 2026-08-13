@@ -181,9 +181,21 @@ created with the packaged CLI binary attached.
   packaging, checksums, and the atomic release-creation step are separate
   tasks (T009-T012) — this workflow does nothing on a real tag push yet
   beyond validating it.
-- [ ] **T009** [US2] Build the `iklo` executable in release mode
+- [x] **T009** [US2] Build the `iklo` executable in release mode
   (`cargo build --release -p iklo-cli`) only after `make test` passes
   (FR-002).
+  **Done 2026-08-13**: added toolchain install + `Swatinem/rust-cache`
+  (same pinned SHAs as `ci.yml`, confirmed byte-identical) to
+  `release.yml`, then `make test`, then `cargo build --release -p
+  iklo-cli --locked` as the final step. `--locked` added after
+  self-review: a release artifact should fail loud on `Cargo.lock` drift
+  rather than silently building against unrecorded dependency versions.
+  No `make build` (debug) step — T009's scope is only the release build,
+  gated on tests passing, not a redundant debug build first. Verified
+  locally: `make test` exits 0, `cargo build --release -p iklo-cli
+  --locked` exits 0 and produces `target/release/iklo`. Also updated the
+  workflow's least-privilege header comment, which still described the
+  T008-only state before this task added test/build steps.
 - [ ] **T010** [US2] Package and upload the built executable as a GitHub
   Release asset (FR-003, SC-002).
 - [ ] **T011** [US2] Generate and publish SHA-256 checksums for every

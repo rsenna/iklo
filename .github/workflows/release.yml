@@ -5,11 +5,11 @@ on:
     tags:
       - 'v[0-9]*'
 
-# Least-privilege: this phase (T008) only validates the tag against the
-# workspace version and writes nothing. `contents: write` is deferred until
-# T012, the task that actually creates the GitHub Release -- granting it
-# here would hand a compromised validation step needless write access to
-# the repo via the default token.
+# Least-privilege: through T009 this workflow only reads the repo -- it
+# validates the tag, tests, and builds, but publishes nothing.
+# `contents: write` is deferred until T012, the task that actually creates
+# the GitHub Release -- granting it here would hand a compromised build
+# step needless write access to the repo via the default token.
 permissions:
   contents: read
 
@@ -33,3 +33,20 @@ jobs:
 
       - name: Validate release tag against workspace version (FR-002, FR-004, FR-010)
         run: .github/scripts/validate-release-tag.sh "${GITHUB_REF_NAME}"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
+
+      - name: Cache cargo dependencies and build output
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+
+      - name: Test (make test)
+        run: make test
+
+      - name: Build release binary (FR-002)
+        # --locked: this is a release artifact users download -- fail loud
+        # if Cargo.lock has drifted from the manifests rather than silently
+        # building against dependency versions the lock file never recorded.
+        run: cargo build --release -p iklo-cli --locked
