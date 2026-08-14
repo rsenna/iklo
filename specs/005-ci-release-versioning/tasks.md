@@ -322,14 +322,18 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   3.2, which raises "unbound variable" on an empty array expansion under
   `set -u`; buckets are plain temp files instead, portable across bash
   3.2 (local) and the GitHub Actions runner's bash 5. Test-first
-  (Constitution I): T013's fixture suite green (16/16) -- prefix
-  grouping for all four types, fallback-bucket verbatim text,
-  range-exclusivity (the previous tag's own commit must NOT appear in
-  the next release's notes), the first-release full-history fallback,
-  and breaking-change markers (`feat!:`, `fix(scope)!:`) grouping with
-  their non-breaking counterparts rather than the fallback bucket.
-  Manually inspected output for both a with-previous-tag and a
-  first-release case -- reads as clean, correctly-sectioned markdown.
+  (Constitution I): T013's fixture suite green (18/18) -- prefix
+  grouping for all four types (asserted by exact emitted bullet line,
+  not substring, so a stripping regression is actually caught),
+  fallback-bucket verbatim text, range-exclusivity (the previous tag's
+  own commit must NOT appear in the next release's notes), the
+  first-release full-history fallback, breaking-change markers
+  (`feat!:`, `fix(scope)!:`) grouping with their non-breaking
+  counterparts rather than the fallback bucket (and explicitly NOT also
+  landing in `### Other Changes`), and a non-SemVer tag being rejected
+  before it can reach `git log`. Manually inspected output for both a
+  with-previous-tag and a first-release case -- reads as clean,
+  correctly-sectioned markdown.
   **Fixes after self-review** (pr-review-toolkit:code-reviewer): (1)
   `!` breaking-change commits were falling into the fallback bucket
   instead of grouping with feat/fix/docs/chore -- added the `!` case
@@ -339,6 +343,32 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   would make git treat the argument as ambiguous and fail -- added
   `--`; the `previous..current` range form was already immune since a
   `..` argument is never path-ambiguous.
+  **Fixes after coderabbitai/cubic-dev-ai review**: (1) `current_tag`
+  was never validated against the same strict SemVer regex
+  `validate-release-tag.sh` (T005) already enforces in the real
+  pipeline -- this script is also runnable standalone, so added the
+  same check here rather than trusting an upstream caller. (2) bucket
+  writes used `echo`, which interprets backslash escapes under
+  `xpg_echo` and could mangle a commit subject containing a literal
+  backslash -- switched every write to `printf`. (3) the "message
+  present" assertions used substring matching, which can't actually
+  detect a failed prefix-strip (the original subject's tail is a
+  substring of the unstripped line too) -- converted to exact
+  full-bullet-line matching throughout the file, not just the two
+  breaking-change cases originally flagged, for consistency. (4) added
+  an explicit assertion that breaking-change commits are excluded from
+  `### Other Changes`, not just present under their own section.
+  Declined: wiring this fixture suite into `make test`/`ci.yml`
+  (same pre-existing gap as T005/T006/T011's suites, not specific to
+  this task -- worth a dedicated follow-up covering all of them
+  uniformly); extracting the `case` prefix patterns into a shared
+  regex matcher (stylistic, and the current patterns were already
+  precisely verified correct by self-review, so rewriting them risks a
+  new bug for marginal maintainability gain); explicit exit-status
+  checking around `previous-release-tag.sh`'s call (already handled
+  correctly by `set -e` -- verified empirically that a failing call
+  propagates as a nonzero exit with the child script's own clear error
+  message, no additional handling needed).
 - [ ] **T015** [US3] Wire T006's build identifier into release metadata and
   artifact naming (FR-005).
 - [ ] **T016** [US3] Verify SC-003/SC-004 end-to-end: two consecutive

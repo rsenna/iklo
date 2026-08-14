@@ -21,6 +21,16 @@ usage() {
 [ $# -ge 1 ] || usage
 current_tag="$1"
 
+# Same strict SemVer-release-tag check as validate-release-tag.sh (T005).
+# In the real release.yml pipeline that script already runs first and
+# would have failed the workflow before this one is ever invoked, but
+# this script is also runnable standalone -- don't trust an un-validated
+# tag (e.g. "v1.2.3-rc1" or "test-tag") to reach git log unchecked.
+if ! [[ "$current_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "error: '$current_tag' is not a valid SemVer release tag (expected vMAJOR.MINOR.PATCH)" >&2
+  exit 1
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 previous_tag="$("$script_dir/previous-release-tag.sh" "$current_tag")"
 
@@ -51,21 +61,25 @@ trap 'rm -rf "$tmp"' EXIT
 # rather than a fallback bucket, since they're still feat/fix/etc in
 # intent; `${line#*: }` already strips the `!` along with the rest of the
 # prefix correctly.
+# printf, not echo: echo interprets backslash escapes in some shell
+# configurations (xpg_echo), which would mangle a commit subject that
+# happens to contain a literal backslash instead of preserving it
+# verbatim.
 git log --format=%s "$range" -- | while IFS= read -r line; do
   [ -z "$line" ] && continue
   case "$line" in
-    feat:*|feat\(*\):*|feat!:*|feat\(*\)!:*)     echo "- ${line#*: }" >> "$tmp/feat" ;;
-    fix:*|fix\(*\):*|fix!:*|fix\(*\)!:*)         echo "- ${line#*: }" >> "$tmp/fix" ;;
-    docs:*|docs\(*\):*|docs!:*|docs\(*\)!:*)     echo "- ${line#*: }" >> "$tmp/docs" ;;
-    chore:*|chore\(*\):*|chore!:*|chore\(*\)!:*) echo "- ${line#*: }" >> "$tmp/chore" ;;
-    *)                                          echo "- $line" >> "$tmp/other" ;;
+    feat:*|feat\(*\):*|feat!:*|feat\(*\)!:*)     printf -- '- %s\n' "${line#*: }" >> "$tmp/feat" ;;
+    fix:*|fix\(*\):*|fix!:*|fix\(*\)!:*)         printf -- '- %s\n' "${line#*: }" >> "$tmp/fix" ;;
+    docs:*|docs\(*\):*|docs!:*|docs\(*\)!:*)     printf -- '- %s\n' "${line#*: }" >> "$tmp/docs" ;;
+    chore:*|chore\(*\):*|chore!:*|chore\(*\)!:*) printf -- '- %s\n' "${line#*: }" >> "$tmp/chore" ;;
+    *)                                          printf -- '- %s\n' "$line" >> "$tmp/other" ;;
   esac
 done
 
 print_section() {
   local title="$1" file="$2"
   [ -s "$file" ] || return 0
-  echo "### $title"
+  printf -- '### %s\n' "$title"
   cat "$file"
   echo
 }

@@ -34,6 +34,23 @@ check_not_contains() {
   fi
 }
 
+# Unlike check_contains (substring match), this asserts a FULL emitted
+# bullet line. Substring matching can't actually verify prefix-stripping:
+# a bug that failed to strip "feat: " would still leave the original
+# subject's tail as a substring of the unstripped line, so a substring
+# check for "add substrate boundary" would pass whether the script
+# emitted "- add substrate boundary" (correct) or
+# "- feat: add substrate boundary" (prefix not stripped).
+check_contains_exact_line() {
+  local desc="$1" haystack="$2" exact_line="$3"
+  if printf '%s\n' "$haystack" | grep -qFx -- "$exact_line"; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    echo "FAIL: $desc (expected exact line '$exact_line')"
+  fi
+}
+
 (
   cd "$tmp"
   git init -q
@@ -63,17 +80,17 @@ check_not_contains() {
 # --- conventional-commit-prefix grouping (feat/fix/docs/chore), FR-007 ---
 out="$(cd "$tmp" && bash "$script" v1.1.0)"
 check_contains "feat commit grouped under Features" "$out" "### Features"
-check_contains "feat commit message present" "$out" "add substrate boundary"
+check_contains_exact_line "feat commit message stripped of prefix" "$out" "- add substrate boundary"
 check_contains "fix commit grouped under Fixes" "$out" "### Fixes"
-check_contains "fix commit message present" "$out" "correct rollback semantics"
+check_contains_exact_line "fix commit message stripped of prefix" "$out" "- correct rollback semantics"
 check_contains "docs commit grouped under Documentation" "$out" "### Documentation"
-check_contains "docs commit message present" "$out" "update AGENTS.md"
+check_contains_exact_line "docs commit message stripped of prefix" "$out" "- update AGENTS.md"
 check_contains "chore commit grouped under Chores" "$out" "### Chores"
-check_contains "chore commit message present" "$out" "bump toolchain"
+check_contains_exact_line "chore commit message stripped of prefix" "$out" "- bump toolchain"
 
 # --- fallback bucket for unmatched commit subjects, FR-007 ---
 check_contains "non-conventional commit grouped under Other Changes" "$out" "### Other Changes"
-check_contains "non-conventional commit message present verbatim" "$out" "tidy up variable names"
+check_contains_exact_line "non-conventional commit message present verbatim" "$out" "- tidy up variable names"
 
 # --- only commits in previous_tag..current_tag are included, not the
 # tagging commit itself (v1.0.0's "chore: repo init" must NOT appear) ---
@@ -95,9 +112,22 @@ check_contains "first release includes its own commit (full-history fallback)" "
 )
 out_breaking="$(cd "$tmp" && bash "$script" v1.2.0)"
 check_contains "feat! groups under Features" "$out_breaking" "### Features"
-check_contains "feat! message stripped of prefix" "$out_breaking" "drop deprecated flag"
+check_contains_exact_line "feat! message stripped of prefix" "$out_breaking" "- drop deprecated flag"
 check_contains "fix(scope)! groups under Fixes" "$out_breaking" "### Fixes"
-check_contains "fix(scope)! message stripped of prefix" "$out_breaking" "change exit code semantics"
+check_contains_exact_line "fix(scope)! message stripped of prefix" "$out_breaking" "- change exit code semantics"
+check_not_contains "breaking-change commits do not also fall into Other Changes" "$out_breaking" "### Other Changes"
+
+# --- a non-SemVer tag is rejected before it can reach git log, even
+# though it exists in the repo (defense in depth -- the real release.yml
+# pipeline already validates this via T005 before this script ever runs,
+# but this script is also runnable standalone) ---
+(cd "$tmp" && git -c tag.gpgsign=false tag "not-a-release-tag")
+if (cd "$tmp" && bash "$script" "not-a-release-tag") >/dev/null 2>&1; then
+  fail=$((fail + 1))
+  echo "FAIL (expected failure but succeeded): non-SemVer tag"
+else
+  pass=$((pass + 1))
+fi
 
 echo "----"
 echo "pass=$pass fail=$fail"
