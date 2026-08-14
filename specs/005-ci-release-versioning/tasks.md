@@ -226,19 +226,26 @@ created with the packaged CLI binary attached.
   the built binary), not just that a checksum file exists.
   **Done 2026-08-13**: `.github/scripts/generate-checksums.sh` --
   `sha256sum` if present, `shasum -a 256` fallback (macOS has no
-  `sha256sum` by default), no additional dependency, per Key Design
-  Decision #6. Writes `<file>.sha256` referencing the artifact by
-  basename (not the build machine's absolute path -- release assets
-  download flat, side-by-side, so an absolute-path checksum file would
-  fail verification for every downloader). Test-first (Constitution I):
+  `sha256sum` by default, detected once up front, not per-file), no
+  additional dependency, per Key Design Decision #6. Writes
+  `<file>.sha256` referencing the artifact by basename (not the build
+  machine's absolute path -- release assets download flat, side-by-side,
+  so an absolute-path checksum file would fail verification for every
+  downloader). Test-first (Constitution I):
   `.github/scripts/tests/test-generate-checksums.sh` written and
   confirmed red (script didn't exist) before implementing; green after
-  (8/8 assertions) -- happy path, checksum-references-basename-not-path,
+  (12/12 assertions) -- happy path, checksum-references-basename-not-path,
   a genuine `sha256sum -c` verification against real content, a negative
   case (tampered artifact must fail verification), multiple artifacts in
-  ONE invocation (a real multi-arg call exercising the for-loop, not two
-  separate single-arg calls), missing-argument and nonexistent-file
-  failure cases.
+  ONE invocation with each one's checksum individually content-verified
+  (not just file existence -- catches the for-loop attributing the wrong
+  checksum to the wrong file), a dash-prefixed-basename regression case,
+  missing-argument and nonexistent-file failure cases.
+  **Fix after cubic-dev-ai review**: a basename starting with `-` (e.g.
+  `-artifact`) was parsed as an option by `sha256sum`/`shasum` instead of
+  a filename -- added `--` before the filename in both the script and the
+  test helper's own verification call (the test helper had the identical
+  bug, caught only once the dash-prefixed regression case was added).
   Wired into `release.yml` immediately after T010's packaging step.
   Verified end-to-end locally against the real release binary: built,
   packaged, checksummed, then `shasum -a 256 -c` against the generated

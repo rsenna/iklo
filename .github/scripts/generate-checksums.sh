@@ -18,13 +18,17 @@ usage() {
 
 [ $# -ge 1 ] || usage
 
-sha_cmd() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1"
-  else
-    shasum -a 256 "$1"
-  fi
-}
+# Detect the available hash tool once, not per-file, and fail fast with a
+# clear message if neither exists (rather than each file silently hitting
+# a "command not found" only when it's its turn to be hashed).
+if command -v sha256sum >/dev/null 2>&1; then
+  sha_bin=(sha256sum)
+elif command -v shasum >/dev/null 2>&1; then
+  sha_bin=(shasum -a 256)
+else
+  echo "error: neither sha256sum nor shasum found" >&2
+  exit 1
+fi
 
 for file in "$@"; do
   if [ ! -f "$file" ]; then
@@ -33,6 +37,8 @@ for file in "$@"; do
   fi
   dir="$(dirname "$file")"
   base="$(basename "$file")"
-  (cd "$dir" && sha_cmd "$base") > "${file}.sha256"
+  # `--`: without it, a basename starting with `-` (e.g. `-artifact`) would
+  # be parsed as an option by sha256sum/shasum instead of a filename.
+  (cd "$dir" && "${sha_bin[@]}" -- "$base") > "${file}.sha256"
   echo "wrote ${file}.sha256"
 done
