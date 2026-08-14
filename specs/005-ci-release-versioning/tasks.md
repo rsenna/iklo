@@ -217,11 +217,50 @@ created with the packaged CLI binary attached.
   exact packaging commands from the workflow (with
   `GITHUB_REF_NAME=v0.1.0` standing in for the real tag-push env var),
   confirmed the staged file is present, executable, and correctly named.
-- [ ] **T011** [US2] Generate and publish SHA-256 checksums for every
-  release artifact (FR-012, SC-007). Include a test verifying each
-  published checksum file actually matches its artifact's content (e.g.
-  `sha256sum -c` against the built binary), not just that a checksum file
-  exists.
+- [x] **T011** [US2] Generate SHA-256 checksums for every release
+  artifact (FR-012, SC-007). Actual publishing (upload to a GitHub
+  Release asset) happens in T012's atomic release-creation call, per
+  plan.md's Key Design Decision #7 -- same staging-now/publish-in-T012
+  split as T010. Include a test verifying each generated checksum file
+  actually matches its artifact's content (e.g. `sha256sum -c` against
+  the built binary), not just that a checksum file exists.
+  **Done 2026-08-13**: `.github/scripts/generate-checksums.sh` --
+  `sha256sum` if present, `shasum -a 256` fallback (macOS has no
+  `sha256sum` by default, detected once up front, not per-file), no
+  additional dependency, per Key Design Decision #6. Writes
+  `<file>.sha256` referencing the artifact by basename (not the build
+  machine's absolute path -- release assets download flat, side-by-side,
+  so an absolute-path checksum file would fail verification for every
+  downloader). Test-first (Constitution I):
+  `.github/scripts/tests/test-generate-checksums.sh` written and
+  confirmed red (script didn't exist) before implementing; green after
+  (14/14 assertions) -- happy path, checksum-references-basename-not-path,
+  a genuine `sha256sum -c` verification against real content, a negative
+  case (tampered artifact must fail verification), multiple artifacts in
+  ONE invocation with each one's checksum individually content-verified
+  AND each checksum file's recorded filename field individually asserted
+  correct (not just that `-c` passes and not just file existence --
+  catches the for-loop attributing the wrong checksum to the wrong
+  file), a dash-prefixed-basename regression case, missing-argument and
+  nonexistent-file failure cases.
+  **Fix after cubic-dev-ai review**: a basename starting with `-` (e.g.
+  `-artifact`) was parsed as an option by `sha256sum`/`shasum` instead of
+  a filename -- added `--` before the filename in both the script and the
+  test helper's own verification call (the test helper had the identical
+  bug, caught only once the dash-prefixed regression case was added).
+  **Fix after coderabbitai review**: `sha256sum -c` only confirms the
+  hash matches *some* file with the recorded name, not that the name is
+  the one actually expected -- a `checksum_records_basename` helper now
+  cross-checks each `.sha256` file's recorded filename field directly,
+  so a bug that attributed one artifact's record to another's file (with
+  content that happened to still verify) would be caught. Also replaced
+  every `$([ -f ... ]; echo $?)` command-substitution existence check
+  with an explicit `check_file_exists` helper for readability/consistency
+  with the rest of the suite's if/else style.
+  Wired into `release.yml` immediately after T010's packaging step.
+  Verified end-to-end locally against the real release binary: built,
+  packaged, checksummed, then `shasum -a 256 -c` against the generated
+  file reported `OK`.
 - [ ] **T012** [US2] Ensure any failure — tag format, build, tests,
   packaging, checksum, or note generation — stops the workflow and avoids
   publishing a partial/invalid release (FR-008); reject re-publishing an
