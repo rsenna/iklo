@@ -6,6 +6,8 @@ Iklo is a Rust-implemented language and runtime with a transactional live image.
 Today it ships as a workspace centered on a REPL/file runner executable named
 `iklo` (provided by the `iklo-cli` crate).
 
+[![Ferris.love badge](https://ferris.love/badge/rsenna/iklo?show=call_fn%2Cdef_fn%2Cdef_struct%2Cdef_method%2Cdef_trait)](https://ferris.love/rsenna/iklo)
+
 > [!IMPORTANT]
 > `LANGUAGE.md` includes both implemented and aspirational design.
 > For the current implemented surface, treat `AGENTS.md` as source-of-truth.
