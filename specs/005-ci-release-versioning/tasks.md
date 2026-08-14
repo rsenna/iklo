@@ -286,18 +286,59 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
 
 ### Tests for User Story 3 (write first)
 
-- [ ] **T013** [US3] Write fixture-based tests for the release-notes script
+- [x] **T013** [US3] Write fixture-based tests for the release-notes script
   covering: conventional-commit-prefix grouping (`feat`/`fix`/`docs`/`chore`),
   a fallback bucket for unmatched commit subjects (FR-007), and the
   first-release fallback path when no previous tag exists (FR-009).
+  **Done 2026-08-14**: `.github/scripts/tests/test-release-notes.sh`,
+  throwaway-git-repo fixture matching T005's pattern. Confirmed red
+  (script didn't exist) before implementing T014.
 
 ### Implementation for User Story 3
 
-- [ ] **T014** [US3] Implement `.github/scripts/release-notes.sh` (or
+- [x] **T014** [US3] Implement `.github/scripts/release-notes.sh` (or
   equivalent): computes `previous_release_tag..current_release_tag` (via
   T005's tag-selection logic), groups commits by conventional-commit intent
   with a fallback bucket, and produces the release body text (FR-006,
   FR-007, FR-009).
+  **Done 2026-08-14**: `.github/scripts/release-notes.sh`. Calls T005's
+  `previous-release-tag.sh` for `previous_release_tag`; empty result
+  (first release, FR-009) falls back to `git log <current_tag>` (full
+  history reachable from the tag, no lower bound) instead of a range.
+  Groups `git log --format=%s <range> --` output by `feat`/`fix`/`docs`/
+  `chore` prefix (with or without a `(scope)` and/or a Conventional
+  Commits `!` breaking-change marker) into `### Features`/`### Fixes`/
+  `### Documentation`/`### Chores` sections; anything else falls into
+  `### Other Changes` verbatim (FR-007). Only sections with entries are
+  printed; an entirely empty range prints a deterministic "No changes
+  since the previous release." line rather than an empty body (this
+  branch is defensive and not independently tested -- through the
+  script's own single-tag interface, `previous_tag` is always a strict
+  ancestor of `current_tag` via `previous-release-tag.sh`'s `^`
+  traversal, so the range always contains at least the tagged commit
+  itself; a genuinely empty range isn't reachable through realistic
+  input, so forcing a fake test for it would be padding, not coverage).
+  No bash arrays -- macOS's default `/usr/bin/env bash` resolves to bash
+  3.2, which raises "unbound variable" on an empty array expansion under
+  `set -u`; buckets are plain temp files instead, portable across bash
+  3.2 (local) and the GitHub Actions runner's bash 5. Test-first
+  (Constitution I): T013's fixture suite green (16/16) -- prefix
+  grouping for all four types, fallback-bucket verbatim text,
+  range-exclusivity (the previous tag's own commit must NOT appear in
+  the next release's notes), the first-release full-history fallback,
+  and breaking-change markers (`feat!:`, `fix(scope)!:`) grouping with
+  their non-breaking counterparts rather than the fallback bucket.
+  Manually inspected output for both a with-previous-tag and a
+  first-release case -- reads as clean, correctly-sectioned markdown.
+  **Fixes after self-review** (pr-review-toolkit:code-reviewer): (1)
+  `!` breaking-change commits were falling into the fallback bucket
+  instead of grouping with feat/fix/docs/chore -- added the `!` case
+  variants. (2) the first-release fallback path (`git log <tag>`, no
+  range) had no `--` separator, so a tag name colliding with a path in
+  the working tree (e.g. a tag `v1.0.0` and a directory `v1.0.0/`)
+  would make git treat the argument as ambiguous and fail -- added
+  `--`; the `previous..current` range form was already immune since a
+  `..` argument is never path-ambiguous.
 - [ ] **T015** [US3] Wire T006's build identifier into release metadata and
   artifact naming (FR-005).
 - [ ] **T016** [US3] Verify SC-003/SC-004 end-to-end: two consecutive
