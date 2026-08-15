@@ -73,6 +73,39 @@ cargo run -p iklo-cli --features turso -- --substrate turso --turso-db-url ./sta
 - `make test` / `make build` use default features and do **not** exercise the Turso backend. Use `--all-features` (e.g. `cargo test --workspace --all-features`) to build/test with Turso support included.
 - `cargo test -p iklo-substrate-turso --features turso` — crate-local test command for the Turso backend, matching the "target one crate" convention above.
 
+## Release process
+
+Releases are cut by pushing a SemVer tag (`vMAJOR.MINOR.PATCH`, e.g.
+`v0.2.0`) matching `Cargo.toml`'s workspace `[workspace.package].version`
+exactly. This triggers `.github/workflows/release.yml`, which:
+
+1. Validates the tag against the workspace version (`vX.Y.Z` must equal
+   `v<Cargo.toml version>`) and rejects re-publishing an already-existing
+   tag/release. Both fail before any build work starts.
+2. Runs `cargo test --locked` and builds the `iklo` executable in release
+   mode (`cargo build --release -p iklo-cli --locked`) for
+   `x86_64-unknown-linux-gnu`, the workflow's only target.
+3. Packages the binary, generates a SHA-256 checksum, and generates release
+   notes from `previous_tag..current_tag`'s commit history, grouped by
+   conventional-commit prefix (`feat`/`fix`/`docs`/`chore`, with a fallback
+   bucket for anything else).
+4. Publishes a GitHub Release — supplying the binary, its checksum, and the
+   notes together — only after every prior step succeeds. A failure at any
+   point (tag format, tests, build, packaging, checksums, or notes) stops
+   the workflow with no Release published; there is never a partial one.
+
+**To cut a release:**
+
+```bash
+# 1. Bump [workspace.package].version in Cargo.toml, commit, merge to main.
+# 2. Tag main at that commit and push the tag:
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+That push is the only manual step — everything else (build, packaging,
+checksums, notes, publishing) is automated by `release.yml`.
+
 ## Coding conventions
 
 - Rust, idiomatic per crate. Follow `.github/instructions/rust.instructions.md`.
