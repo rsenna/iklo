@@ -114,7 +114,11 @@ jobs:
       - name: Generate release notes (FR-006)
         run: .github/scripts/release-notes.sh "${GITHUB_REF_NAME}" > "${RUNNER_TEMP}/release-notes.md"
 
-      - name: Create GitHub Release (FR-002, FR-003, FR-006, FR-008, FR-012)
+      - name: Create GitHub Release (FR-003, FR-005, FR-006, FR-008, FR-012)
+        # --title includes the build identifier (FR-005's "attached to
+        # release metadata" half -- T015 only covered "artifact naming",
+        # the other half of the same requirement; a traceability-table
+        # audit caught this still being unfulfilled here).
         # Per plan.md's Key Design Decision #7: nothing PUBLICLY VISIBLE
         # exists until every asset is attached and the notes are set --
         # NOT created first and uploaded to afterward in separate
@@ -144,6 +148,6 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}" \
             "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}.sha256" \
-            --title "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME} (build ${BUILD_ID})" \
             --notes-file "${RUNNER_TEMP}/release-notes.md" \
             --verify-tag
