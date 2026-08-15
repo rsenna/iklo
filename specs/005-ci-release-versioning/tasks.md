@@ -321,6 +321,43 @@ created with the packaged CLI binary attached.
   repo with manual, serialized tag pushes, and not silent even if it
   happened (`gh release create` fails with HTTP 422 `already_exists` on
   a genuine race, not a silent duplicate).
+  **Fixes after cubic-dev-ai/sourcery review**: (1) `contents: write`
+  was granted at job level, which -- since GitHub Actions permissions
+  are job-scoped, not step-scoped -- handed the read-only
+  validation/test/build/package/checksum/notes steps a write-capable
+  token they never needed, contradicting the earlier claim that the
+  write scope "simply goes unused" (a comment claim, not an actual
+  permission boundary). Split `release.yml` into two jobs: `build`
+  (`contents: read` at job level -- runs everything through notes
+  generation, uploads `dist/`+notes as a workflow artifact) and
+  `release` (`needs: build`, `contents: write` -- downloads the
+  artifact, verifies the commit, creates the Release). Only the second
+  job's one step actually needs write access, and now only that job
+  has it. (2) `--verify-tag` only confirms a tag with the pushed name
+  still exists remotely; it does NOT confirm that tag still points at
+  the commit the build job actually checked out and tested. Added an
+  explicit step comparing `gh api repos/<owner>/<repo>/commits/<tag>`'s
+  resolved SHA against `$GITHUB_SHA` before creating the Release,
+  failing loudly if they differ (e.g. the tag was force-moved mid-run)
+  -- closing the "tag moved" variant that `--verify-tag` alone doesn't
+  cover (which still covers "tag deleted").
+  **Investigated and declined** (copilot-pull-request-reviewer):
+  disputed the "stray draft won't be caught" accepted-gap note above as
+  based on "incorrect behavior." Verified empirically rather than
+  taking either side on faith: created a real draft release against
+  `rsenna/iklo` for a throwaway test tag, confirmed
+  `gh api repos/.../releases/tags/<tag>` returns 404 for it (drafts are
+  genuinely invisible to that endpoint, only published releases show
+  up), then deleted the draft and confirmed the repo returned to a
+  fully clean state (`gh api repos/.../releases` -> `[]`, no leftover
+  tags). The original claim holds: this dedup check cannot see a stray
+  draft regardless of why it exists. Softened the comment's framing
+  slightly to note the risk is specifically "if upload AND its
+  failure-cleanup both fail" rather than implying any ordinary upload
+  hiccup leaves an orphan, since `gh`'s own docs don't document
+  automatic cleanup-on-failure behavior explicitly either way and no
+  attempt was made to force a genuine upload-failure scenario (as
+  opposed to a successful draft creation, which was tested).
   Verified locally: full pipeline through release-notes
   generation using a temporary local tag (`v0.1.0`, matching
   `Cargo.toml`'s version, deleted immediately after) against this

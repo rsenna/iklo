@@ -5,23 +5,28 @@ on:
     tags:
       - 'v[0-9]*'
 
-# `contents: write` is required from T012 onward: this workflow creates
-# the actual GitHub Release, which needs write access to the repo's
-# releases. Every step before the final "Create GitHub Release" step
-# still only reads (validates, tests, builds, packages, checksums) --
-# the token's write scope simply goes unused until that last step.
+# Workflow-level default is read-only. Only the release job (below)
+# escalates to contents: write, and only for the steps that actually
+# need it -- GitHub Actions permissions are JOB-scoped, not step-scoped,
+# so a single write-capable job would hand every one of its steps
+# (including cargo build/test, which run arbitrary dependency code) a
+# write-capable token whether they use it or not. Splitting into build
+# (read) + release (write) is what actually enforces least-privilege,
+# not a comment promising unused scope goes unused.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
-    name: Release
+  build:
+    name: Build & Package
     runs-on: ubuntu-latest
     env:
       # Single platform for now, per spec.md's Assumptions; a matrix
       # build is a later expansion. Job-level so the packaging and
       # checksum steps can't drift out of sync with each other.
       TARGET: x86_64-unknown-linux-gnu
+    outputs:
+      build_id: ${{ steps.build_id.outputs.value }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,6 +50,7 @@ jobs:
         # reason to spend CI minutes on a tag that's going to be
         # rejected anyway. GH_TOKEN is gh CLI's own env var convention
         # (auto-detected, not spliced into any run: script body).
+        # Read-only: querying releases/tags doesn't need contents:write.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: .github/scripts/reject-existing-release.sh "${GITHUB_REF_NAME}"
@@ -52,9 +58,10 @@ jobs:
       - name: Compute build identifier (FR-005)
         # GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT -- deterministic, and
         # (GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT) strictly increases
-        # across successful releases (SC-003). Exposed as a step output
+        # across successful releases (SC-003). Exposed as a job output
         # (not a job-level env var like TARGET) since it's produced by a
-        # script rather than a static value.
+        # script rather than a static value, and the release job (a
+        # separate job) needs it too.
         id: build_id
         # A bare `echo "value=$(cmd)"` would swallow a failing `cmd`:
         # the compound command's exit status is echo's, not the command
@@ -90,16 +97,8 @@ jobs:
 
       - name: Package release binary (FR-003)
         # Stages a target-triple-and-build-identifier-named copy under a
-        # dedicated dist/ directory for T011 (checksums) and T012
-        # (release creation) to consume. Per plan.md's Key Design
-        # Decision #7, the actual GitHub Release is created once,
-        # atomically, in T012 -- this step only prepares the asset; it
-        # does not create or upload to a Release. BUILD_ID comes in via
-        # step-level env (a YAML value, not spliced into the run: script
-        # body), the same safe pattern as everywhere else in this file --
-        # GITHUB_RUN_NUMBER/GITHUB_RUN_ATTEMPT are GitHub-controlled, not
-        # attacker-influenced like a tag name, but there's no reason to
-        # treat step outputs differently from job-level env vars here.
+        # dedicated dist/ directory for the checksum step and the release
+        # job (via upload-artifact below) to consume.
         env:
           BUILD_ID: ${{ steps.build_id.outputs.value }}
         run: |
@@ -112,7 +111,55 @@ jobs:
         run: .github/scripts/generate-checksums.sh "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}"
 
       - name: Generate release notes (FR-006)
-        run: .github/scripts/release-notes.sh "${GITHUB_REF_NAME}" > "${RUNNER_TEMP}/release-notes.md"
+        run: .github/scripts/release-notes.sh "${GITHUB_REF_NAME}" > dist-notes.md
+
+      - name: Upload build artifacts
+        # Hands off dist/ (binary + checksum) and the notes file to the
+        # release job below, which runs in a separate job specifically so
+        # it -- and only it -- gets contents: write.
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-assets
+          path: |
+            dist/
+            dist-notes.md
+          if-no-files-found: error
+
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-latest
+    # Least-privilege: ONLY this job gets contents: write, and only
+    # because it's the one job that actually calls `gh release create`.
+    # The build job above (which runs cargo build/test -- arbitrary
+    # dependency code) stays read-only for its entire lifetime.
+    permissions:
+      contents: write
+    env:
+      BUILD_ID: ${{ needs.build.outputs.build_id }}
+      TARGET: x86_64-unknown-linux-gnu
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-assets
+
+      - name: Verify tag still points at the built commit
+        # --verify-tag (below) only confirms a tag with this name still
+        # exists remotely -- it does NOT confirm it still points at the
+        # exact commit the build job checked out and tested. If the tag
+        # were force-moved to a different commit between the build job's
+        # checkout and this step, --verify-tag alone would happily
+        # publish a release under this tag built from a commit that was
+        # never what the tag currently names. Compare explicitly.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          remote_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_REF_NAME}" -q .sha)"
+          if [ "$remote_sha" != "${GITHUB_SHA}" ]; then
+            echo "error: tag '${GITHUB_REF_NAME}' now points at ${remote_sha}, not the commit this workflow run built and tested (${GITHUB_SHA}) -- refusing to publish" >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release (FR-003, FR-005, FR-006, FR-008, FR-012)
         # --title includes the build identifier (FR-005's "attached to
@@ -126,28 +173,26 @@ jobs:
         # internally makes separate API calls -- create as a draft,
         # upload each asset, then publish -- per its own --help text.
         # The guarantee this buys is "no published release before every
-        # asset lands", not "one API call"; if asset upload fails
-        # partway, a stray DRAFT release can be left behind. The dedup
-        # check above only queries published releases, so it won't see
-        # that draft -- a re-run of the same tag would create a second
-        # draft rather than being rejected by it. Not handled here;
-        # worth revisiting if it happens in practice.)
+        # asset lands", not "one API call". If asset upload AND its
+        # failure-cleanup both fail, a stray DRAFT release can be left
+        # behind; verified empirically that the dedup check's
+        # `releases/tags/<tag>` query does NOT see draft releases (only
+        # published ones), so such a draft would not be caught by a
+        # re-run's dedup check -- it would create a second draft rather
+        # than being rejected. Not handled here; worth revisiting if it
+        # happens in practice.)
         # --verify-tag: if the pushed tag were somehow deleted remotely
         # mid-run, gh would otherwise silently create a NEW tag at
         # main's current HEAD and publish that instead -- shipping code
-        # that was never what this job actually built and tested.
-        # Every earlier step (validate, reject-duplicate, test, build,
-        # package, checksum, notes) already exited nonzero and stopped
-        # the job on its own failure, so reaching this step at all means
-        # everything it depends on already succeeded; there is no
-        # separate "did an earlier step fail" check to perform here.
+        # that was never what this job actually built and tested. (The
+        # step above catches the "tag moved, not deleted" variant of the
+        # same risk.)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUILD_ID: ${{ steps.build_id.outputs.value }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
             "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}" \
             "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}.sha256" \
             --title "${GITHUB_REF_NAME} (build ${BUILD_ID})" \
-            --notes-file "${RUNNER_TEMP}/release-notes.md" \
+            --notes-file dist-notes.md \
             --verify-tag
