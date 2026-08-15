@@ -40,6 +40,24 @@ jobs:
       - name: Validate release tag against workspace version (FR-002, FR-004, FR-010)
         run: .github/scripts/validate-release-tag.sh "${GITHUB_REF_NAME}"
 
+      - name: Compute build identifier (FR-005)
+        # GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT -- deterministic, and
+        # (GITHUB_RUN_NUMBER, GITHUB_RUN_ATTEMPT) strictly increases
+        # across successful releases (SC-003). Exposed as a step output
+        # (not a job-level env var like TARGET) since it's produced by a
+        # script rather than a static value.
+        id: build_id
+        # A bare `echo "value=$(cmd)"` would swallow a failing `cmd`:
+        # the compound command's exit status is echo's, not the command
+        # substitution's, so GitHub Actions' default `bash -e {0}` (no
+        # `pipefail`) would never notice and the step would pass green
+        # with an empty value -- silently producing a malformed,
+        # unidentified release artifact instead of failing the job. A
+        # separate assignment does propagate the failure correctly.
+        run: |
+          build_id="$(.github/scripts/build-identifier.sh)"
+          echo "value=${build_id}" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
@@ -62,14 +80,24 @@ jobs:
         run: cargo build --release -p iklo-cli --locked
 
       - name: Package release binary (FR-003)
-        # Stages a target-triple-named copy under a dedicated dist/
-        # directory for T011 (checksums) and T012 (release creation) to
-        # consume. Per plan.md's Key Design Decision #7, the actual GitHub
-        # Release is created once, atomically, in T012 -- this step only
-        # prepares the asset; it does not create or upload to a Release.
+        # Stages a target-triple-and-build-identifier-named copy under a
+        # dedicated dist/ directory for T011 (checksums) and T012
+        # (release creation) to consume. Per plan.md's Key Design
+        # Decision #7, the actual GitHub Release is created once,
+        # atomically, in T012 -- this step only prepares the asset; it
+        # does not create or upload to a Release. BUILD_ID comes in via
+        # step-level env (a YAML value, not spliced into the run: script
+        # body), the same safe pattern as everywhere else in this file --
+        # GITHUB_RUN_NUMBER/GITHUB_RUN_ATTEMPT are GitHub-controlled, not
+        # attacker-influenced like a tag name, but there's no reason to
+        # treat step outputs differently from job-level env vars here.
+        env:
+          BUILD_ID: ${{ steps.build_id.outputs.value }}
         run: |
           mkdir -p dist
-          cp target/release/iklo "dist/iklo-${GITHUB_REF_NAME}-${TARGET}"
+          cp target/release/iklo "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}"
 
       - name: Generate SHA-256 checksums (FR-012)
-        run: .github/scripts/generate-checksums.sh "dist/iklo-${GITHUB_REF_NAME}-${TARGET}"
+        env:
+          BUILD_ID: ${{ steps.build_id.outputs.value }}
+        run: .github/scripts/generate-checksums.sh "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}"
