@@ -5,14 +5,13 @@ on:
     tags:
       - 'v[0-9]*'
 
-# Least-privilege: through T011 this workflow only reads the repo -- it
-# validates the tag, tests, builds, packages, and checksums, but
-# publishes nothing.
-# `contents: write` is deferred until T012, the task that actually creates
-# the GitHub Release -- granting it here would hand a compromised build
-# step needless write access to the repo via the default token.
+# `contents: write` is required from T012 onward: this workflow creates
+# the actual GitHub Release, which needs write access to the repo's
+# releases. Every step before the final "Create GitHub Release" step
+# still only reads (validates, tests, builds, packages, checksums) --
+# the token's write scope simply goes unused until that last step.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release:
@@ -39,6 +38,16 @@ jobs:
 
       - name: Validate release tag against workspace version (FR-002, FR-004, FR-010)
         run: .github/scripts/validate-release-tag.sh "${GITHUB_REF_NAME}"
+
+      - name: Reject re-publishing an existing tag (edge case, spec.md)
+        # Checked early, before any build/test work: a duplicate-tag
+        # rejection doesn't need the build to determine, so there's no
+        # reason to spend CI minutes on a tag that's going to be
+        # rejected anyway. GH_TOKEN is gh CLI's own env var convention
+        # (auto-detected, not spliced into any run: script body).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: .github/scripts/reject-existing-release.sh "${GITHUB_REF_NAME}"
 
       - name: Compute build identifier (FR-005)
         # GITHUB_RUN_NUMBER.GITHUB_RUN_ATTEMPT -- deterministic, and
@@ -101,3 +110,40 @@ jobs:
         env:
           BUILD_ID: ${{ steps.build_id.outputs.value }}
         run: .github/scripts/generate-checksums.sh "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}"
+
+      - name: Generate release notes (FR-006)
+        run: .github/scripts/release-notes.sh "${GITHUB_REF_NAME}" > "${RUNNER_TEMP}/release-notes.md"
+
+      - name: Create GitHub Release (FR-002, FR-003, FR-006, FR-008, FR-012)
+        # Per plan.md's Key Design Decision #7: nothing PUBLICLY VISIBLE
+        # exists until every asset is attached and the notes are set --
+        # NOT created first and uploaded to afterward in separate
+        # user-visible steps. (Correction: `gh release create` itself
+        # internally makes separate API calls -- create as a draft,
+        # upload each asset, then publish -- per its own --help text.
+        # The guarantee this buys is "no published release before every
+        # asset lands", not "one API call"; if asset upload fails
+        # partway, a stray DRAFT release can be left behind. The dedup
+        # check above only queries published releases, so it won't see
+        # that draft -- a re-run of the same tag would create a second
+        # draft rather than being rejected by it. Not handled here;
+        # worth revisiting if it happens in practice.)
+        # --verify-tag: if the pushed tag were somehow deleted remotely
+        # mid-run, gh would otherwise silently create a NEW tag at
+        # main's current HEAD and publish that instead -- shipping code
+        # that was never what this job actually built and tested.
+        # Every earlier step (validate, reject-duplicate, test, build,
+        # package, checksum, notes) already exited nonzero and stopped
+        # the job on its own failure, so reaching this step at all means
+        # everything it depends on already succeeded; there is no
+        # separate "did an earlier step fail" check to perform here.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_ID: ${{ steps.build_id.outputs.value }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}" \
+            "dist/iklo-${GITHUB_REF_NAME}-${TARGET}-${BUILD_ID}.sha256" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "${RUNNER_TEMP}/release-notes.md" \
+            --verify-tag

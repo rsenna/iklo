@@ -262,7 +262,7 @@ created with the packaged CLI binary attached.
   Verified end-to-end locally against the real release binary: built,
   packaged, checksummed, then `shasum -a 256 -c` against the generated
   file reported `OK`.
-- [ ] **T012** [US2] Ensure any failure — tag format, build, tests,
+- [x] **T012** [US2] Ensure any failure — tag format, build, tests,
   packaging, checksum, or note generation — stops the workflow and avoids
   publishing a partial/invalid release (FR-008); reject re-publishing an
   existing tag/version (edge case in spec.md). The GitHub Release object
@@ -271,6 +271,69 @@ created with the packaged CLI binary attached.
   the notes body at once (plan.md Key Design Decision #7) — a failure in
   any earlier step must leave no Release object at all, not a Release
   missing an asset or with empty notes.
+  **Done 2026-08-15**: `permissions:` bumped to `contents: write`
+  (deferred since T008 specifically for this task, per Key Design
+  Decision #7's ordering). Two new pieces: (1)
+  `.github/scripts/reject-existing-release.sh`, a new step placed right
+  after tag validation (before any build/test work, since a
+  duplicate-tag rejection doesn't need the build to determine) --
+  queries `gh api repos/<owner>/<repo>/releases/tags/<tag> --include
+  --silent` and parses the HTTP status line explicitly (200 = exists,
+  fail; 404 = doesn't exist, proceed; anything else = ambiguous, fail
+  closed). Argument/environment validation AND the status-parsing logic
+  are test-first (Constitution I, 6/6 green) -- the latter via a `gh`
+  stub on `PATH` returning canned status lines, since a real call
+  against GitHub's Release API has no offline stand-in for "does this
+  repo/tag exist," but the parsing logic that decides pass/fail/
+  ambiguous from a given status IS fully testable this way. Also
+  sanity-checked against the real `rsenna/iklo` repo (correctly
+  reported "no existing release") and, separately, against a
+  deliberately invalid token (correctly reported "could not determine...
+  refusing to proceed", HTTP 401 -- confirming the fail-closed path
+  works against the real API too, not just the stub).
+  (2) a final "Create GitHub Release" step: `gh release create <tag>
+  <binary> <checksum> --title <tag> --notes-file <notes> --verify-tag`
+  supplying every asset and the notes body in one call. `--verify-tag`
+  added after self-review: without it, a tag deleted remotely mid-run
+  would make `gh` silently create a *new* tag at `main`'s HEAD and
+  publish that instead of failing. FR-008 ("stops the workflow, no
+  partial release") needed no new mechanism: every earlier step already
+  exits nonzero on its own failure under each script's `set -euo
+  pipefail`, so reaching the final step at all already means everything
+  upstream (tag, dedup check, tests, build, package, checksum, notes)
+  succeeded.
+  **Fixes after self-review** (pr-review-toolkit:code-reviewer): (1) the
+  dedup check originally treated ANY `gh api` failure (bad token,
+  network blip, API outage -- not just a real 404) as "no existing
+  release, proceed" -- exactly backwards for a check whose entire job
+  is blocking duplicate publishes; fixed to fail closed on anything
+  that isn't an unambiguous 200 or 404, per the HTTP-status parsing
+  described above. (2) the release-creation comment and this note both
+  originally claimed `gh release create` makes the Release "in one
+  atomic API call" -- `gh release create --help` states plainly that it
+  actually makes separate calls (create as a draft, upload each asset,
+  then publish); corrected the comment, and noted the real consequence:
+  a failure during asset upload can leave a stray *draft* release
+  behind that the dedup check (which only sees published releases)
+  won't catch on a re-run. Not fixed (documented as an accepted gap):
+  a TOCTOU window between the early dedup check and the later
+  `gh release create` call -- negligible risk for a single-maintainer
+  repo with manual, serialized tag pushes, and not silent even if it
+  happened (`gh release create` fails with HTTP 422 `already_exists` on
+  a genuine race, not a silent duplicate).
+  Verified locally: full pipeline through release-notes
+  generation using a temporary local tag (`v0.1.0`, matching
+  `Cargo.toml`'s version, deleted immediately after) against this
+  repo's real commit history -- correct first-release full-history
+  fallback output, correctly grouped by conventional-commit type. Did
+  **not** run the actual `gh release create` call against the real
+  `rsenna/iklo` repo -- that would create a real, user-visible Release
+  object as a side effect of testing, which is exactly the kind of
+  action this session's guardrails treat as needing explicit
+  confirmation rather than doing automatically; verified by inspection
+  instead (all required flags present, correct variable interpolation
+  pattern matching every other step in this
+  file).
 
 **Checkpoint**: US2 independently testable — a real tag push produces a
 complete, checksummed release or a clean failure, never a partial one.
