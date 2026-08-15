@@ -208,8 +208,9 @@ created with the packaged CLI binary attached.
   atomic release-creation call, per plan.md's Key Design Decision #7 --
   this task only stages the named artifact.
   **Done 2026-08-13**: `release.yml` copies `target/release/iklo` to
-  `dist/iklo-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu` -- single
-  platform for now, per spec.md's Assumptions. Per plan.md's Key Design
+  `dist/iklo-${GITHUB_REF_NAME}-x86_64-unknown-linux-gnu` (later extended
+  with the build identifier in T015) -- single platform for now, per
+  spec.md's Assumptions. Per plan.md's Key Design
   Decision #7, this step only *stages* the named artifact; it does not
   create or upload to a GitHub Release -- the Release itself is created
   atomically in T012, after checksums (T011) and release notes (T014)
@@ -298,8 +299,28 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   T005's tag-selection logic), groups commits by conventional-commit intent
   with a fallback bucket, and produces the release body text (FR-006,
   FR-007, FR-009).
-- [ ] **T015** [US3] Wire T006's build identifier into release metadata and
+- [x] **T015** [US3] Wire T006's build identifier into release metadata and
   artifact naming (FR-005).
+  **Done 2026-08-15**: `release.yml` gained a "Compute build identifier
+  (FR-005)" step right after tag validation, calling
+  `.github/scripts/build-identifier.sh` and exposing the result as a
+  step output (`steps.build_id.outputs.value`) -- a step output rather
+  than job-level `env` like `TARGET`, since it's computed by a script
+  rather than a static value. Threaded into artifact naming: the staged
+  binary and its checksum file are now
+  `dist/iklo-<tag>-<target>-<build-id>` (e.g.
+  `iklo-v0.1.0-x86_64-unknown-linux-gnu-42.1`), via `BUILD_ID` passed as
+  step-level `env` (a YAML value, not spliced into the `run:` script
+  body -- the same safe pattern used for the tag/target throughout this
+  file, even though `GITHUB_RUN_NUMBER`/`GITHUB_RUN_ATTEMPT` are
+  GitHub-controlled rather than attacker-influenced like a tag name).
+  "Release metadata" (the other half of FR-005) is completed by T012,
+  which will read the same `steps.build_id.outputs.value` when it
+  composes the atomic release-creation call -- not yet built. Verified
+  locally: built the real release binary, computed a build identifier
+  with `GITHUB_RUN_NUMBER=42 GITHUB_RUN_ATTEMPT=1` standing in for the
+  real env vars, staged and checksummed the correctly-named artifact,
+  confirmed `shasum -a 256 -c` reports `OK`.
 - [ ] **T016** [US3] Verify SC-003/SC-004 end-to-end: two consecutive
   release runs show a strictly increasing build identifier, and each
   release's notes include exactly the commits since the previous tag (no
