@@ -522,9 +522,8 @@ issue #32's T000 decision as fulfilled.
   identifier attached to BOTH release metadata and artifact naming;
   T015 only did the latter, and T012's own `gh release create` call
   never actually included it in the former despite promising to. Fixed
-  directly in PR #58 (still open, unmerged) rather than just noted
-  here, since it's a real unfulfilled requirement, not documentation
-  drift.
+  directly in PR #58 (merged) rather than just noted here, since it's
+  a real unfulfilled requirement, not documentation drift.
 - [x] **T018** Update `README.md`/`AGENTS.md` describing the release process,
   SemVer/tag conventions, and how to cut a release (FR-010 consumer-facing
   half).
@@ -536,10 +535,8 @@ issue #32's T000 decision as fulfilled.
   `README.md`'s "Roadmap and governance" section links to it rather
   than duplicating -- matches the repo-standard convention already
   followed elsewhere in this file ("AGENTS.md is the hub, README just
-  orients"). Describes the mechanism as it exists across T001-T015
-  plus T012 (PR #58, open but not yet merged as of this writing) --
-  consistent with how every other epic-005 done-note in this file
-  documents its own not-yet-merged sibling PRs.
+  orients"). Describes the mechanism as it exists across T001-T015,
+  including T012's publish step (PR #58, merged).
 - [x] **T019** Confirm `specs/execution-queue.md`'s epic 005 entry reflects
   activation (done as part of the same PR that adds this plan/tasks pair,
   per that document's own maintenance rule) and that issue #32's T000
