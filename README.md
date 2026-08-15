@@ -115,6 +115,8 @@ Each top-level evaluation runs in a transaction:
 - Agent/project operating guide: [AGENTS.md](AGENTS.md)
 - Design decisions (ADRs): [specs/decisions/](specs/decisions/)
 - Active and planned epics: [specs/](specs/)
+- Release process (SemVer tags, automated build/publish): see
+  [AGENTS.md § Release process](AGENTS.md#release-process)
 
 ## License
 

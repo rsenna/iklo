@@ -407,15 +407,52 @@ identifiers are correct and reproducible across consecutive releases.
 **Purpose**: Close readiness gaps, keep docs/traceability accurate, resolve
 issue #32's T000 decision as fulfilled.
 
-- [ ] **T017** Validate and maintain the FR→Task traceability table below.
-- [ ] **T018** Update `README.md`/`AGENTS.md` describing the release process,
+- [x] **T017** Validate and maintain the FR→Task traceability table below.
+  **Done 2026-08-15**: cross-checked every row against spec.md's FR text
+  and each owning task's actual implementation. Four real inaccuracies
+  found and corrected: FR-002 dropped T012 (T012 doesn't implement
+  "run on tag push, test, then build" -- that's fully T008/T009; T012
+  is downstream publishing/failure-handling, already correctly owning
+  FR-008); FR-004 added T005 (the actual `vMAJOR.MINOR.PATCH` regex
+  enforcement lives in `validate-release-tag.sh`, not just T008's
+  orchestration of it); FR-006 and FR-012 both added T012 (it's the
+  step that actually *includes* the notes / *publishes* the checksums
+  in the Release, not just the tasks that generate them). The FR-005
+  finding was more than a table fix -- FR-005 requires the build
+  identifier attached to BOTH release metadata and artifact naming;
+  T015 only did the latter, and T012's own `gh release create` call
+  never actually included it in the former despite promising to. Fixed
+  directly in PR #58 (still open, unmerged) rather than just noted
+  here, since it's a real unfulfilled requirement, not documentation
+  drift.
+- [x] **T018** Update `README.md`/`AGENTS.md` describing the release process,
   SemVer/tag conventions, and how to cut a release (FR-010 consumer-facing
   half).
-- [ ] **T019** Confirm `specs/execution-queue.md`'s epic 005 entry reflects
+  **Done 2026-08-15**: `AGENTS.md` § "Release process" -- what
+  `release.yml` actually does (tag validation, dedup rejection,
+  test-then-build, packaging/checksums/notes, atomic publish, fail
+  loud with no partial release at any step), and the one manual command
+  to cut a release (`git tag vX.Y.Z && git push origin vX.Y.Z`).
+  `README.md`'s "Roadmap and governance" section links to it rather
+  than duplicating -- matches the repo-standard convention already
+  followed elsewhere in this file ("AGENTS.md is the hub, README just
+  orients"). Describes the mechanism as it exists across T001-T015
+  plus T012 (PR #58, open but not yet merged as of this writing) --
+  consistent with how every other epic-005 done-note in this file
+  documents its own not-yet-merged sibling PRs.
+- [x] **T019** Confirm `specs/execution-queue.md`'s epic 005 entry reflects
   activation (done as part of the same PR that adds this plan/tasks pair,
   per that document's own maintenance rule) and that issue #32's T000
   ("resolve whether epic 005 starts now") is marked resolved with a go
   decision, referencing this plan/tasks pair as the exit criterion.
+  **Done 2026-08-15**: both already satisfied by prior work, nothing to
+  change. `execution-queue.md`'s epic 005 entry already shows "Status:
+  Active — started 2026-07-28" with the override note explaining the
+  maintainer's decision to start now rather than wait for 007/010.
+  Issue #32 already has a "T000 resolved: go" comment (posted alongside
+  the original plan.md/tasks.md PR) explicitly referencing this
+  plan/tasks pair and explaining the issue stays open deliberately as
+  historical record, not because T000 is unresolved.
 - [ ] **T020** Run final gate: `cargo test --workspace [--all-features]`,
   `make test`, `make build`, `make release` (per the `quality-gate` skill),
   plus a live verification of both workflows (a real test PR for `ci.yml`;
@@ -453,14 +490,14 @@ issue #32's T000 decision as fulfilled.
 | FR | Primary Tasks |
 |---|---|
 | FR-001 | T001, T004, T007 |
-| FR-002 | T008, T009, T012 |
+| FR-002 | T008, T009 |
 | FR-003 | T010, T012 |
-| FR-004 | T008 |
-| FR-005 | T006, T015, T016 |
-| FR-006 | T013, T014 |
+| FR-004 | T005, T008 |
+| FR-005 | T006, T012, T015, T016 |
+| FR-006 | T012, T013, T014 |
 | FR-007 | T013, T014 |
 | FR-008 | T012 |
 | FR-009 | T013, T014 |
 | FR-010 | T005, T008 |
 | FR-011 | T005, T014 |
-| FR-012 | T011 |
+| FR-012 | T011, T012 |
