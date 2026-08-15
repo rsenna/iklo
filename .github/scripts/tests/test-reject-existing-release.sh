@@ -49,8 +49,7 @@ cat > "$stub_dir/gh" <<'STUB'
 # Minimal stand-in for `gh api <path> --include --silent`, driven by
 # STUB_HTTP_STATUS. Real `gh` exits 1 for any non-2xx regardless of
 # --include; this stub matches that.
-printf 'HTTP/2.0 %s Stub
-' "${STUB_HTTP_STATUS:?}"
+printf 'HTTP/2.0 %s Stub\r\n' "${STUB_HTTP_STATUS:?}"
 [ "${STUB_HTTP_STATUS}" -ge 200 ] && [ "${STUB_HTTP_STATUS}" -lt 300 ]
 STUB
 chmod +x "$stub_dir/gh"
