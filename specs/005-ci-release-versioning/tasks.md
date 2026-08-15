@@ -508,35 +508,22 @@ identifiers are correct and reproducible across consecutive releases.
 issue #32's T000 decision as fulfilled.
 
 - [x] **T017** Validate and maintain the FR→Task traceability table below.
-  **Done 2026-08-15**: cross-checked every row against spec.md's FR text
-  and each owning task's actual implementation. Four real inaccuracies
-  found and corrected: FR-002 dropped T012 (T012 doesn't implement
-  "run on tag push, test, then build" -- that's fully T008/T009; T012
-  is downstream publishing/failure-handling, already correctly owning
-  FR-008); FR-004 added T005 (the actual `vMAJOR.MINOR.PATCH` regex
-  enforcement lives in `validate-release-tag.sh`, not just T008's
-  orchestration of it); FR-006 and FR-012 both added T012 (it's the
-  step that actually *includes* the notes / *publishes* the checksums
-  in the Release, not just the tasks that generate them). The FR-005
-  finding was more than a table fix -- FR-005 requires the build
-  identifier attached to BOTH release metadata and artifact naming;
-  T015 only did the latter, and T012's own `gh release create` call
-  never actually included it in the former despite promising to. Fixed
-  directly in PR #58 (merged) rather than just noted here, since it's
-  a real unfulfilled requirement, not documentation drift.
+  **Done 2026-08-15**: cross-checked every row against spec.md and each
+  task's actual implementation. Corrected 4 rows: FR-002 drops T012
+  (that's fully T008/T009); FR-004 adds T005 (regex enforcement lives
+  in `validate-release-tag.sh`); FR-006 and FR-012 add T012 (publishes
+  notes/checksums, not just generates them). FR-005's gap (build
+  identifier missing from release metadata) was a real unfulfilled
+  requirement, not a table fix -- addressed directly in PR #58
+  (merged).
 - [x] **T018** Update `README.md`/`AGENTS.md` describing the release process,
   SemVer/tag conventions, and how to cut a release (FR-010 consumer-facing
   half).
-  **Done 2026-08-15**: `AGENTS.md` § "Release process" -- what
-  `release.yml` actually does (tag validation, dedup rejection,
-  test-then-build, packaging/checksums/notes, atomic publish, fail
-  loud with no partial release at any step), and the one manual command
-  to cut a release (`git tag vX.Y.Z && git push origin vX.Y.Z`).
-  `README.md`'s "Roadmap and governance" section links to it rather
-  than duplicating -- matches the repo-standard convention already
-  followed elsewhere in this file ("AGENTS.md is the hub, README just
-  orients"). Describes the mechanism as it exists across T001-T015,
-  including T012's publish step (PR #58, merged).
+  **Done 2026-08-15**: added `AGENTS.md` § "Release process" describing
+  what `release.yml` does end-to-end and the one manual command to cut
+  a release; `README.md` links to it rather than duplicating (repo
+  convention: "AGENTS.md is the hub, README just orients"). Covers
+  T001-T015, including T012's publish step (PR #58, merged).
 - [x] **T019** Confirm `specs/execution-queue.md`'s epic 005 entry reflects
   activation (done as part of the same PR that adds this plan/tasks pair,
   per that document's own maintenance rule) and that issue #32's T000

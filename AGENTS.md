@@ -84,8 +84,7 @@ exactly. This triggers `.github/workflows/release.yml`, which:
    tag/release. Both fail before any build work starts.
 2. Runs `cargo test --locked` and builds the `iklo` executable in release
    mode (`cargo build --release -p iklo-cli --locked`) for
-   `x86_64-unknown-linux-gnu` (the only target for now; a multi-platform
-   matrix is a later expansion).
+   `x86_64-unknown-linux-gnu`, the workflow's only target.
 3. Packages the binary, generates a SHA-256 checksum, and generates release
    notes from `previous_tag..current_tag`'s commit history, grouped by
    conventional-commit prefix (`feat`/`fix`/`docs`/`chore`, with a fallback
