@@ -485,9 +485,10 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   body -- the same safe pattern used for the tag/target throughout this
   file, even though `GITHUB_RUN_NUMBER`/`GITHUB_RUN_ATTEMPT` are
   GitHub-controlled rather than attacker-influenced like a tag name).
-  "Release metadata" (the other half of FR-005) is completed by T012,
-  which will read the same `steps.build_id.outputs.value` when it
-  composes the atomic release-creation call -- not yet built. Verified
+  "Release metadata" (the other half of FR-005) is completed by T012
+  (already done at the time of this entry), which reads the same
+  `steps.build_id.outputs.value` when it composes the atomic
+  release-creation call. Verified
   locally: built the real release binary, computed a build identifier
   with `GITHUB_RUN_NUMBER=42 GITHUB_RUN_ATTEMPT=1` standing in for the
   real env vars, staged and checksummed the correctly-named artifact,
