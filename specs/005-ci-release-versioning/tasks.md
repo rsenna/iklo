@@ -492,10 +492,22 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   with `GITHUB_RUN_NUMBER=42 GITHUB_RUN_ATTEMPT=1` standing in for the
   real env vars, staged and checksummed the correctly-named artifact,
   confirmed `shasum -a 256 -c` reports `OK`.
-- [ ] **T016** [US3] Verify SC-003/SC-004 end-to-end: two consecutive
+- [x] **T016** [US3] Verify SC-003/SC-004 end-to-end: two consecutive
   release runs show a strictly increasing build identifier, and each
   release's notes include exactly the commits since the previous tag (no
   older commits, no gaps).
+  **Done 2026-08-31**: cut the project's actual first two releases.
+  `v0.1.0` (build `2.1`) then `v0.1.1` (build `3.1`) -- strictly
+  increasing (SC-003). `v0.1.1`'s notes contain exactly the one commit
+  since `v0.1.0` (the workspace-version bump), no older commits and no
+  gaps (SC-004); `v0.1.0`'s notes correctly fall back to full history
+  per FR-009 (no previous tag existed). Along the way, `v0.1.0`'s first
+  attempt surfaced a real bug: the `release` job has no
+  `actions/checkout`, so `gh release create` couldn't resolve the
+  target repo and failed before any GitHub API call (no draft left
+  behind) -- fixed in PR #64 by passing `--repo
+  "${GITHUB_REPOSITORY}"` explicitly, then `v0.1.0` was re-tagged past
+  that fix and republished successfully.
 
 **Checkpoint**: US3 independently testable — release notes and build
 identifiers are correct and reproducible across consecutive releases.
