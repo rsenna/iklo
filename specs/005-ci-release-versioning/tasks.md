@@ -487,8 +487,11 @@ progression and generated notes reflect `previous_tag..current_tag` commits.
   GitHub-controlled rather than attacker-influenced like a tag name).
   "Release metadata" (the other half of FR-005) is completed by T012
   (already done at the time of this entry), which reads the same
-  `steps.build_id.outputs.value` when it composes the atomic
-  release-creation call. Verified
+  `steps.build_id.outputs.value` when it calls `gh release create` --
+  not a single atomic API operation (it creates a draft, uploads each
+  asset, then publishes), but publication only happens after every
+  asset and the notes are attached, per plan.md's Key Design Decision
+  #7. Verified
   locally: built the real release binary, computed a build identifier
   with `GITHUB_RUN_NUMBER=42 GITHUB_RUN_ATTEMPT=1` standing in for the
   real env vars, staged and checksummed the correctly-named artifact,
