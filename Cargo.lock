@@ -1113,11 +1113,11 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "iklo-ast"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "iklo-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iklo-parser",
  "iklo-runtime",
@@ -1128,7 +1128,7 @@ dependencies = [
 
 [[package]]
 name = "iklo-lexer"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iklo-ast",
  "logos",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "iklo-parser"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iklo-ast",
  "iklo-lexer",
@@ -1146,7 +1146,7 @@ dependencies = [
 
 [[package]]
 name = "iklo-runtime"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iklo-ast",
  "iklo-parser",
@@ -1155,11 +1155,11 @@ dependencies = [
 
 [[package]]
 name = "iklo-substrate"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "iklo-substrate-turso"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "iklo-substrate",
  "tokio",
