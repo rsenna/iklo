@@ -43,6 +43,7 @@ In this document, `A -> B` means:
 
 ### 2. Epic 006 — Strictness and Side-Effects Spike
 
+- **Status**: Active — started 2026-09-03. Design note produced.
 - **Spec**: [006-strictness-effects-spike/spec.md](006-strictness-effects-spike/spec.md)
 - **Start criteria**:
   - Epic 004 is no longer Draft.
