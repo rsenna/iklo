@@ -1,6 +1,6 @@
 ---
 description: "Task list for CI release pipeline and semantic versioning"
-status: draft
+status: shipped
 ---
 
 # Tasks: CI Release Pipeline and Semantic Versioning
@@ -553,11 +553,25 @@ issue #32's T000 decision as fulfilled.
   the original plan.md/tasks.md PR) explicitly referencing this
   plan/tasks pair and explaining the issue stays open deliberately as
   historical record, not because T000 is unresolved.
-- [ ] **T020** Run final gate: `cargo test --workspace [--all-features]`,
+- [x] **T020** Run final gate: `cargo test --workspace [--all-features]`,
   `make test`, `make build`, `make release` (per the `quality-gate` skill),
   plus a live verification of both workflows (a real test PR for `ci.yml`;
   a real or dry-run tag for `release.yml` if feasible without polluting the
   release history — otherwise document the manual verification performed).
+  **Done 2026-08-31**: from `origin/main` at `049b926` (PR #66 merged):
+  `cargo test --workspace` (63 tests) and `--all-features`/
+  `--features iklo-cli/turso` (100 tests) all green; `make test`,
+  `make build`, `make release` all green; `cargo clippy --workspace
+  --all-targets --features iklo-cli/turso` -- warnings only, all
+  pre-existing (none in files this epic touched). `cargo fmt --check`
+  flags formatting diffs in 12 Rust files (caused by personal global
+  `~/.rustfmt.toml` nightly-only options applied on stable); the repo
+  has no local `rustfmt.toml` and `ci.yml` doesn't gate on fmt, so
+  these are formatting differences, not correctness findings. Fixing
+  them is a repo-wide follow-up, not in scope for this epic. Live verification: `ci.yml`'s "Build & test"
+  check passed clean on 3 real PRs (#64, #65, #66); `release.yml`
+  already verified live twice under T016 (`v0.1.0` build `2.1`,
+  `v0.1.1` build `3.1`, both published successfully).
 
 ---
 
