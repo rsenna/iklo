@@ -564,10 +564,11 @@ issue #32's T000 decision as fulfilled.
   `make build`, `make release` all green; `cargo clippy --workspace
   --all-targets --features iklo-cli/turso` -- warnings only, all
   pre-existing (none in files this epic touched). `cargo fmt --check`
-  flags diffs, but the repo has no local `rustfmt.toml`, so that run
-  was against my personal global `~/.rustfmt.toml` rather than a
-  project standard -- not a real gate finding; `ci.yml` itself doesn't
-  gate on fmt either. Live verification: `ci.yml`'s "Build & test"
+  flags formatting diffs in 12 Rust files (caused by personal global
+  `~/.rustfmt.toml` nightly-only options applied on stable); the repo
+  has no local `rustfmt.toml` and `ci.yml` doesn't gate on fmt, so
+  these are formatting differences, not correctness findings. Fixing
+  them is a repo-wide follow-up, not in scope for this epic. Live verification: `ci.yml`'s "Build & test"
   check passed clean on 3 real PRs (#64, #65, #66); `release.yml`
   already verified live twice under T016 (`v0.1.0` build `2.1`,
   `v0.1.1` build `3.1`, both published successfully).
