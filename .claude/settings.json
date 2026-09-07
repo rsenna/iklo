@@ -1,9 +1,5 @@
 {
   "enabledPlugins": {
-    "superpowers@claude-plugins-official": true,
-    "claude-code-setup@claude-plugins-official": true,
-    "commit-commands@claude-plugins-official": true,
-    "desktop-commander@claude-plugins-official": true,
-    "supermemory@supermemory-plugins": true
+    "claude-code-setup@claude-plugins-official": true
   }
 }
