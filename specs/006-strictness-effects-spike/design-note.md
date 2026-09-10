@@ -24,11 +24,12 @@
 
 | Construct | Strictness | Purity | Effect | Notes |
 |-----------|-----------|--------|--------|-------|
-| `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result. Transactional commit on success. |
+| Lexical `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result in the lexical engine. Transactional commit on success. A `let` targeting a mutable engine (e.g. graph `let ^bool :x be …`, §6) commits engine state and is effectful — the pure row is the lexical form only. |
 | `set :x to <expr>` | strict | effectful (mutation) | mutates existing binding | Requires mutable binding engine (`graph`, `dynamic`, `reactive`, `sync`). |
 | `+ - * /` (arithmetic) | strict | pure | none | All operands evaluated before computation. |
 | `:x` (lexical read) | strict | pure | none | Returns bound value. |
-| Newline / `;` | strict | pure | none | Expression termination; no side effects. |
+| Newline | strict | pure | none | Soft expression terminator; no side effects. |
+| `;` | strict | pure for ordinary expressions | effect boundary when sequencing `^action`-typed expressions | Terminator for a plain expression; per LANGUAGE.md, `;` between `^action` expressions is one of the effect boundaries where those actions execute. |
 
 ### Aspirational (LANGUAGE.md, not yet implemented)
 
@@ -37,13 +38,13 @@
 | `fn` / `to` (function def) | — | pure (definition) | none | Closure captures lexical env. Body is lazy-evaluated on call. |
 | `cond` | strict branches | pure (control flow) | none | Each branch is strict; only taken branch is evaluated. |
 | `repeat` | strict body | pure (control flow) | none | Body evaluated N times. |
-| `lazy <expr>` | lazy | pure | none | Wraps expression in thunk. |
-| `strict <x>` | strict (force) | pure | none | Forces thunk; runtime error if cyclic. |
-| `run <action>` | strict | effectful | executes action | The sole way to run an action outside top-level. |
+| `lazy <expr>` | lazy | pure *iff `<expr>` is pure* | none from `lazy` itself | Wraps `<expr>` in a thunk. Per LANGUAGE.md, laziness is a control feature for pure compute, not an effect scheduler: a thunk body that would mutate or perform IO is out of scope for the pure classification. Whether such a body is rejected, carries effect metadata, or defers to an `^action` is **ADR 4.1** (effect type shape). |
+| `strict <x>` | strict (force) | pure | none | Forces a thunk to its value; runtime error if cyclic. Forcing never executes hidden effects — if the forced value is an `^action ^t`, running it still requires `run`/`do` (LANGUAGE.md). |
+| `run <action>` | strict | effectful | executes action | Executes a single action value. Not the only executor — `do` and `then` (below) are also effect boundaries that run actions; `run` is the primitive the others build on. |
 | `do ... end` | strict, sequential | effectful block | executes actions in source order | Failing action short-circuits rest. |
 | `then` | strict, sequential | effectful chain | passes value forward | `action1 then action2`. |
 | `%deref <expr>` (`*expr`) | strict | pure | none | Forces a thunk or dereferences a ref. |
-| Shell executable call | strict | effectful | process IO | `(vim start)` — unbound head resolves to an OS executable. Whether this runs immediately or yields an `^action` is **ADR 4.5**. |
+| Shell executable call | strict | *provisional* — pure to construct, effectful to run | process IO (deferred or immediate) | `(vim start)` — unbound head resolves to an OS executable. Under this note's vocabulary, building an action is pure and only running it is effectful; whether a shell call runs immediately or yields an `^action` is **ADR 4.5**, so the purity/effect split stays provisional until that ADR lands. |
 | Graph transaction (`tx.begin/commit`) | strict | effectful | multi-binding mutation | Atomic cross-engine commit. |
 | Macro expansion | — | pure (compile-time) | none | Operates on syntax objects. No runtime side effects. |
 | Literal constructors | strict | pure | none | Per LANGUAGE.md contract. |
@@ -53,8 +54,8 @@
 ### Language surface (what authors write and reason about)
 
 - `lazy` / `strict` keywords — control evaluation timing.
-- `run` — the only way to execute an action value.
-- `do ... end` — synchronous sequential action execution.
+- `run` — execute a single action value (the primitive action executor).
+- `do ... end` — synchronous sequential action execution (an effect boundary in its own right, not sugar over a single `run`).
 - `then` — sequential action chaining with value forwarding.
 - `^action ^t` — type annotation for action values.
 - `strict` / `lazy` slot modes in form interfaces.
