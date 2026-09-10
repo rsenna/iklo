@@ -43,7 +43,7 @@
 | `do ... end` | strict, sequential | effectful block | executes actions in source order | Failing action short-circuits rest. |
 | `then` | strict, sequential | effectful chain | passes value forward | `action1 then action2`. |
 | `%deref <expr>` (`*expr`) | strict | pure | none | Forces a thunk or dereferences a ref. |
-| Shell executable call | strict | effectful | process IO | `(vim start)` — form not found, falls through to executable. |
+| Shell executable call | strict | effectful | process IO | `(vim start)` — unbound head resolves to an OS executable. Whether this runs immediately or yields an `^action` is **ADR 4.5**. |
 | Graph transaction (`tx.begin/commit`) | strict | effectful | multi-binding mutation | Atomic cross-engine commit. |
 | Macro expansion | — | pure (compile-time) | none | Operates on syntax objects. No runtime side effects. |
 | Literal constructors | strict | pure | none | Per LANGUAGE.md contract. |
@@ -105,7 +105,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Question:** Must `do` blocks execute actions synchronously in source order, or may a runtime implementation reorder independent actions?
 
-**Why ADR:** SOURCE.md says "deterministic effect order for all synchronous actions." But future parallelism features (futures, async) may want to relax this. The boundary between "synchronous do" and "parallel do" needs a clear design point.
+**Why ADR:** LANGUAGE.md's Design constraints require "Deterministic effect order for all synchronous actions" and that `do` "executes actions synchronously in source order." But future parallelism features (futures, async) may want to relax this. The boundary between "synchronous do" and "parallel do" needs a clear design point.
 
 **Blocks:** Epic 007 (`do`/`cond`/`repeat` implementation).
 
@@ -116,6 +116,14 @@ These decisions are load-bearing enough to require their own ADR before implemen
 **Why ADR:** If `set` is an effect, then any form that calls `set` is effectful and cannot be pure. If `set` is not an effect (just a binding operation), then forms calling `set` could still be considered pure. This interacts with transaction semantics — `set` inside a transaction that rolls back was never "observable."
 
 **Blocks:** Epic 008 (binding model taxonomy), Epic 009 (binding kinds).
+
+### 4.5 Shell-mode executable calls and the effect boundary
+
+**Question:** When an unbound form head resolves to an OS executable in shell mode (`(vim start)`), does it (a) execute immediately, (b) produce an `^action ^t` that runs only at an effect boundary like every other IO form, or (c) execute immediately *only* at the top-level runner (itself an effect boundary) while yielding an `^action` everywhere else?
+
+**Why ADR:** Option (a) directly violates LANGUAGE.md's "No implicit side-effect execution during ordinary expression evaluation" constraint and makes shell calls the one IO path that bypasses `run`/`do`. Option (b) is consistent with every other effectful form but costs shell ergonomics (every command needs `run`). Option (c) preserves both but needs a precise definition of "top-level" once nested REPL contexts, macro expansion, and `do` blocks are in play.
+
+**Blocks:** Epic 007 (shell-mode form resolution and stdlib IO).
 
 ## 5. Recommended Effect Control Strategy
 
@@ -141,7 +149,7 @@ let :copy be cp "a" "b"    # pure: builds an action value
 run :copy                    # effectful: executes the copy
 ```
 
-Shell executable calls are the exception: they execute immediately because they fall through to the OS exec path. This is a pragmatic choice — shell mode needs immediate execution.
+Shell executable calls are an unresolved tension: shell-mode ergonomics want `(vim start)` to run immediately, but LANGUAGE.md's "No implicit side-effect execution during ordinary expression evaluation" constraint says a bare executable call inside a pure expression must not. This is flagged as **ADR 4.5**. Until it is resolved, treat immediate shell execution as a top-level-runner affordance only (that runner is itself an effect boundary) — not a license to perform process IO inside pure expressions.
 
 ### Runtime metadata: not the primary mechanism
 
@@ -152,7 +160,7 @@ Runtime metadata (annotations) should **not** be the primary way to declare puri
 The recommended approach:
 
 1. **Surface keywords** (`lazy`, `strict`, `run`, `do`) control the most common cases.
-2. **Type inference** determines purity from return types (no `^action` = pure).
+2. **Type inference** determines purity from *both* the inferred body (no observable mutation, e.g. `set` or a graph `let`) *and* the return type (not `^action`). Either one alone is insufficient — a form that mutates a binding but returns a plain value is still effectful.
 3. **Runtime enforcement** ensures effects only run in effect boundaries.
 4. **Annotations** provide optional hints for tooling and diagnostics.
 
@@ -163,6 +171,7 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | Example | Strictness | Purity | Effect | Correct? |
 |---------|-----------|--------|--------|----------|
 | `let :x be 1 + 2` | strict | pure | none | Yes — arithmetic is pure and strict. |
+| `set :x to 5` | strict | effectful (mutation) | binding mutation | Yes — rebinds an existing `:x` in a mutable engine; effectful despite returning no `^action` (see §5 point 2). |
 | `let :x be lazy 1 + 2` | lazy | pure | none | Yes — thunk created, not evaluated. |
 | `strict :x` | strict (force) | pure | none | Yes — forces thunk, may error on cycle. |
 | `let :copy be cp "a" "b"` | strict | pure (builds action) | none (action not run) | Yes — action value created, not executed. |
@@ -173,19 +182,19 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | `repeat 4 [forward :side]` | strict (body) | pure | none | Yes — body evaluated 4 times, pure. |
 | `to adder :n do fn do :n + 1 end end` | — | pure (definition) | none | Yes — defines closure, no side effects. |
 | Graph `let ^bool :x be -true` | strict | effectful (mutation) | graph commit | Yes — modifies graph binding engine. |
-| `(vim start)` (shell) | strict | effectful | process IO | Yes — falls through to executable exec. |
+| `(vim start)` (shell) | strict | effectful | process IO | Effectful is settled; *when* it runs (immediately vs `^action` at a boundary) is **ADR 4.5**. |
 | `` `[ a ~:b _:c d ] `` (syntax-quote) | — | pure (compile-time) | none | Yes — macro template, no runtime effect. |
 | `map %{ a->1, b->2 }` | strict | pure | none | Yes — literal constructor, pure per contract. |
 
-All 15 examples classified consistently with no contradictions.
+Every example above is classified consistently with no contradictions.
 
 ## 7. Enabled Follow-Up Epics
 
 ### Epic 007 — IK1 Core Language
 
-**Depends on:** ADR 4.1 (effect type shape), ADR 4.2 (strict/lazy defaults).
+**Depends on:** ADR 4.1 (effect type shape), ADR 4.2 (strict/lazy defaults), ADR 4.5 (shell-mode executable calls).
 
-IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated.
+IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated. ADR 4.5 settles whether shell-mode executable calls join the `^action` discipline or stay an immediate-execution carve-out.
 
 ### Epic 008 — Binding Model Taxonomy
 
