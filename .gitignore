@@ -18,7 +18,8 @@ goals/
 opencode.jsonc
 package.json
 settings.local.json
-
+.opencode/
+.claude/settings.json.graphify-bak
 /.idea/
 /target/
 
