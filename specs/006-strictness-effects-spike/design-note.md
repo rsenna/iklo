@@ -84,7 +84,7 @@
 
 ## 4. ADR-Needed Decisions
 
-These decisions are load-bearing enough to require their own ADR before implementation:
+These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 and §4.5 get their own ADRs (ADR-0007, ADR-0008 — planned).
 
 ### 4.1 Effect type system shape
 
@@ -94,6 +94,8 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (IK1 core language) needs at least a minimal effect annotation to distinguish IO forms from pure forms.
 
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — `^action ^t` marker type, no effect rows.
+
 ### 4.2 Lazy-by-default vs strict-by-default for form arguments
 
 **Question:** Should form arguments default to strict (current LANGUAGE.md design) or lazy (opt-in strictness)?
@@ -102,6 +104,8 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (function definition syntax), Epic 009 (binding kinds implementation).
 
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — strict-by-default, `lazy` opt-in per slot.
+
 ### 4.3 Effect boundary strictness for `do` blocks
 
 **Question:** Must `do` blocks execute actions synchronously in source order, or may a runtime implementation reorder independent actions?
@@ -109,6 +113,8 @@ These decisions are load-bearing enough to require their own ADR before implemen
 **Why ADR:** LANGUAGE.md's Design constraints require "Deterministic effect order for all synchronous actions" and that `do` "executes actions synchronously in source order." But future parallelism features (futures, async) may want to relax this. The boundary between "synchronous do" and "parallel do" needs a clear design point.
 
 **Blocks:** Epic 007 (`do`/`cond`/`repeat` implementation).
+
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — source-order execution, no reordering; concurrency is a separate future construct.
 
 ### 4.4 `set` and effect classification
 
