@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+**Status**: Active (spike in progress)
 
 **Input**: Define how strictness and side effects should be exposed as language
 constructs versus implemented internally in the runtime.

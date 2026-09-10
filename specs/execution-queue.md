@@ -43,6 +43,7 @@ In this document, `A -> B` means:
 
 ### 2. Epic 006 — Strictness and Side-Effects Spike
 
+- **Status**: Active — started 2026-09-03. Design note produced; in review.
 - **Spec**: [006-strictness-effects-spike/spec.md](006-strictness-effects-spike/spec.md)
 - **Start criteria**:
   - Epic 004 is no longer Draft.
@@ -50,13 +51,17 @@ In this document, `A -> B` means:
   - A versioned design note is produced under `specs/`.
   - Strict/pure/effectful taxonomy is defined with concrete examples.
   - Language-surface vs runtime-internal boundaries are explicit.
-  - ADR-needed decisions are listed.
+  - ADR-needed decisions are listed (§4: ADRs 4.1–4.5).
+  - The design note is reviewed and **accepted** (its PR merged) — this is
+    the gate epics 007/008 depend on. Keep this epic `Active` until then.
 
 ### 3. Epic 008 — Binding Model Taxonomy
 
 - **Spec**: [008-binding-model-taxonomy/spec.md](008-binding-model-taxonomy/spec.md)
 - **Start criteria**:
   - Epic 006 design note is accepted.
+  - ADR 4.4 (`set` and effect classification, per the 006 design note §4.4)
+    is accepted — 008's `set` classification depends on it.
 - **Done criteria**:
   - Canonical vocabulary is ratified (`binding mode`, `option`, `token`, `form`).
   - `Engine` column mapping from `LANGUAGE.md` is documented.
@@ -69,6 +74,10 @@ In this document, `A -> B` means:
   - Epics 006 and 008 are accepted and linked.
   - An ADR covering IK1 grammar constructs (`fn`, `cond`, `repeat`) is accepted
     before implementation begins.
+  - ADRs 4.1 (effect type shape), 4.2 (strict/lazy default), 4.3 (`do`-block
+    effect ordering), and 4.5 (shell-mode executable calls) — all named in the
+    006 design note §4 as Epic 007 blockers — are accepted before
+    implementation begins.
 - **Done criteria**:
   - stdio IO is provided by standard library APIs (not a primitive).
   - `fn` + lexical `let :name be <expr>` closure flow works.
@@ -93,6 +102,8 @@ In this document, `A -> B` means:
 - **Start criteria**:
   - Epic 008 terminology is ratified.
   - Baseline semantics from epics 007 and 010 are stable.
+  - ADRs 4.2 (strict/lazy default) and 4.4 (`set` and effect classification) —
+    named in the 006 design note §4 as Epic 009 blockers — are accepted.
 - **Done criteria**:
   - Target binding kinds are implemented in phased delivery.
   - Option static-mode semantics are enforced.
