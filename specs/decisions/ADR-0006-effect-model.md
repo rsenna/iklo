@@ -87,7 +87,7 @@ their own ADRs (see Follow-ups). They are **not** decided here.
 - Form arguments are **evaluated strictly before the call**, unless the
   form's interface marks that slot `lazy`:
 
-  ```
+  ```iklo
   strict :x   # default — argument evaluated before the call
   lazy :x     # opt-in — argument passed as a thunk, forced on first use
   ```
@@ -102,14 +102,23 @@ their own ADRs (see Follow-ups). They are **not** decided here.
   per-slot rule for its own arguments). "Body is lazy-evaluated on call" in
   the design note's §2 table means *deferred until call*, not call-by-need.
 - `lazy` / `strict` remain **pure** in themselves: `lazy <expr>` wrapping and
-  `strict <x>` forcing perform no effects. A thunk body that would mutate or
-  perform IO is outside the pure classification — the precise handling
-  (reject at type-check, carry effect metadata on the thunk, or require
-  forcing at an effect boundary) is deferred to the type-system work under
-  Follow-ups; laziness is a control feature for pure compute, not an effect
-  scheduler (`LANGUAGE.md` §"Design constraints"). Forcing a thunk never
-  executes hidden effects: if the forced value is an `^action ^t`, running
-  it still requires `run` / `do`.
+  `strict <x>` forcing perform no effects. **A thunk body must itself be
+  pure.** This follows from decisions already made above, not a separate
+  question: forcing a thunk is not on the effect-boundary list in §4 below,
+  and `LANGUAGE.md` requires that forcing "must not execute hidden effects"
+  — so a thunk body that would mutate a binding or cross a boundary (`set`,
+  a mutable-engine `let`, `run`, `do`, `then`) is **rejected**, not silently
+  deferred. `lazy (set :x to 5)` is ill-typed, exactly like calling `set`
+  directly in any other position where a pure expression is required —
+  laziness does not launder an effect into a runtime action. Laziness is a
+  control feature for pure compute, never an effect scheduler
+  (`LANGUAGE.md` §"Design constraints"). Forcing a *value's* effect-typed
+  contents is unaffected by this: if the forced value is itself an
+  `^action ^t` (e.g. `lazy (cp "a" "b")`, which is pure to build), forcing
+  yields that action unrun — running it still requires `run` / `do`.
+  Enforcing the rejection needs a type checker, which does not exist yet
+  (see Non-decisions); until then this is a documented invariant, not
+  something the runtime currently catches.
 
 ### 3. `do` executes in source order, with no reordering (design note §4.3)
 
@@ -201,5 +210,6 @@ binding — is an effect boundary.
 - Epic 007 implements against this model: the `^action` marker type,
   `strict` / `lazy` slot modes, `run` / `do` / `then`, and source-order
   effect execution.
-- The type-system work (epic 010 and beyond) resolves the deferred detail on
-  effectful thunk bodies (reject vs. metadata vs. boundary-forcing).
+- The type-system work (epic 010 and beyond) implements the rejection rule
+  for effectful thunk bodies decided in §2 above — there is no runtime
+  enforcement of it until a type checker exists.

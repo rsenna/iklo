@@ -38,7 +38,7 @@
 | `fn` / `to` (function def) | — | pure (definition) | none | Closure captures lexical env. Body is lazy-evaluated on call. |
 | `cond` | strict branches | pure (control flow) | none | Each branch is strict; only taken branch is evaluated. |
 | `repeat` | strict body | pure (control flow) | none | Body evaluated N times. |
-| `lazy <expr>` | lazy | pure *iff `<expr>` is pure* | none from `lazy` itself | Wraps `<expr>` in a thunk. Per LANGUAGE.md, laziness is a control feature for pure compute, not an effect scheduler: a thunk body that would mutate or perform IO is out of scope for the pure classification. Whether such a body is rejected, carries effect metadata, or defers to an `^action` is **ADR 4.1** (effect type shape). |
+| `lazy <expr>` | lazy | pure *iff `<expr>` is pure* | none from `lazy` itself | Wraps `<expr>` in a thunk. Per LANGUAGE.md, laziness is a control feature for pure compute, not an effect scheduler: a thunk body that would mutate or perform IO is **rejected** (a type error), not silently deferred — decided by [ADR-0006](../decisions/ADR-0006-effect-model.md) §2. |
 | `strict <x>` | strict (force) | pure | none | Forces a thunk to its value; runtime error if cyclic. Forcing never executes hidden effects — if the forced value is an `^action ^t`, running it still requires `run`/`do` (LANGUAGE.md). |
 | `run <action>` | strict | effectful | executes action | Executes a single action value. Not the only executor — `do` and `then` (below) are also effect boundaries that run actions; `run` is the primitive the others build on. |
 | `do ... end` | strict, sequential | effectful block | executes actions in source order | Failing action short-circuits rest. |
