@@ -60,7 +60,7 @@
 - `^action ^t` — type annotation for action values.
 - `strict` / `lazy` slot modes in form interfaces.
 - `*expr` (deref) — force a thunk or dereference.
-- Purity is **inferred by the type system**, not declared. A form is pure if it returns no `^action` type and performs no observable mutation.
+- Purity is **inferred by the type system**, not declared. A form is pure if evaluating it performs no observable mutation and crosses no effect boundary — independent of whether the value it produces is `^action`-typed (see [ADR-0006](../decisions/ADR-0006-effect-model.md)).
 
 ### Runtime internal (invisible to language authors)
 
@@ -167,7 +167,7 @@ Runtime metadata (annotations) should **not** be the primary way to declare puri
 The recommended approach:
 
 1. **Surface keywords** (`lazy`, `strict`, `run`, `do`) control the most common cases.
-2. **Type inference** determines purity from *both* the inferred body (no observable mutation, e.g. `set` or a graph `let`) *and* the return type (not `^action`). Either one alone is insufficient — a form that mutates a binding but returns a plain value is still effectful.
+2. **Type inference** determines purity from the inferred body alone: no observable mutation (e.g. `set` or a graph `let`) and no boundary-crossing during evaluation (no inline `run`/`do`/`then`/boundary `;`). The produced value's type is not itself a purity condition — building an `^action ^t` and returning it is pure; only running it later is effectful (see [ADR-0006](../decisions/ADR-0006-effect-model.md), which is authoritative on this rule).
 3. **Runtime enforcement** ensures effects only run in effect boundaries.
 4. **Annotations** provide optional hints for tooling and diagnostics.
 
@@ -199,18 +199,18 @@ Every example above is classified consistently with no contradictions.
 
 ### Epic 007 — IK1 Core Language
 
-**Depends on:** ADR 4.1 (effect type shape), ADR 4.2 (strict/lazy defaults), ADR 4.5 (shell-mode executable calls).
+**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (effect type shape, strict/lazy defaults, `do` ordering — §4.1–4.3), ADR-0008 (shell-mode executable calls — §4.5, planned).
 
-IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated. ADR 4.5 settles whether shell-mode executable calls join the `^action` discipline or stay an immediate-execution carve-out.
+IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated. ADR-0008 settles whether shell-mode executable calls join the `^action` discipline or stay an immediate-execution carve-out.
 
 ### Epic 008 — Binding Model Taxonomy
 
-**Depends on:** ADR 4.4 (`set` and effect classification).
+**Depends on:** ADR-0007 (`set` and effect classification — §4.4, planned).
 
 Binding taxonomy must classify `set` as either an effect or a binding operation. This affects whether `set`-using forms are considered pure. The taxonomy also needs to align with this design note's vocabulary (strict, lazy, pure, effectful).
 
 ### Epic 009 — Binding Kinds Implementation
 
-**Depends on:** ADRs 4.2 and 4.4.
+**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (§4.2 portion) and ADR-0007 (§4.4, planned).
 
 Implementation of `reactive`, `synchronized`, and other binding kinds must honor the strictness/effect model. Reactive bindings (`rx%token`) are inherently effectful (event-sourced). Synchronized bindings (`sync%token`) require transactional enforcement.

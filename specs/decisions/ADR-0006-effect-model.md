@@ -1,7 +1,10 @@
 # ADR-0006 — Effect model: `^action`-typed effects, strict-by-default evaluation, ordered `do`
 
 - **Status:** Proposed — drafted from the epic 006 design note's open
-  questions §4.1–4.3. Not yet accepted; acceptance = this PR merged.
+  questions §4.1–4.3. Accepting this ADR means editing this line to
+  `Accepted` (with the acceptance date), as part of — not automatically
+  implied by — merging this PR; a merge that leaves this line reading
+  `Proposed` has not accepted it.
 - **Date:** 2026-09-11
 - **Deciders:** @rsenna (with Claude as sounding board)
 - **Supersedes:** —
@@ -59,13 +62,18 @@ their own ADRs (see Follow-ups). They are **not** decided here.
   run :copy                  # effectful — performs the copy
   ```
 
-- **Purity is inferred, never declared.** A form is pure iff *both*:
-  1. its evaluation performs no observable mutation (no `set`, no `let` into
-     a mutable binding engine — pending ADR-0007's exact line on `set`), and
-  2. its return type is not `^action ^t`.
-
-  Either condition alone is insufficient: a form that mutates a binding but
-  returns a plain value is still effectful (design note §5 point 2).
+- **Purity is inferred, never declared, and is about evaluation, not the
+  produced value's type.** A form is pure iff *evaluating it* performs no
+  observable mutation (no `set`, no `let` into a mutable binding engine —
+  pending ADR-0007's exact line on `set`) and does not itself cross an
+  effect boundary (no inline `run`/`do`/boundary `;`/`then` fires during its
+  own evaluation). Whether the *value* a pure form returns happens to be
+  `^action ^t`-typed is irrelevant — that only means running it *later* is
+  effectful, not that constructing it now was. `let :copy be cp "a" "b"`
+  above is pure by this rule: it builds an `^action ^int` but never runs
+  one. A form that mutates a binding is impure regardless of what it
+  returns — that is the failure mode a return-type-only rule would miss
+  (design note §5 point 2).
 - **Annotations are not the mechanism.** `#!`-annotations may carry purity
   *hints* for tooling and diagnostics, but the type system — not a metadata
   tag — is the source of truth for whether a form is pure. A change to an
@@ -126,6 +134,7 @@ semantics":
 - the top-level program runner,
 - `run <action>`,
 - a `do … end` block,
+- `then` chaining,
 - `;` sequencing when the sequenced expressions are `^action`-typed.
 
 `run` is the primitive executor; `do` and `then` are effect boundaries in
@@ -157,8 +166,8 @@ binding — is an effect boundary.
 - **Positive**
   - Epic 007 can start: `^action`, `run`, `do`, `then`, and `strict`/`lazy`
     slot modes have a fixed target.
-  - Purity is a checkable property (return type + mutation), not a matter of
-    convention or annotation discipline.
+  - Purity is a checkable property (no mutation, no boundary-crossing during
+    evaluation), not a matter of convention or annotation discipline.
   - `do` semantics are unambiguous and debuggable — the order you read is
     the order effects happen.
   - No monad ceremony in surface syntax; effects stay visible via
@@ -170,8 +179,8 @@ binding — is an effect boundary.
   - No automatic parallelism in `do`, even where it would be safe —
     concurrency is always an explicit, later opt-in.
   - Inferred purity is more than a one-line rule: the eventual type checker
-    must track observable mutation through a form's body, not only inspect
-    its return type.
+    must track observable mutation *and* boundary-crossing through a form's
+    body, not just its declared return type.
   - Committing to a marker type now (rather than an effect row) may cost a
     migration if Iklo later wants fine-grained effect categories
     (IO vs. state vs. exceptions). Judged acceptable: the marker is a strict
