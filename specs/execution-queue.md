@@ -60,8 +60,8 @@ In this document, `A -> B` means:
 - **Spec**: [008-binding-model-taxonomy/spec.md](008-binding-model-taxonomy/spec.md)
 - **Start criteria**:
   - Epic 006 design note is accepted.
-  - ADR 4.4 (`set` and effect classification, per the 006 design note §4.4)
-    is accepted — 008's `set` classification depends on it.
+  - ADR-0007 (`set` and effect classification, per the 006 design note §4.4;
+    planned) is accepted — 008's `set` classification depends on it.
 - **Done criteria**:
   - Canonical vocabulary is ratified (`binding mode`, `option`, `token`, `form`).
   - `Engine` column mapping from `LANGUAGE.md` is documented.
@@ -74,10 +74,10 @@ In this document, `A -> B` means:
   - Epics 006 and 008 are accepted and linked.
   - An ADR covering IK1 grammar constructs (`fn`, `cond`, `repeat`) is accepted
     before implementation begins.
-  - ADRs 4.1 (effect type shape), 4.2 (strict/lazy default), 4.3 (`do`-block
-    effect ordering), and 4.5 (shell-mode executable calls) — all named in the
-    006 design note §4 as Epic 007 blockers — are accepted before
-    implementation begins.
+  - **ADR-0006** (effect model — consolidates the 006 design note §4.1 effect
+    type shape, §4.2 strict/lazy default, §4.3 `do`-block ordering) and
+    **ADR-0008** (shell-mode executable calls, §4.5; planned) are accepted
+    before implementation begins.
 - **Done criteria**:
   - stdio IO is provided by standard library APIs (not a primitive).
   - `fn` + lexical `let :name be <expr>` closure flow works.
@@ -102,8 +102,9 @@ In this document, `A -> B` means:
 - **Start criteria**:
   - Epic 008 terminology is ratified.
   - Baseline semantics from epics 007 and 010 are stable.
-  - ADRs 4.2 (strict/lazy default) and 4.4 (`set` and effect classification) —
-    named in the 006 design note §4 as Epic 009 blockers — are accepted.
+  - **ADR-0006** (§4.2 strict/lazy default portion) and **ADR-0007** (§4.4
+    `set` and effect classification; planned) — named in the 006 design note
+    §4 as Epic 009 blockers — are accepted.
 - **Done criteria**:
   - Target binding kinds are implemented in phased delivery.
   - Option static-mode semantics are enforced.
