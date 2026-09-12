@@ -60,8 +60,9 @@ In this document, `A -> B` means:
 - **Spec**: [008-binding-model-taxonomy/spec.md](008-binding-model-taxonomy/spec.md)
 - **Start criteria**:
   - Epic 006 design note is accepted.
-  - ADR-0007 (`set` and effect classification, per the 006 design note §4.4;
-    planned) is accepted — 008's `set` classification depends on it.
+  - [ADR-0007](decisions/ADR-0007-set-effect-classification.md) (`set` and
+    effect classification, per the 006 design note §4.4) is accepted —
+    008's `set` classification depends on it.
 - **Done criteria**:
   - Canonical vocabulary is ratified (`binding mode`, `option`, `token`, `form`).
   - `Engine` column mapping from `LANGUAGE.md` is documented.
@@ -102,9 +103,10 @@ In this document, `A -> B` means:
 - **Start criteria**:
   - Epic 008 terminology is ratified.
   - Baseline semantics from epics 007 and 010 are stable.
-  - **ADR-0006** (§4.2 strict/lazy default portion) and **ADR-0007** (§4.4
-    `set` and effect classification; planned) — named in the 006 design note
-    §4 as Epic 009 blockers — are accepted.
+  - [ADR-0006](decisions/ADR-0006-effect-model.md) (§4.2 strict/lazy default
+    portion) and [ADR-0007](decisions/ADR-0007-set-effect-classification.md)
+    (§4.4 `set` and effect classification) — named in the 006 design note §4
+    as Epic 009 blockers — are accepted.
 - **Done criteria**:
   - Target binding kinds are implemented in phased delivery.
   - Option static-mode semantics are enforced.
