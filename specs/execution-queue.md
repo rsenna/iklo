@@ -75,10 +75,11 @@ In this document, `A -> B` means:
   - Epics 006 and 008 are accepted and linked.
   - An ADR covering IK1 grammar constructs (`fn`, `cond`, `repeat`) is accepted
     before implementation begins.
-  - **ADR-0006** (effect model — consolidates the 006 design note §4.1 effect
-    type shape, §4.2 strict/lazy default, §4.3 `do`-block ordering) and
-    **ADR-0008** (shell-mode executable calls, §4.5; planned) are accepted
-    before implementation begins.
+  - [ADR-0006](decisions/ADR-0006-effect-model.md) (effect model —
+    consolidates the 006 design note §4.1 effect type shape, §4.2
+    strict/lazy default, §4.3 `do`-block ordering) and
+    [ADR-0008](decisions/ADR-0008-shell-executable-calls.md) (shell-mode
+    executable calls, §4.5) are accepted before implementation begins.
 - **Done criteria**:
   - stdio IO is provided by standard library APIs (not a primitive).
   - `fn` + lexical `let :name be <expr>` closure flow works.

@@ -44,7 +44,7 @@
 | `do ... end` | strict, sequential | effectful block | executes actions in source order | Failing action short-circuits rest. |
 | `then` | strict, sequential | effectful chain | passes value forward | `action1 then action2`. |
 | `%deref <expr>` (`*expr`) | strict | pure | none | Forces a thunk or dereferences a ref. |
-| Shell executable call | strict | *provisional* — pure to construct, effectful to run | process IO (deferred or immediate) | `(vim start)` — unbound head resolves to an OS executable. Under this note's vocabulary, building an action is pure and only running it is effectful; whether a shell call runs immediately or yields an `^action` is **ADR 4.5**, so the purity/effect split stays provisional until that ADR lands. |
+| Shell executable call | strict | pure to construct, effectful to run | process IO | `(vim start)` — unbound head resolves to an OS executable, building an `^action ^t` exactly like `cp`/`echo`. It runs at the same boundaries as any action (top-level runner, `run`, `do`, `then`, boundary `;`) — no immediate-execution carve-out. Decided by [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md). |
 | Graph transaction (`tx.begin/commit`) | strict | effectful | multi-binding mutation | Atomic cross-engine commit. |
 | Macro expansion | — | pure (compile-time) | none | Operates on syntax objects. No runtime side effects. |
 | Literal constructors | strict | pure | none | Per LANGUAGE.md contract. |
@@ -84,7 +84,7 @@
 
 ## 4. ADR-Needed Decisions
 
-These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 has its own ADR ([ADR-0007](../decisions/ADR-0007-set-effect-classification.md), proposed); §4.5 gets its own ADR (ADR-0008 — planned).
+These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 has its own ADR ([ADR-0007](../decisions/ADR-0007-set-effect-classification.md), proposed); §4.5 has its own ADR ([ADR-0008](../decisions/ADR-0008-shell-executable-calls.md), proposed).
 
 ### 4.1 Effect type system shape
 
@@ -134,6 +134,8 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (shell-mode form resolution and stdlib IO).
 
+**Decided by:** [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md) (proposed) — `^action ^t`, no carve-out; runs at ADR-0006's existing boundaries.
+
 ## 5. Recommended Effect Control Strategy
 
 Based on LANGUAGE.md's stated goals and the analysis above:
@@ -158,7 +160,7 @@ let :copy be cp "a" "b"    # pure: builds an action value
 run :copy                    # effectful: executes the copy
 ```
 
-Shell executable calls are an unresolved tension: shell-mode ergonomics want `(vim start)` to run immediately, but LANGUAGE.md's "No implicit side-effect execution during ordinary expression evaluation" constraint says a bare executable call inside a pure expression must not. This is flagged as **ADR 4.5**. Until it is resolved, treat immediate shell execution as a top-level-runner affordance only (that runner is itself an effect boundary) — not a license to perform process IO inside pure expressions.
+Shell executable calls join this exactly: `(vim start)` builds an `^action ^t`, pure to construct. It runs at a boundary — the top-level runner or `do`, both already named in ADR-0006 — the same way `cp "a" "b"` would if typed bare in the same position. There is no immediate-execution carve-out for shell mode; the ergonomics that make `(vim start)` "just run" at the prompt come from the prompt already being a boundary, not from a shell-specific exception. See [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md).
 
 ### Runtime metadata: not the primary mechanism
 
@@ -191,7 +193,7 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | `repeat 4 [forward :side]` | strict (body) | pure | none | Yes — body evaluated 4 times, pure. |
 | `to adder :n do fn do :n + 1 end end` | — | pure (definition) | none | Yes — defines closure, no side effects. |
 | Graph `let ^bool :x be -true` | strict | effectful (mutation) | graph commit | Yes — modifies graph binding engine. |
-| `(vim start)` (shell) | strict | effectful | process IO | Effectful is settled; *when* it runs (immediately vs `^action` at a boundary) is **ADR 4.5**. |
+| `(vim start)` (shell) | strict | pure (builds action) | process IO only when the action reaches an effect boundary | Yes — builds an `^action ^t`, runs at the same boundaries as any action (top-level runner, `do`, …), per [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md). |
 | `` `[ a ~:b _:c d ] `` (syntax-quote) | — | pure (compile-time) | none | Yes — macro template, no runtime effect. |
 | `map %{ a->1, b->2 }` | strict | pure | none | Yes — literal constructor, pure per contract. |
 
@@ -201,9 +203,9 @@ Every example above is classified consistently with no contradictions.
 
 ### Epic 007 — IK1 Core Language
 
-**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (effect type shape, strict/lazy defaults, `do` ordering — §4.1–4.3), ADR-0008 (shell-mode executable calls — §4.5, planned).
+**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (effect type shape, strict/lazy defaults, `do` ordering — §4.1–4.3), [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md) (shell-mode executable calls — §4.5).
 
-IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated. ADR-0008 settles whether shell-mode executable calls join the `^action` discipline or stay an immediate-execution carve-out.
+IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model determines whether IO forms return `^action ^t` values (recommended) or execute immediately. The strict/lazy default determines how function arguments are evaluated. ADR-0008 settles that shell-mode executable calls join the `^action` discipline exactly like every other IO form, running at the same boundaries — no immediate-execution carve-out.
 
 ### Epic 008 — Binding Model Taxonomy
 
