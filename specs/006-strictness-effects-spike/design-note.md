@@ -84,7 +84,7 @@
 
 ## 4. ADR-Needed Decisions
 
-These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 and §4.5 get their own ADRs (ADR-0007, ADR-0008 — planned).
+These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 has its own ADR ([ADR-0007](../decisions/ADR-0007-set-effect-classification.md), proposed); §4.5 gets its own ADR (ADR-0008 — planned).
 
 ### 4.1 Effect type system shape
 
@@ -123,6 +123,8 @@ These decisions are load-bearing enough to require their own ADR before implemen
 **Why ADR:** If `set` is an effect, then any form that calls `set` is effectful and cannot be pure. If `set` is not an effect (just a binding operation), then forms calling `set` could still be considered pure. This interacts with transaction semantics — `set` inside a transaction that rolls back was never "observable."
 
 **Blocks:** Epic 008 (binding model taxonomy), Epic 009 (binding kinds).
+
+**Decided by:** [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) (proposed) — `set` is always an effect, independent of transaction outcome.
 
 ### 4.5 Shell-mode executable calls and the effect boundary
 
@@ -205,12 +207,12 @@ IK1 needs `fn`/`to` closures, `cond`, `repeat`, and stdlib IO. The effect model 
 
 ### Epic 008 — Binding Model Taxonomy
 
-**Depends on:** ADR-0007 (`set` and effect classification — §4.4, planned).
+**Depends on:** [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) (`set` and effect classification — §4.4).
 
 Binding taxonomy must classify `set` as either an effect or a binding operation. This affects whether `set`-using forms are considered pure. The taxonomy also needs to align with this design note's vocabulary (strict, lazy, pure, effectful).
 
 ### Epic 009 — Binding Kinds Implementation
 
-**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (§4.2 portion) and ADR-0007 (§4.4, planned).
+**Depends on:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (§4.2 portion) and [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) (§4.4).
 
 Implementation of `reactive`, `synchronized`, and other binding kinds must honor the strictness/effect model. Reactive bindings (`rx%token`) are inherently effectful (event-sourced). Synchronized bindings (`sync%token`) require transactional enforcement.
