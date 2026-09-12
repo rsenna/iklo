@@ -193,7 +193,7 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | `repeat 4 [forward :side]` | strict (body) | pure | none | Yes — body evaluated 4 times, pure. |
 | `to adder :n do fn do :n + 1 end end` | — | pure (definition) | none | Yes — defines closure, no side effects. |
 | Graph `let ^bool :x be -true` | strict | effectful (mutation) | graph commit | Yes — modifies graph binding engine. |
-| `(vim start)` (shell) | strict | effectful | process IO | Yes — builds an `^action ^t`, runs at the same boundaries as any action (top-level runner, `do`, …), per [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md). |
+| `(vim start)` (shell) | strict | pure (builds action) | process IO only when the action reaches an effect boundary | Yes — builds an `^action ^t`, runs at the same boundaries as any action (top-level runner, `do`, …), per [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md). |
 | `` `[ a ~:b _:c d ] `` (syntax-quote) | — | pure (compile-time) | none | Yes — macro template, no runtime effect. |
 | `map %{ a->1, b->2 }` | strict | pure | none | Yes — literal constructor, pure per contract. |
 

@@ -146,6 +146,6 @@ run wherever any such form would run, for the same reason.
 - Epic 007 (IK1 core language) implements shell-mode form resolution
   against this model: build an `^action ^t`, run only at the named
   boundaries.
-- Update [`specs/execution-queue.md`](../execution-queue.md) epic 007 start
-  criteria to drop "ADR-0008 (planned)" in favor of a direct reference,
-  once accepted.
+- `specs/execution-queue.md`'s epic 007 start criteria already link this
+  ADR directly (this PR). The only thing still pending acceptance is this
+  document's own Status line (see header).
