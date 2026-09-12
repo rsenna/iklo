@@ -35,8 +35,8 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 These are decided and shouldn't be casually revisited. If a change is needed, open an ADR.
 
 - **Identifiers are kebab-case**, including subtraction-lookalikes: `x-1` is one identifier, `x - 1` is subtraction. Infix `+ - * /` **require whitespace on both sides**.
-- **Binding introduction is `let :name be <expr>`** (not `=`). `:name` is the lexical-value sigil. `let` is an expression that returns the bound value.
-- **`set` mutates an existing binding**; `let` introduces a new one (even if it shadows a previous name). `set` should only reach the mutable engines (graph / dynamic / reactive / synchronized); `set` on a plain lexical binding is an error.
+- **`let :name be <expr>`** (not `=`) introduces a **lexical** binding — the only engine `let` can target. `:name` is the lexical-value sigil. `let` is an expression that returns the bound value, and is always pure (given a pure `<expr>`): lexical bindings are private to the evaluation's own scope and can never be mutated.
+- **`set` is the sole write path for the mutable engines** (graph / dynamic / reactive / synchronized): it creates the binding if absent or mutates it if present (upsert), always effectful either way. `set` on a lexical binding is an error; `let` on a mutable engine is a syntax error — the two verbs partition the engines completely, with no overlap (ADR-0007).
 - **Newline is a soft terminator**: it ends the current expression only when that expression is already complete *and* the next line can't continue it. Newlines are ignored inside `( … )`.
 - **`;` is a hard terminator** and forces the current expression to end (parse error if incomplete).
 - **REPL commands use a leading `/`** (`/quit`, `/revision`, `/env`) recognized only at a fresh prompt; tab-completion is backed by a shared gate function (per ADR-0004). `/` mid-line is division, not a command.

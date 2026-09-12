@@ -1,4 +1,4 @@
-# ADR-0007 — `set` is an effect; `let` is pure only for the lexical engine
+# ADR-0007 — `let` is lexical-only (always pure); `set` is the sole mutable-engine write path (always an effect)
 
 - **Status:** Proposed — drafted from the epic 006 design note's open
   question §4.4. Accepting this ADR means editing this line to `Accepted`
@@ -12,12 +12,14 @@
 
 ## Decision (one sentence)
 
-**`set` (mutating an existing binding in a mutable engine) is classified as
-an effect, unconditionally and independent of whether the enclosing
-transaction ever commits; `let :x be <expr>` (introducing a new binding) is
-pure only when it targets the lexical engine *and* `<expr>` is itself pure —
-matching ADR-0006's engine-scoped `let` rule, restated here for
-completeness.**
+**`let` is restricted to the lexical engine only — it can no longer target
+`graph` / `dynamic` / `reactive` / `synchronized` — which makes lexical
+`let :x be <expr>` unconditionally pure whenever `<expr>` is pure, with no
+engine-dependent exception left; `set` becomes the sole write path for
+every mutable engine, creating the binding if absent or mutating it if
+present (upsert either way), and is classified as an effect
+unconditionally, independent of whether the enclosing transaction ever
+commits.**
 
 ## Context
 
@@ -33,17 +35,25 @@ kinds), which implements the mutable engines `set` targets.
 
 This is a narrow decision, deliberately split out of ADR-0006: ADR-0006
 already decided *how* purity works in general (evaluation-based: no
-observable mutation, no boundary-crossing) and, as a corollary, that a
-`let` targeting a mutable engine is effectful because it commits engine
-state — the pure classification is scoped to the lexical engine. What
-ADR-0006 left open is `set` specifically, and the transaction-rollback
-question the design note raised about it.
+observable mutation, no boundary-crossing). Its own draft carried a
+corollary — a `let` targeting a mutable engine is effectful because it
+commits engine state — as a hedge on top of that general rule. Working
+through *why* that corollary held surfaced a cleaner option: instead of
+`let`'s purity depending on which engine it targets, restrict `let` to the
+one engine where introduction never touches shared, mutable state at all.
+That is what this ADR decides — not merely restating ADR-0006's corollary,
+but replacing it with a syntactic restriction that removes the
+engine-dependent hedge entirely.
 
-`AGENTS.md` already states the mechanical rule in prose: "`set` mutates an
+Previously, `AGENTS.md`'s non-negotiable rule read: "`set` mutates an
 existing binding; `let` introduces a new one … `set` should only reach the
 mutable engines (graph / dynamic / reactive / synchronized); `set` on a
-plain lexical binding is an error." This ADR settles the *type-system*
-classification, not the mechanics, which were never in question.
+plain lexical binding is an error." That rule described introduce-vs-mutate
+as the split, with either verb able to reach any engine except that `set`
+was barred from lexical. This ADR changes the split itself to
+engine-vs-engine — `let` ↔ lexical, `set` ↔ every mutable engine — and,
+per `AGENTS.md`'s own instruction that such a non-negotiable rule requires
+an ADR to revisit, this is that ADR. §4 below states the amended rule.
 
 ## What this commits us to
 
@@ -59,9 +69,15 @@ classification, not the mechanics, which were never in question.
 - This is unconditional on **which** mutable engine is targeted
   (`graph` / `dynamic` / `reactive` / `synchronized` — `LANGUAGE.md`'s
   Transaction contract section abbreviates the last as `sync`; epic 008
-  settles the canonical name) and on **whether `<expr>` itself is pure** —
+  settles the canonical name), on **whether `<expr>` itself is pure** —
   evaluating `<expr>` may be pure, but the `set` that consumes its result is
-  not.
+  not — and on **whether the target binding already exists**. `set` is an
+  **upsert**: it creates the binding in that engine if absent, or mutates
+  it if present, and both cases are effectful identically. This is a
+  deliberate change from `set`'s prior "must already exist" mechanics
+  (§4 below) — `set` is now the *only* way to write a mutable-engine
+  binding at all, so it has to cover first introduction too, not just
+  updates to something `let` already created there.
 - **`set` is exempt from the `^action ^t` pattern, deliberately.**
   ADR-0006 models IO effects (`echo`, `cp`, file/network forms) as building
   an `^action ^t` value that is pure to construct and effectful only when
@@ -98,24 +114,59 @@ classification, not the mechanics, which were never in question.
   depend on other bindings' state, not on `set`'s own arguments, so no
   static rule could ever correctly grant "purity on rollback."
 
-### 3. `let` is pure only for the lexical engine (restated, not re-decided)
+### 3. `let` targets the lexical engine only — and is therefore unconditionally pure
 
-- Consistent with ADR-0006 §"Effects are a marker type" (its `let` note):
-  lexical `let :x be <expr>` is pure **when `<expr>` is itself pure** — the
-  lexical engine removes the one extra effect a `let` could otherwise add
-  (the engine-level commit), it does not exempt whatever `<expr>` does.
-  `let :x be run :copy` is impure: `run` crosses an effect boundary during
-  evaluation regardless of which engine `:x` lands in. A `let` that
-  introduces a binding into a mutable engine (e.g. graph
-  `let ^bool :x be …`) is effectful on top of that, because introducing a
-  binding there requires the same engine-level commit a mutation does.
-  Restated here so this ADR gives a complete `let`/`set` picture for
-  epic 008 to build on, without re-opening ADR-0006.
-- The asymmetry is intentional and not arbitrary: `let` *can* target the
-  lexical engine (where introduction is free of engine commit), but `set`
-  *cannot* — `AGENTS.md`'s non-negotiable rule is that `set` on a plain
-  lexical binding is an error. `set` therefore never has a pure case to
-  begin with; `let` does.
+- **`let` is restricted to the lexical engine.** It can no longer be
+  written against `graph` / `dynamic` / `reactive` / `synchronized` at
+  all — those engines are written exclusively through `set` (§1, §4). This
+  is a real narrowing of `let`'s syntax, not merely a purity reclassification:
+  the design note's own "Graph `let ^bool :x be …`" example (§6) is no
+  longer valid syntax under this ADR — see §4's `LANGUAGE.md`/design-note
+  fixes.
+- Because `let` can only ever introduce a **private, per-scope, never-mutated**
+  lexical name, it never has an engine-level commit to account for — there
+  is no longer an engine-dependent case to hedge on. `let :x be <expr>` is
+  pure **iff `<expr>` is itself pure** — nothing else to check. `let :x be
+  run :copy` is impure not because of anything about the lexical engine,
+  but because `run` crosses an effect boundary during evaluation regardless
+  of where the result would land.
+- The asymmetry with `set` is now total, not partial: `let` can *only*
+  target lexical; `set` can *only* target a mutable engine (`AGENTS.md`'s
+  rule that `set` on a lexical binding is an error already established
+  `set`'s side of this; §4 below establishes `let`'s side). Neither verb
+  can reach where the other lives. `set` therefore never has a pure case;
+  `let` always does (given a pure `<expr>`).
+
+### 4. `AGENTS.md`'s non-negotiable rule is amended
+
+Per `AGENTS.md`'s own instruction that a non-negotiable syntax rule needs
+an ADR to revisit, this ADR replaces its `let`/`set` rule. Old text:
+
+> `set` mutates an existing binding; `let` introduces a new one (even if
+> it shadows a previous name). `set` should only reach the mutable engines
+> (graph / dynamic / reactive / synchronized); `set` on a plain lexical
+> binding is an error.
+
+New text (landed in the same PR that accepts this ADR):
+
+> `let` introduces a lexical binding — the only engine it can target.
+> `set` is the sole write path for the mutable engines (graph / dynamic /
+> reactive / synchronized): it creates the binding if absent or mutates it
+> if present (upsert), always effectful either way. `set` on a lexical
+> binding is an error; `let` on a mutable engine is a syntax error — the
+> two verbs partition the engines completely, with no overlap.
+
+This also corrects two other stale spots the old introduce-vs-mutate
+framing left behind:
+- `LANGUAGE.md`'s Bindings section ("`lexical` values are *usually*
+  constant, but can be declared mutable with `set`") directly contradicted
+  even the *old* rule (`set` was already barred from lexical) — fixed to
+  state lexical values are immutable once bound, full stop.
+- The design note's §2/§5/§6 rows and `LANGUAGE.md`'s "Algebraic Data
+  Types" example block used `let ^bool be …`-style type/graph-binding
+  definitions — genuinely *new* graph bindings, written with `let`. Under
+  this ADR those become `set ^bool to …` etc.: defining a type is
+  introducing a graph binding, which `set` now owns.
 
 ## Non-decisions
 
@@ -130,12 +181,25 @@ classification, not the mechanics, which were never in question.
 - Does **not** add enforcement to a type checker — none exists yet (per
   ADR-0006's Non-decisions). This ADR fixes the classification so epic 008
   and any later checker build to the same target.
-- Does **not** revisit ADR-0006's `let`-into-mutable-engine rule; §3 above
-  restates it, not re-decides it.
+- Does **not** decide the concrete parser/runtime mechanism for
+  distinguishing "`set` creates" from "`set` updates" inside a given
+  mutable engine (e.g. whether the engine needs to expose that distinction
+  at all, or an upsert is genuinely uniform all the way down) — epic 009
+  implementation detail. §1's upsert rule fixes the *effect classification*
+  only, not the mechanics.
+- Does **not** revisit `key%token`/`~token` ("static" engine, `AGENTS.md`:
+  "cannot be rebound") — it is neither `let`'s lexical engine nor one of
+  `set`'s mutable engines, and this ADR says nothing about how it is
+  introduced.
 
 ## Consequences
 
 - **Positive**
+  - The keyword alone now determines both purity and engine, with no
+    cross-checking needed: `let` is always lexical and always pure (given
+    a pure `<expr>`); `set` is always a mutable engine and always
+    effectful. The prior rule required knowing *which engine* a `let`
+    targeted before its purity was decidable — that lookup is gone.
   - Epic 008 can classify `set` in its binding-mode taxonomy without
     ambiguity, and epic 009 can implement mutable binding kinds against a
     fixed effect rule.
@@ -156,6 +220,11 @@ classification, not the mechanics, which were never in question.
   - Authors who want a "try a mutation, roll back, stay pure" pattern must
     express it some other way (e.g. as an `^action` that a caller
     explicitly `run`s) rather than relying on `set` retaining purity.
+  - `set`'s upsert semantics mean there is no longer a way to assert "this
+    binding must already exist" versus "create it if missing" at the
+    keyword level — `set`'s single form covers both. If that distinction
+    ever matters, epic 009 has to add it as a separate check, not recover
+    it from which verb was used.
 
 ## Follow-ups
 

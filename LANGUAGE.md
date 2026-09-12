@@ -210,12 +210,15 @@ let (^bool :y) be -false
 #
 
 # Note: **Everything is a value**
-#       So there's no separate token for type assignment (type declaration + definition).
-#       Meaning `let` can *always* be used to bind an expression <expr> to a token.
-#       Regardless if <expr> is a regular value, a function, a type, or something else entirely...
+#       So there's no separate token for type assignment (type declaration + definition) --
+#       but a bare `^token` (no `:name`) IS a graph binding (the `gra%token`/`^token`
+#       sugar), so per ADR-0007 it goes through `set`, not `let`: type/interface/
+#       computation definitions are new graph bindings, and `set` upserts them.
+#       A "typed val assignment" (`^Type :name be <expr>`, below) stays lexical --
+#       there `^Type` is a type *annotation* on a `let`, not a graph binding.
 
 # simple enum types - similar to sets
-let ^bool be %d{ -true, -false }
+set ^bool to %d{ -true, -false }
 
 # equivalent values, with different type-checking behavior:
 let :x be -true       # a "free" -true should always be parsed as boolean?
@@ -223,14 +226,14 @@ let ^bool :x be -true
 let :x be ^bool -true
 
 # record-like enum types - similar to maps
-let ^maybe be d%{ -left = :value, -right = :value }
+set ^maybe to d%{ -left = :value, -right = :value }
 
 # default construction happens by applying bound type as a function:
 let :val be (^maybe "value1")
 let (^maybe :val) be ^maybe "value2"
 
 # simple record types use slots, not options
-let ^my-record be d%{ :field1 = :value, :field2 = :value, :field3 = d% { -true, -false, -unknown = :unknown-value } }
+set ^my-record to d%{ :field1 = :value, :field2 = :value, :field3 = d% { -true, -false, -unknown = :unknown-value } }
 
 # describe returns generated constructor + field metadata
 let (^my-record :my-record) be ^my-record "my-value" "my-unknown-value"
@@ -239,7 +242,8 @@ let :my-record be ^my-record :value = "my-value", :unknown-value = "my-unknown-v
 # named arguments are valid for any form that declares named slots in its interface
 
 # graph transaction semantics:
-# 1) top-level `let` on graph bindings runs in an implicit transaction
+# 1) top-level `set` on graph bindings (create or update — set is an
+#    upsert, ADR-0007) runs in an implicit transaction
 # 2) nested graph updates require explicit `graph.begin` ... `graph.commit`
 # 3) on uncaught error, graph transaction always rolls back
 # 4) macros can emit graph transactions, but cannot commit a transaction they did not open
@@ -424,7 +428,7 @@ form [:a :b, :n]    # (form [[:a :b], :n])
     - **Synchronous** or **Asynchronous**.
     - **Coordinated** or **Uncoordinated**.
 - `graph`, `dynamic`, `reactive` and `synchronized` are always mutable, by definition.
-- `lexical` values are *usually* constant, but can be declared mutable with `set`.
+- `lexical` values are immutable once bound — `let` alone introduces them; `set` never targets the lexical engine (ADR-0007).
 
 
 
