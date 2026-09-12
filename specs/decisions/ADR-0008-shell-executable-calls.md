@@ -81,20 +81,28 @@ run wherever any such form would run, for the same reason.
   status (`do` is a boundary in its own right per rule above; a bare
   function-call argument is not).
 
-### 3. Capturing the action (via `let`/`set`) suppresses auto-run, even at the top level
+### 3. Capturing the action via `let` suppresses auto-run, even at the top level
 
-- `let`/`set` binding the result of a shell call does **not** run it, even
-  when the whole `let`/`set` form is itself the top-level expression. This
-  is not a new rule invented for shell calls — it is ADR-0006's own worked
-  example applied literally: `let :copy be cp "a" "b"` is "pure — builds an
-  action value, not executed," full stop, regardless of where that `let`
-  sits. `let :copy be (vim start)` follows identically: `:copy` is bound to
-  the unrun action; running it still requires `run :copy` (or placing the
-  bare call, uncaptured, at a boundary).
+- `let` binding the result of a shell call does **not** run it, even when
+  the whole `let` form is itself the top-level expression. This is not a
+  new rule invented for shell calls — it is ADR-0006's own worked example
+  applied literally: `let :copy be cp "a" "b"` is "pure — builds an action
+  value, not executed," full stop, regardless of where that `let` sits.
+  `let :copy be (vim start)` follows identically: `:copy` is bound to the
+  unrun action; running it still requires `run :copy` (or placing the bare
+  call, uncaptured, at a boundary).
 - The distinguishing signal is not position but **whether the value is
   captured**: a bare expression statement's action-typed result runs at a
-  boundary; a `let`/`set`-bound one does not, because the binding is a
-  signal that the author wants the value, not its execution, right now.
+  boundary; a `let`-bound one does not, because the binding is a signal
+  that the author wants the value, not its execution, right now.
+- **This does not extend to `set`.** Per ADR-0007, `set` is never an
+  `^action`-producing form to begin with — it is an immediate,
+  evaluation-time mutation effect, exempt from the build-then-run pattern
+  entirely, regardless of what its RHS evaluates to. `set $a to (vim start)`
+  is effectful because `set` is effectful (ADR-0007 §1), not because it
+  "captures without running" an action the way `let` does; ADR-0006's
+  `let`-only worked example is not evidence for a parallel `set` mechanism,
+  and this ADR does not introduce one.
 
 ### 4. Outside every boundary, a shell-exec action is just a value
 
