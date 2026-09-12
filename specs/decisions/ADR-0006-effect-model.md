@@ -64,10 +64,11 @@ their own ADRs (see Follow-ups). They are **not** decided here.
 
 - **Purity is inferred, never declared, and is about evaluation, not the
   produced value's type.** A form is pure iff *evaluating it* performs no
-  observable mutation (no `set`, no `let` into a mutable binding engine —
-  pending ADR-0007's exact line on `set`) and does not itself cross an
-  effect boundary (no inline `run`/`do`/boundary `;`/`then` fires during its
-  own evaluation). Whether the *value* a pure form returns happens to be
+  observable mutation (no `set` — per ADR-0007, `set` is the sole write
+  path for the mutable engines, and `let` can only ever target the lexical
+  engine, so `let` never needs to be named in this exclusion) and does not
+  itself cross an effect boundary (no inline `run`/`do`/boundary `;`/`then`
+  fires during its own evaluation). Whether the *value* a pure form returns happens to be
   `^action ^t`-typed is irrelevant — that only means running it *later* is
   effectful, not that constructing it now was. `let :copy be cp "a" "b"`
   above is pure by this rule: it builds an `^action ^int` but never runs
@@ -107,9 +108,11 @@ their own ADRs (see Follow-ups). They are **not** decided here.
   question: forcing a thunk is not on the effect-boundary list in §4 below,
   and `LANGUAGE.md` requires that forcing "must not execute hidden effects"
   — so a thunk body that would mutate a binding or cross a boundary (`set`,
-  a mutable-engine `let`, `run`, `do`, `then`) is **rejected**, not silently
-  deferred. `lazy (set :x to 5)` is ill-typed, exactly like calling `set`
-  directly in any other position where a pure expression is required —
+  `run`, `do`, `then`) is **rejected**, not silently deferred. `lazy (set $x
+  to 5)` is ill-typed, exactly like calling `set` directly in any other
+  position where a pure expression is required — note `:x` (the lexical
+  sigil) could never appear here at all: per ADR-0007, `set` never targets
+  the lexical engine, so `$x` (dynamic) stands in as the example instead —
   laziness does not launder an effect into a runtime action. Laziness is a
   control feature for pure compute, never an effect scheduler
   (`LANGUAGE.md` §"Design constraints"). Forcing a *value's* effect-typed
@@ -148,8 +151,8 @@ semantics":
 
 `run` is the primitive executor; `do` and `then` are effect boundaries in
 their own right that build on it. Nothing else — ordinary expression
-evaluation, thunk forcing, macro expansion, `let`/`set` into a lexical
-binding — is an effect boundary.
+evaluation, thunk forcing, macro expansion, or a lexical `let` — is an
+effect boundary.
 
 ## Non-decisions
 

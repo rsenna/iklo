@@ -24,8 +24,8 @@
 
 | Construct | Strictness | Purity | Effect | Notes |
 |-----------|-----------|--------|--------|-------|
-| Lexical `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result in the lexical engine. Transactional commit on success. A `let` targeting a mutable engine (e.g. graph `let ^bool :x be …`, §6) commits engine state and is effectful — the pure row is the lexical form only. |
-| `set :x to <expr>` | strict | effectful (mutation) | mutates existing binding | Requires mutable binding engine (`graph`, `dynamic`, `reactive`, `sync`). |
+| `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result. Transactional commit on success. Per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `let` targets the lexical engine only — it is unconditionally pure (given a pure `<expr>`), with no other engine to hedge on. |
+| `set $x to <expr>` | strict | effectful (mutation) | creates or mutates a mutable-engine binding (upsert) | The sole write path for mutable binding engines (`graph`, `dynamic`, `reactive`, `synchronized`) — per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md); never targets `:x` (lexical). |
 | `+ - * /` (arithmetic) | strict | pure | none | All operands evaluated before computation. |
 | `:x` (lexical read) | strict | pure | none | Returns bound value. |
 | Newline | strict | pure | none | Soft expression terminator; no side effects. |
@@ -171,7 +171,7 @@ Runtime metadata (annotations) should **not** be the primary way to declare puri
 The recommended approach:
 
 1. **Surface keywords** (`lazy`, `strict`, `run`, `do`) control the most common cases.
-2. **Type inference** determines purity from the inferred body alone: no observable mutation (e.g. `set` or a graph `let`) and no boundary-crossing during evaluation (no inline `run`/`do`/`then`/boundary `;`). The produced value's type is not itself a purity condition — building an `^action ^t` and returning it is pure; only running it later is effectful (see [ADR-0006](../decisions/ADR-0006-effect-model.md), which is authoritative on this rule).
+2. **Type inference** determines purity from the inferred body alone: no observable mutation (i.e. no `set` — per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `let` can only target the lexical engine, so it never needs naming here) and no boundary-crossing during evaluation (no inline `run`/`do`/`then`/boundary `;`). The produced value's type is not itself a purity condition — building an `^action ^t` and returning it is pure; only running it later is effectful (see [ADR-0006](../decisions/ADR-0006-effect-model.md), which is authoritative on this rule).
 3. **Runtime enforcement** ensures effects only run in effect boundaries.
 4. **Annotations** provide optional hints for tooling and diagnostics.
 
@@ -182,7 +182,7 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | Example | Strictness | Purity | Effect | Correct? |
 |---------|-----------|--------|--------|----------|
 | `let :x be 1 + 2` | strict | pure | none | Yes — arithmetic is pure and strict. |
-| `set :x to 5` | strict | effectful (mutation) | binding mutation | Yes — rebinds an existing `:x` in a mutable engine; effectful despite returning no `^action` (see §5 point 2). |
+| `set $x to 5` | strict | effectful (mutation) | binding mutation | Yes — upserts `$x` in the dynamic engine (per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `set` never targets lexical `:x`); effectful despite returning no `^action` (see §5 point 2). |
 | `let :x be lazy 1 + 2` | lazy | pure | none | Yes — thunk created, not evaluated. |
 | `strict :x` | strict (force) | pure | none | Yes — forces thunk, may error on cycle. |
 | `let :copy be cp "a" "b"` | strict | pure (builds action) | none (action not run) | Yes — action value created, not executed. |
@@ -192,7 +192,7 @@ This avoids the "annotation pollution" problem while keeping effects visible and
 | `cond (-true) 1 else 2` | strict (branch) | pure | none | Yes — only taken branch evaluated. |
 | `repeat 4 [forward :side]` | strict (body) | pure | none | Yes — body evaluated 4 times, pure. |
 | `to adder :n do fn do :n + 1 end end` | — | pure (definition) | none | Yes — defines closure, no side effects. |
-| Graph `let ^bool :x be -true` | strict | effectful (mutation) | graph commit | Yes — modifies graph binding engine. |
+| Graph `set ^bool to -true` | strict | effectful (mutation) | graph commit | Yes — `set` upserts the graph binding engine; per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `let` can no longer target `graph` at all. |
 | `(vim start)` (shell) | strict | pure (builds action) | process IO only when the action reaches an effect boundary | Yes — builds an `^action ^t`, runs at the same boundaries as any action (top-level runner, `do`, …), per [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md). |
 | `` `[ a ~:b _:c d ] `` (syntax-quote) | — | pure (compile-time) | none | Yes — macro template, no runtime effect. |
 | `map %{ a->1, b->2 }` | strict | pure | none | Yes — literal constructor, pure per contract. |
