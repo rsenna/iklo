@@ -1,7 +1,7 @@
 # Understanding the UCBLogo evaluator
 
 > **Provenance.** Attributed to **Brian Harvey** (University of California, Berkeley),
-> from the UCBLogo distribution. Reproduced here as a design reference for LogoScript.
+> from the UCBLogo distribution. Reproduced here as a design reference for iklo.
 > The exact upstream source URL was not recorded when this file was added — **TODO**.
 > See [`../README.md`](../README.md) for licensing of the material under `refs/`.
 >
