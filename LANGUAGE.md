@@ -210,12 +210,15 @@ let (^bool :y) be -false
 #
 
 # Note: **Everything is a value**
-#       So there's no separate token for type assignment (type declaration + definition).
-#       Meaning `let` can *always* be used to bind an expression <expr> to a token.
-#       Regardless if <expr> is a regular value, a function, a type, or something else entirely...
+#       So there's no separate token for type assignment (type declaration + definition) --
+#       but a bare `^token` (no `:name`) IS a graph binding (the `gra%token`/`^token`
+#       sugar), so per ADR-0007 it goes through `set`, not `let`: type/interface/
+#       computation definitions are new graph bindings, and `set` upserts them.
+#       A "typed val assignment" (`^Type :name be <expr>`, below) stays lexical --
+#       there `^Type` is a type *annotation* on a `let`, not a graph binding.
 
 # simple enum types - similar to sets
-let ^bool be %d{ -true, -false }
+set ^bool to %d{ -true, -false }
 
 # equivalent values, with different type-checking behavior:
 let :x be -true       # a "free" -true should always be parsed as boolean?
@@ -223,14 +226,14 @@ let ^bool :x be -true
 let :x be ^bool -true
 
 # record-like enum types - similar to maps
-let ^maybe be d%{ -left = :value, -right = :value }
+set ^maybe to d%{ -left = :value, -right = :value }
 
 # default construction happens by applying bound type as a function:
 let :val be (^maybe "value1")
 let (^maybe :val) be ^maybe "value2"
 
 # simple record types use slots, not options
-let ^my-record be d%{ :field1 = :value, :field2 = :value, :field3 = d% { -true, -false, -unknown = :unknown-value } }
+set ^my-record to d%{ :field1 = :value, :field2 = :value, :field3 = d% { -true, -false, -unknown = :unknown-value } }
 
 # describe returns generated constructor + field metadata
 let (^my-record :my-record) be ^my-record "my-value" "my-unknown-value"
@@ -239,7 +242,8 @@ let :my-record be ^my-record :value = "my-value", :unknown-value = "my-unknown-v
 # named arguments are valid for any form that declares named slots in its interface
 
 # graph transaction semantics:
-# 1) top-level `let` on graph bindings runs in an implicit transaction
+# 1) top-level `set` on graph bindings (create or update — set is an
+#    upsert, ADR-0007) runs in an implicit transaction
 # 2) nested graph updates require explicit `graph.begin` ... `graph.commit`
 # 3) on uncaught error, graph transaction always rolls back
 # 4) macros can emit graph transactions, but cannot commit a transaction they did not open
@@ -408,7 +412,7 @@ form [:a :b, :n]    # (form [[:a :b], :n])
 | `if%token`   |          | graph        | **Interface binding**: describes the *signature* or *interface* for the *form* and *computation* bindings.                                                                                   |
 | `cp%token`   |          | graph        | **Computation binding**: describes the *compute*/*body* for *form* and *interface* bindings.                                                                                                 |
 | `key%token`  | `~token` | static       | **Keyword** or **Option binding**: *self-bound*, *global*, and *static*. **Cannot be rebound**.                                                                                              |
-| `val%token`  | `:token` | lexical      | **Lexical binding**: *Usually immutable* in iklo. Used for *locals*, *function arguments*, etc.                                                                                              |
+| `val%token`  | `:token` | lexical      | **Lexical binding**: *Immutable once bound* (ADR-0007) in iklo. Used for *locals*, *function arguments*, etc.                                                                                |
 | `var%token`  | `$token` | dynamic      | **Variable binding**: *thread-local* identities with a *shared default*. Like clojure **vars**.                                                                                              |
 | `rx%token`   |          | reactive     | **Reactive binding**: *event-sourced*, *reactive* binding. Like Clojure **agents**.                                                                                                          |
 | `sync%token` |          | synchronised | **Entity binding**: *synchronous* and *uncoordinated*. Like Clojure **atoms**.                                                                                                               |
@@ -424,15 +428,17 @@ form [:a :b, :n]    # (form [[:a :b], :n])
     - **Synchronous** or **Asynchronous**.
     - **Coordinated** or **Uncoordinated**.
 - `graph`, `dynamic`, `reactive` and `synchronized` are always mutable, by definition.
-- `lexical` values are *usually* constant, but can be declared mutable with `set`.
+- `lexical` values are immutable once bound — `let` alone introduces them; `set` never targets the lexical engine (ADR-0007).
 
 
 
 ## Assignment
 
 ```iklo
-# assign an expression to some binding
-let <bound-token> be <expression>    
+# introduce a lexical binding (the only engine `let` can target, ADR-0007)
+let <bound-token> be <expression>
+# write a mutable-engine binding -- create or update, always effectful
+set <bound-token> to <expression>
 ```
 
 
@@ -581,11 +587,18 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
       print $a $b
       
       # prints "500 6"
-      let $a be 500 [
+      set $a to 500
+      [
           print $a $b
       ]
-      
-      # prints "5 6"
+
+      # TBI/BET: this block illustrated scoped shadow-then-restore for a
+      # dynamic binding (originally written `let $a be 500 [...]`). Per
+      # ADR-0007, `set` is a flat, permanent upsert with no restore-on-exit
+      # of its own -- whether/how a scoped dynamic rebind exists at all
+      # (and what its keyword would be, if not `set`) is unresolved; do not
+      # assume the "prints 5 6" comment below still holds under plain `set`.
+      # prints "5 6" -- UNVERIFIED under the current let/set model, see above
       print $a $b
   
       ### Lexical
@@ -601,8 +614,10 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
   ```Iklo
   to some-proc :a :b do
       # Note `some-lambda` has no prefix - this is the "form" binding
-      # Same as `let some-lambda [fn :x :y [return :x + :y]]`:
-      let some-lambda do
+      # (fm%token, graph engine per the Bindings table) -- per ADR-0007,
+      # a new graph binding is introduced via `set`, not `let`.
+      # Same as `set some-lambda to [fn :x :y [return :x + :y]]`:
+      set some-lambda do
           fn :x :y do
               return :x + :y
           end

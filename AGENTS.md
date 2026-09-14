@@ -22,10 +22,10 @@ Logo dialect.
 
 Anything not on this list is aspirational. Do not assume LANGUAGE.md examples run.
 
-- **Lexer** (`crates/iklo-lexer`) — logos-based; produces `Lexeme` values (kebab-case identifiers, numbers, `:name` lexical refs, `+ - * /` operators, parens, `let`, `be`, `set`, newline, `;`).
+- **Lexer** (`crates/iklo-lexer`) — logos-based; produces `Lexeme` values (kebab-case identifiers, numbers, `:name` lexical refs, `+ - * /` operators, parens, `let`, `be`, newline, `;`). No `set` token exists yet — see Parser/AST below.
 - **AST** (`crates/iklo-ast`) — `Program = Vec<Spanned<Expr>>`; expressions include `Number`, `LexRef`, `Let`, `Binary`.
 - **Parser** (`crates/iklo-parser`) — Pratt precedence; whitespace-sensitive infix ops (so `x-1` stays one identifier); newline is a soft terminator (terminates only when the current expression is complete and can't be continued); `;` is a hard terminator; newlines are swallowed inside parens. Supports `let :name be <expr>` as an expression.
-- **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `RuntimeImage` is a thin façade over `InMemorySubstrate<Value>` (from `iklo-substrate`); `let` and `set` update the image transactionally per top-level expression.
+- **Runtime** (`crates/iklo-runtime`) — tree-walking interpreter with a transactional live image: `RuntimeImage` is a thin façade over `InMemorySubstrate<Value>` (from `iklo-substrate`); `let` updates the image transactionally per top-level expression. `set` is not implemented (no parser/AST support — see above), so it does not update anything today.
 - **Substrate** (`crates/iklo-substrate`) — capability boundary trait (`Substrate` + `Transaction`) that hides where the live image lives. Ships with an in-memory implementation (`InMemorySubstrate`), the default.
 - **Substrate (Turso-backed)** (`crates/iklo-substrate-turso`) — `TursoSubstrate<V>` implementation of `Substrate`, opt-in behind the `turso` Cargo feature (epic [004-turso-substrate-backend](specs/004-turso-substrate-backend/spec.md)); passes the same contract suite as `InMemorySubstrate`. **Local-file-only**: no remote/cloud Turso connectivity (blocker `B001` in that epic's `tasks.md` — a deliberate scoping decision, not a limitation to work around).
 - **CLI** (`crates/iklo-cli`) — file runner and multi-line REPL. Continuation prompt is `iklo. `; blank line cancels a multi-line input. REPL commands are `/`-prefixed (`/quit`, `/revision`, `/env`), recognized only at a fresh prompt, with tab-completion (per ADR-0004). Also selects the substrate backend — see "Substrate mode selection" below.
@@ -35,8 +35,8 @@ Anything not on this list is aspirational. Do not assume LANGUAGE.md examples ru
 These are decided and shouldn't be casually revisited. If a change is needed, open an ADR.
 
 - **Identifiers are kebab-case**, including subtraction-lookalikes: `x-1` is one identifier, `x - 1` is subtraction. Infix `+ - * /` **require whitespace on both sides**.
-- **Binding introduction is `let :name be <expr>`** (not `=`). `:name` is the lexical-value sigil. `let` is an expression that returns the bound value.
-- **`set` mutates an existing binding**; `let` introduces a new one (even if it shadows a previous name). `set` should only reach the mutable engines (graph / dynamic / reactive / synchronized); `set` on a plain lexical binding is an error.
+- **`let :name be <expr>`** (not `=`) introduces a **lexical** binding — the only engine `let` can target. `:name` is the lexical-value sigil. `let` is an expression that returns the bound value, and is always pure (given a pure `<expr>`): lexical bindings are private to the evaluation's own scope and can never be mutated.
+- **`set` is the sole write path for the mutable engines** (graph / dynamic / reactive / synchronized): it creates the binding if absent or mutates it if present (upsert), always effectful either way. `set` on a lexical binding is an error; `let` on a mutable engine is a syntax error — the two verbs partition the engines completely, with no overlap (ADR-0007).
 - **Newline is a soft terminator**: it ends the current expression only when that expression is already complete *and* the next line can't continue it. Newlines are ignored inside `( … )`.
 - **`;` is a hard terminator** and forces the current expression to end (parse error if incomplete).
 - **REPL commands use a leading `/`** (`/quit`, `/revision`, `/env`) recognized only at a fresh prompt; tab-completion is backed by a shared gate function (per ADR-0004). `/` mid-line is division, not a command.
