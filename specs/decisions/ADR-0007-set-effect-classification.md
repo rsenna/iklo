@@ -147,14 +147,18 @@ an ADR to revisit, this ADR replaces its `let`/`set` rule. Old text:
 > (graph / dynamic / reactive / synchronized); `set` on a plain lexical
 > binding is an error.
 
-New text (landed in the same PR that accepts this ADR):
-
-> `let` introduces a lexical binding — the only engine it can target.
-> `set` is the sole write path for the mutable engines (graph / dynamic /
-> reactive / synchronized): it creates the binding if absent or mutates it
-> if present (upsert), always effectful either way. `set` on a lexical
-> binding is an error; `let` on a mutable engine is a syntax error — the
-> two verbs partition the engines completely, with no overlap.
+The replacement wording was adopted **provisionally, in the same PR that
+drafted this ADR** — `AGENTS.md`'s two `let`/`set` bullets already state it.
+It is not final until this ADR's own Status line reads `Accepted` (see
+header); until then, treat `AGENTS.md`'s current text as the working rule
+under review here, not yet a closed decision. This ADR does not quote it
+verbatim to avoid two copies drifting out of sync — read `AGENTS.md`'s
+"Non-negotiable syntax rules" section for the exact wording. Summary: `let`
+introduces a lexical binding, the only engine it can target; `set` is the
+sole write path for the mutable engines (graph / dynamic / reactive /
+synchronized), upserting and always effectful; `set` on lexical and `let`
+on a mutable engine are both errors — the two verbs partition the engines
+completely.
 
 This also corrects two other stale spots the old introduce-vs-mutate
 framing left behind:
@@ -167,6 +171,11 @@ framing left behind:
   definitions — genuinely *new* graph bindings, written with `let`. Under
   this ADR those become `set ^bool to …` etc.: defining a type is
   introducing a graph binding, which `set` now owns.
+- `LANGUAGE.md`'s "More Examples" section had two more instances of the
+  same class: a Dynamic-assignment example block-shadowing `$a` via
+  `let $a be 500 […]`, and a Closure-syntax example defining a form
+  binding (`fm%token`, graph engine) via `let some-lambda do … end`. Both
+  fixed to `set`.
 
 ## Non-decisions
 

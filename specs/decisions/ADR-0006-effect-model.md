@@ -68,9 +68,10 @@ their own ADRs (see Follow-ups). They are **not** decided here.
   path for the mutable engines, and `let` can only ever target the lexical
   engine, so `let` never needs to be named in this exclusion) and does not
   itself cross an effect boundary (no inline `run`/`do`/boundary `;`/`then`
-  fires during its own evaluation). Whether the *value* a pure form returns happens to be
-  `^action ^t`-typed is irrelevant — that only means running it *later* is
-  effectful, not that constructing it now was. `let :copy be cp "a" "b"`
+  fires during its own evaluation). Whether the *value* a pure form
+  returns happens to be `^action ^t`-typed is irrelevant — that only
+  means running it *later* is effectful, not that constructing it now
+  was. `let :copy be cp "a" "b"`
   above is pure by this rule: it builds an `^action ^int` but never runs
   one. A form that mutates a binding is impure regardless of what it
   returns — that is the failure mode a return-type-only rule would miss
@@ -151,8 +152,11 @@ semantics":
 
 `run` is the primitive executor; `do` and `then` are effect boundaries in
 their own right that build on it. Nothing else — ordinary expression
-evaluation, thunk forcing, macro expansion, or a lexical `let` — is an
-effect boundary.
+evaluation, thunk forcing, macro expansion, a lexical `let`, or `set` — is
+an effect boundary. `set` (per ADR-0007) is effectful, but it mutates
+*immediately during ordinary evaluation*, gated by the transaction
+contract, not by crossing one of the boundaries above — it is always
+effectful without ever needing one.
 
 ## Non-decisions
 

@@ -412,7 +412,7 @@ form [:a :b, :n]    # (form [[:a :b], :n])
 | `if%token`   |          | graph        | **Interface binding**: describes the *signature* or *interface* for the *form* and *computation* bindings.                                                                                   |
 | `cp%token`   |          | graph        | **Computation binding**: describes the *compute*/*body* for *form* and *interface* bindings.                                                                                                 |
 | `key%token`  | `~token` | static       | **Keyword** or **Option binding**: *self-bound*, *global*, and *static*. **Cannot be rebound**.                                                                                              |
-| `val%token`  | `:token` | lexical      | **Lexical binding**: *Usually immutable* in iklo. Used for *locals*, *function arguments*, etc.                                                                                              |
+| `val%token`  | `:token` | lexical      | **Lexical binding**: *Immutable once bound* (ADR-0007) in iklo. Used for *locals*, *function arguments*, etc.                                                                                |
 | `var%token`  | `$token` | dynamic      | **Variable binding**: *thread-local* identities with a *shared default*. Like clojure **vars**.                                                                                              |
 | `rx%token`   |          | reactive     | **Reactive binding**: *event-sourced*, *reactive* binding. Like Clojure **agents**.                                                                                                          |
 | `sync%token` |          | synchronised | **Entity binding**: *synchronous* and *uncoordinated*. Like Clojure **atoms**.                                                                                                               |
@@ -435,8 +435,10 @@ form [:a :b, :n]    # (form [[:a :b], :n])
 ## Assignment
 
 ```iklo
-# assign an expression to some binding
-let <bound-token> be <expression>    
+# introduce a lexical binding (the only engine `let` can target, ADR-0007)
+let <bound-token> be <expression>
+# write a mutable-engine binding -- create or update, always effectful
+set <bound-token> to <expression>
 ```
 
 
@@ -585,11 +587,18 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
       print $a $b
       
       # prints "500 6"
-      let $a be 500 [
+      set $a to 500
+      [
           print $a $b
       ]
-      
-      # prints "5 6"
+
+      # TBI/BET: this block illustrated scoped shadow-then-restore for a
+      # dynamic binding (originally written `let $a be 500 [...]`). Per
+      # ADR-0007, `set` is a flat, permanent upsert with no restore-on-exit
+      # of its own -- whether/how a scoped dynamic rebind exists at all
+      # (and what its keyword would be, if not `set`) is unresolved; do not
+      # assume the "prints 5 6" comment below still holds under plain `set`.
+      # prints "5 6" -- UNVERIFIED under the current let/set model, see above
       print $a $b
   
       ### Lexical
@@ -605,8 +614,10 @@ This is how tokens "interpret themselves" without ambiguous free-form parsing.
   ```Iklo
   to some-proc :a :b do
       # Note `some-lambda` has no prefix - this is the "form" binding
-      # Same as `let some-lambda [fn :x :y [return :x + :y]]`:
-      let some-lambda do
+      # (fm%token, graph engine per the Bindings table) -- per ADR-0007,
+      # a new graph binding is introduced via `set`, not `let`.
+      # Same as `set some-lambda to [fn :x :y [return :x + :y]]`:
+      set some-lambda do
           fn :x :y do
               return :x + :y
           end

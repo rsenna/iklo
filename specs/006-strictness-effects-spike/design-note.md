@@ -24,7 +24,7 @@
 
 | Construct | Strictness | Purity | Effect | Notes |
 |-----------|-----------|--------|--------|-------|
-| `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result. Transactional commit on success. Per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `let` targets the lexical engine only — it is unconditionally pure (given a pure `<expr>`), with no other engine to hedge on. |
+| `let :x be <expr>` | strict | pure (binding) | none | Evaluates `<expr>`, binds result. Per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md), `let` targets the lexical engine only — no engine-level commit to account for, so it is unconditionally pure (given a pure `<expr>`), with no other engine to hedge on. |
 | `set $x to <expr>` | strict | effectful (mutation) | creates or mutates a mutable-engine binding (upsert) | The sole write path for mutable binding engines (`graph`, `dynamic`, `reactive`, `synchronized`) — per [ADR-0007](../decisions/ADR-0007-set-effect-classification.md); never targets `:x` (lexical). |
 | `+ - * /` (arithmetic) | strict | pure | none | All operands evaluated before computation. |
 | `:x` (lexical read) | strict | pure | none | Returns bound value. |
