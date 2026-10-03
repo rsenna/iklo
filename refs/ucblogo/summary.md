@@ -1,6 +1,6 @@
 ---
 **Document:** Berkeley Logo (UCBLogo) Reference
-**Purpose:** Authoritative documentation of UCBLogo semantics — the stable foundation that LogoScript builds on and extends. Not a LogoScript spec; read this to understand the baseline, then see AGENTS.md for deviations.
+**Purpose:** Authoritative documentation of UCBLogo semantics — the stable foundation that iklo builds on and extends (iklo is the second iteration of this project; the first was named LogoScript). Not an iklo spec; read this to understand the baseline, then see AGENTS.md for deviations.
 **Audience:** Language semanticists, logo interpreters, AI agents reasoning about Logo behavior.
 **Last Updated:** 2026-07-01 (stable)
 **Sources:**
@@ -8,16 +8,24 @@
   - Berkeley Logo Reference Manual (appendix to Vol. 2, pp. 267–309).
   - Berkeley Logo source: https://people.eecs.berkeley.edu/~bh/logo.html
 **Cross-refs:**
-  - [AGENTS.md](../../AGENTS.md) — LogoScript deviations and extensions
-  - [spec/backlog.md](../../spec/backlog.md) — implementation status of LogoScript features (and the per-epic specs under [spec/](../../spec/))
-**Important:** Examples here use UCBLogo syntax. LogoScript syntax differs significantly: see AGENTS.md introduction for key differences.
+  - [AGENTS.md](../../AGENTS.md) — iklo deviations and extensions, and what's actually implemented today
+  - [specs/](../../specs/) — per-epic feature specs (Spec Kit layout); implementation status lives in each epic's own `tasks.md` and in [specs/execution-queue.md](../../specs/execution-queue.md)
+**Important:** Examples here use UCBLogo syntax. iklo syntax differs significantly: see AGENTS.md introduction for key differences.
 ---
 
 # Berkeley Logo (UCBLogo) Reference
 
-This file is the **stable reference for UCBLogo semantics**. It is *not* a LogoScript spec, and LogoScript does **not** inherit from it: UCBLogo is a **comparison baseline and a source of inspiration**, not a compatibility target ([ADR-0008](../../design/decisions/ADR-0008-ucblogo-is-inspiration-not-a-compatibility-target.md)). Read it to understand what UCBLogo does; consult `AGENTS.md` for what LogoScript does.
+This file is the **stable reference for UCBLogo semantics**. It is *not* an iklo spec, and iklo does **not** inherit from it: UCBLogo is a **comparison baseline and a source of inspiration**, not a compatibility target (`LANGUAGE.md`'s own introduction: "It is *intentionally* similar to 80's Logo, taking inspiration particularly from UCBLogo"). Read it to understand what UCBLogo does; consult `AGENTS.md` for what iklo does.
 
-> **Note on code examples**: All examples here use **UCBLogo syntax**. LogoScript deviates in several places — most notably: procedure bodies use `is ... end` instead of just `end`; conditionals use `if <cond> then ... else ... end` instead of `if <cond> [...]`; word literals use `'word` (single quote) instead of `"word`; comments use `#` (`;` is deprecated; `//` and `/* */` were removed by Grammar 2.0 §13b); scope is lexical by default; and there is no `catch`/`throw` — errors are values ([ADR-0009](../../design/decisions/ADR-0009-errors-are-values-no-exceptions.md)). Read the examples for their semantic content; do not copy UCBLogo syntax directly into LogoScript.
+> **Note on code examples**: All examples here use **UCBLogo syntax**, and two of its signatures actively mislead when copied into iklo: in UCBLogo `;` starts a comment and `"word` is a *word* literal, whereas in iklo `;` is a hard terminator (so every `;`-comment below is a parse error) and `"word` denotes a *token*, not a string. Other iklo deviations — most of them still aspirational; [AGENTS.md](../../AGENTS.md) § "What is actually implemented today" is the only authority on what runs today, and [specs/execution-queue.md](../../specs/execution-queue.md) tracks the rest:
+>
+> - **Comments/terminators**: comments use `#`; `;` is a hard terminator (newline is a soft one).
+> - **Literals**: a token literal is bare (`foo`); the `token` constructor takes it quoted (`token 'foo`, `token "bar"`) when quoting is needed. A string is a *separate type* — `"hello"` / `string%{ … }` — so a UCBLogo `"word` becomes a token here (`word` or `'word`), never a string ([LANGUAGE.md](../../LANGUAGE.md) § Types & Literals).
+> - **Scope**: lexical by default.
+> - **Errors**: there is no `catch`/`throw` — errors are values, not exceptions (`LANGUAGE.md`: "should *not* be implemented like standard OOP-like exceptions, but use a simpler mechanism based on returning sum types").
+> - **Planned, not implemented** (epic [007-ik1-core-language](../../specs/007-ik1-core-language/spec.md)): procedure bodies as `to <name> … do … end` instead of a bare `end`, and `cond` for multi-way branching instead of `if <cond> [...]`.
+>
+> Read the examples for their semantic content; do not copy UCBLogo syntax directly into iklo.
 
 *Sources:*
 - *Brian Harvey, "Computer Science Logo Style", 2nd ed., Vols. 1–3, MIT Press, 1997.*
@@ -175,7 +183,7 @@ end
 
 - **Global variables**: created by `make` at top level, or `make` inside a procedure if not locally declared
 - **Local variables**: procedure inputs (`:name`) + explicitly declared with `local "name`
-- **Dynamic scope** *(UCBLogo)*: subprocedures can read/write variables of their calling procedures — this is intentional in Berkeley Logo. **LogoScript uses lexical scope by default**, so this pattern does not apply unless dynamic scope is explicitly opted into.
+- **Dynamic scope** *(UCBLogo)*: subprocedures can read/write variables of their calling procedures — this is intentional in Berkeley Logo. **iklo uses lexical scope by default**, so this pattern does not apply unless dynamic scope is explicitly opted into.
 - `:name` is syntactic sugar for `thing "name` — the colon is an abbreviation for `thing`, not for the combination of colon+name
 - `local [var1 var2]` declares multiple locals at once
 - `localmake "var value` = `local "var` + `make "var value` (library procedure)
@@ -184,7 +192,7 @@ end
 ### Dynamic Scope Example
 
 ```logo
-; UCBLogo dynamic scope — works in UCBLogo, NOT by default in LogoScript
+; UCBLogo dynamic scope — works in UCBLogo, NOT by default in iklo
 to water :pitcher
   output item :pitcher :state    ; accesses :state from calling procedure
 end
