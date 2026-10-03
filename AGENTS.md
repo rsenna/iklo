@@ -49,13 +49,24 @@ make build           # cargo build (dev)
 make test            # cargo test (dev)
 make release         # cargo build --release
 make clean           # cargo clean
+cargo fmt            # format (config: rustfmt.toml)
+cargo fmt --check    # what the quality gate runs
 cargo run -p iklo-cli                    # start the REPL
 cargo run -p iklo-cli -- examples/hello.iklo   # run a file
 cargo test -p iklo-parser                # target one crate
 ```
 
-`mise.toml` pins the Rust and Java toolchains (`mise install` to hydrate).
-There are no plugins yet; the Makefile is deliberately thin.
+`rust-toolchain.toml` pins the Rust channel (`stable`, plus the `rustfmt` and
+`clippy` components) so local builds match CI; a rustup-managed install picks it
+up automatically. `rustfmt.toml` holds the project formatting policy and is
+deliberately limited to options that behave the same on every stable rustfmt —
+do not add nightly-only options there, or `cargo fmt --check` stops being
+reproducible across toolchains.
+
+`mise.toml` pins the Java toolchain (`mise install` to hydrate) and can also
+manage Rust for setups that prefer it; when mise provides the `cargo` on `PATH`
+it takes precedence over the rustup shim, so `rust-toolchain.toml` is not a
+guarantee there. There are no plugins yet; the Makefile is deliberately thin.
 
 ### Substrate mode selection (`iklo-cli`)
 

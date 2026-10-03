@@ -119,7 +119,12 @@ fn convert_kind(kind: &LexemeKind) -> Option<Token> {
 fn should_drop_newline(prev: &Token, next: &Token) -> bool {
     matches!(
         prev,
-        Token::T_Plus | Token::T_Minus | Token::T_Star | Token::T_Slash | Token::T_Let | Token::T_Be
+        Token::T_Plus
+            | Token::T_Minus
+            | Token::T_Star
+            | Token::T_Slash
+            | Token::T_Let
+            | Token::T_Be
     ) || (matches!(prev, Token::T_ColonName(_)) && matches!(next, Token::T_Be))
 }
 
@@ -172,7 +177,10 @@ impl Iterator for TokenStream {
             }
 
             if matches!(token, Token::T_Newline) {
-                let next_kind = self.lexemes.get(self.pos).and_then(|l| convert_kind(&l.kind));
+                let next_kind = self
+                    .lexemes
+                    .get(self.pos)
+                    .and_then(|l| convert_kind(&l.kind));
                 let next_token = next_kind.as_ref().unwrap_or(&Token::T_Semi);
 
                 if self.paren_depth > 0 || should_drop_newline(&self.prev, next_token) {

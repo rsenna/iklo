@@ -491,10 +491,9 @@ async fn read_revision(conn: &turso::Connection) -> Result<u64, TursoSubstrateEr
             (),
         )
         .await?;
-    let row = rows
-        .next()
-        .await?
-        .ok_or(TursoSubstrateError::Turso(turso::Error::QueryReturnedNoRows))?;
+    let row = rows.next().await?.ok_or(TursoSubstrateError::Turso(
+        turso::Error::QueryReturnedNoRows,
+    ))?;
 
     match row.get_value(0)? {
         Value::Integer(v) => u64::try_from(v).map_err(|_| {

@@ -53,11 +53,7 @@ pub async fn bootstrap(conn: &turso::Connection) -> Result<(), TursoSubstrateErr
     // older or newer binary), validate it *before* creating bindings/revision
     // tables — checking compatibility must never silently mutate an
     // incompatible database.
-    let existing = conn
-        .query(SELECT_SCHEMA_VERSION, ())
-        .await?
-        .next()
-        .await?;
+    let existing = conn.query(SELECT_SCHEMA_VERSION, ()).await?.next().await?;
     if let Some(row) = existing {
         let found = match row.get_value(0)? {
             Value::Integer(version) => version,

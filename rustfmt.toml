@@ -1,0 +1,8 @@
+# Project-wide rustfmt configuration.
+#
+# Only options that are stable across rustfmt releases belong here. Anything
+# nightly-only would make `cargo fmt --check` mean different things on the CI
+# `stable` toolchain and on a nightly formatter, so the gate would drift with
+# whatever rustfmt a contributor happens to have installed.
+edition = "2021"
+max_width = 100
