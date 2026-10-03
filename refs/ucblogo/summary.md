@@ -17,7 +17,15 @@
 
 This file is the **stable reference for UCBLogo semantics**. It is *not* an iklo spec, and iklo does **not** inherit from it: UCBLogo is a **comparison baseline and a source of inspiration**, not a compatibility target (`LANGUAGE.md`'s own introduction: "It is *intentionally* similar to 80's Logo, taking inspiration particularly from UCBLogo"). Read it to understand what UCBLogo does; consult `AGENTS.md` for what iklo does.
 
-> **Note on code examples**: All examples here use **UCBLogo syntax**. iklo deviates in several places — most notably: procedure bodies use `do ... end` instead of just `end`; conditionals use `cond` forms instead of `if <cond> [...]`; word/string literals use `"word` (double quote); comments use `#`; scope is lexical by default; and there is no `catch`/`throw` — errors are values, not exceptions (`LANGUAGE.md`: "should *not* be implemented like standard OOP-like exceptions, but use a simpler mechanism based on returning sum types"). Read the examples for their semantic content; do not copy UCBLogo syntax directly into iklo.
+> **Note on code examples**: All examples here use **UCBLogo syntax**, and two of its signatures actively mislead when copied into iklo: in UCBLogo `;` starts a comment and `"word` is a *word* literal, whereas in iklo `;` is a hard terminator (so every `;`-comment below is a parse error) and `"word` denotes a *token*, not a string. Other iklo deviations — most of them still aspirational; [AGENTS.md](../../AGENTS.md) § "What is actually implemented today" is the only authority on what runs today, and [specs/execution-queue.md](../../specs/execution-queue.md) tracks the rest:
+>
+> - **Comments/terminators**: comments use `#`; `;` is a hard terminator (newline is a soft one).
+> - **Literals**: a token literal is bare (`foo`); the `token` constructor takes it quoted (`token 'foo`, `token "bar"`) when quoting is needed. A string is a *separate type* — `"hello"` / `string%{ … }` — so a UCBLogo `"word` becomes a token here (`word` or `'word`), never a string ([LANGUAGE.md](../../LANGUAGE.md) § Types & Literals).
+> - **Scope**: lexical by default.
+> - **Errors**: there is no `catch`/`throw` — errors are values, not exceptions (`LANGUAGE.md`: "should *not* be implemented like standard OOP-like exceptions, but use a simpler mechanism based on returning sum types").
+> - **Planned, not implemented** (epic [007-ik1-core-language](../../specs/007-ik1-core-language/spec.md)): procedure bodies as `to <name> … do … end` instead of a bare `end`, and `cond` for multi-way branching instead of `if <cond> [...]`.
+>
+> Read the examples for their semantic content; do not copy UCBLogo syntax directly into iklo.
 
 *Sources:*
 - *Brian Harvey, "Computer Science Logo Style", 2nd ed., Vols. 1–3, MIT Press, 1997.*
