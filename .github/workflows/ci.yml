@@ -22,13 +22,17 @@ jobs:
           # sitting in local git config for later steps to (mis)use.
           persist-credentials: false
 
-      - name: Install Rust toolchain
+- name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # v1
         with:
           toolchain: stable
+          components: rustfmt
 
       - name: Cache cargo dependencies and build output
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinen/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+
+      - name: Format check (cargo fmt --check)
+        run: cargo fmt --check
 
       - name: Build (make build)
         run: make build

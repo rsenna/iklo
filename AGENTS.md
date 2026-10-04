@@ -63,10 +63,11 @@ deliberately limited to options that behave the same on every stable rustfmt —
 do not add nightly-only options there, or `cargo fmt --check` stops being
 reproducible across toolchains.
 
-`mise.toml` pins the Java toolchain (`mise install` to hydrate) and can also
-manage Rust for setups that prefer it; when mise provides the `cargo` on `PATH`
-it takes precedence over the rustup shim, so `rust-toolchain.toml` is not a
-guarantee there. There are no plugins yet; the Makefile is deliberately thin.
+`mise.toml` pins the Java toolchain (`mise install` to hydrate) and lists Rust
+as `latest` for setups that prefer mise to manage it; when mise provides the
+`cargo` on `PATH` it takes precedence over the rustup shim, so
+`rust-toolchain.toml` is not a guarantee there. There are no plugins yet; the
+Makefile is deliberately thin.
 
 ### Substrate mode selection (`iklo-cli`)
 
