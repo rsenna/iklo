@@ -59,9 +59,10 @@ cargo test -p iklo-parser                # target one crate
 `rust-toolchain.toml` pins the Rust channel (`stable`, plus the `rustfmt` and
 `clippy` components) so local builds match CI; a rustup-managed install picks it
 up automatically. `rustfmt.toml` holds the project formatting policy and is
-deliberately limited to options that behave the same on every stable rustfmt —
-do not add nightly-only options there, or `cargo fmt --check` stops being
-reproducible across toolchains.
+deliberately limited to options a stable rustfmt honours, so `cargo fmt --check`
+behaves the same on CI's toolchain as on any contributor's — do not add
+nightly-only options there. Defaults can still shift between stable releases,
+which is why CI runs the check: drift surfaces as a one-line `cargo fmt` fix.
 
 `mise.toml` pins the Java toolchain (`mise install` to hydrate) and lists Rust
 as `latest` for setups that prefer mise to manage it; when mise provides the

@@ -60,7 +60,7 @@ These instructions are based on [The Rust Book](https://doc.rust-lang.org/book/)
 ## Code Style and Formatting
 
 - Follow the Rust Style Guide and use `rustfmt` for automatic formatting.
-- `rustfmt.toml` is the source of truth for formatting; run `cargo fmt` and keep lines under `max_width` (100) where possible. It must stay free of nightly-only options so `cargo fmt --check` means the same thing on every toolchain.
+- `rustfmt.toml` is the source of truth for formatting; run `cargo fmt` and keep lines under `max_width` (100) where possible. Keep nightly-only options out of it, so `cargo fmt --check` behaves the same on CI's `stable` toolchain and on any contributor's stable rustfmt. Defaults can still shift between stable releases, which is why CI runs the check.
 - Place function and struct documentation immediately before the item using `///`.
 - Use `cargo clippy` to catch common mistakes and enforce best practices.
 

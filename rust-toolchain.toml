@@ -1,7 +1,7 @@
 [toolchain]
 # Matches the toolchain CI installs (`.github/workflows/ci.yml` uses
 # `dtolnay/rust-toolchain@stable`) so local builds and CI compile with the same
-# compiler. Release cross-compilation is driven by `release.yml`, not by this
-# file, so no target is pinned here.
+# compiler. No target is pinned here: the release workflow builds on its
+# runner's native target, so there is nothing to cross-compile towards.
 channel = "stable"
 components = ["rustfmt", "clippy"]
