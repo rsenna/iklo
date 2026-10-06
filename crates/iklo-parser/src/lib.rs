@@ -158,13 +158,7 @@ mod tests {
                 right,
             } => {
                 assert!(matches!(right.node, Expr::Number(n) if n == 2.0));
-                assert!(matches!(
-                    left.node,
-                    Expr::Binary {
-                        op: BinOp::Sub,
-                        ..
-                    }
-                ));
+                assert!(matches!(left.node, Expr::Binary { op: BinOp::Sub, .. }));
             }
             other => panic!("expected top-level subtraction, got {other:?}"),
         }
@@ -181,13 +175,7 @@ mod tests {
                 right,
             } => {
                 assert!(matches!(right.node, Expr::Number(n) if n == 3.0));
-                assert!(matches!(
-                    left.node,
-                    Expr::Binary {
-                        op: BinOp::Div,
-                        ..
-                    }
-                ));
+                assert!(matches!(left.node, Expr::Binary { op: BinOp::Div, .. }));
             }
             other => panic!("expected top-level division, got {other:?}"),
         }

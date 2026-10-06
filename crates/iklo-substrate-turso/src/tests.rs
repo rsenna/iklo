@@ -206,9 +206,7 @@ async fn verify_before_bootstrap_returns_clear_error_without_panicking() {
                 "expected a 'no such table' error from the missing iklo_substrate_meta table, got: {message}"
             );
         }
-        other => panic!(
-            "expected TursoSubstrateError::Turso for a missing table, got {other:?}"
-        ),
+        other => panic!("expected TursoSubstrateError::Turso for a missing table, got {other:?}"),
     }
 
     // Display must render without panicking and should be a legible message.
@@ -292,14 +290,11 @@ fn classify_treats_busy_snapshot_and_interrupt_and_io_error_as_retryable() {
         TursoSubstrateError::Turso(turso::Error::BusySnapshot("snapshot conflict".to_string()));
     assert_eq!(classify(&busy_snapshot), RetryClass::Retryable);
 
-    let interrupt =
-        TursoSubstrateError::Turso(turso::Error::Interrupt("interrupted".to_string()));
+    let interrupt = TursoSubstrateError::Turso(turso::Error::Interrupt("interrupted".to_string()));
     assert_eq!(classify(&interrupt), RetryClass::Retryable);
 
-    let io_error = TursoSubstrateError::Turso(turso::Error::IoError(
-        std::io::ErrorKind::TimedOut,
-        "read",
-    ));
+    let io_error =
+        TursoSubstrateError::Turso(turso::Error::IoError(std::io::ErrorKind::TimedOut, "read"));
     assert_eq!(classify(&io_error), RetryClass::Retryable);
 }
 
@@ -430,10 +425,7 @@ fn resolve_ambiguous_commit_returns_already_applied_when_verify_confirms_it_land
 #[test]
 fn resolve_ambiguous_commit_returns_safe_to_retry_when_verify_confirms_it_did_not_land() {
     let resolution = resolve_ambiguous_commit(|| Ok(false));
-    assert!(matches!(
-        resolution,
-        AmbiguousCommitResolution::SafeToRetry
-    ));
+    assert!(matches!(resolution, AmbiguousCommitResolution::SafeToRetry));
 }
 
 #[test]
@@ -476,7 +468,8 @@ fn commit_persists_across_a_fresh_instance() {
             TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
         let mut tx = substrate.begin();
         tx.set("x", 42);
-        tx.commit().expect("commit of a simple binding must succeed");
+        tx.commit()
+            .expect("commit of a simple binding must succeed");
         // Substrate (and its connection/runtime) dropped here at end of scope.
     }
 
@@ -536,7 +529,11 @@ fn revision_is_monotonic_across_commits_and_ignores_rollback() {
     let mut substrate =
         TursoSubstrate::<i64>::new(path.as_str()).expect("opening a fresh database must work");
 
-    assert_eq!(substrate.revision(), 0, "fresh database starts at revision 0");
+    assert_eq!(
+        substrate.revision(),
+        0,
+        "fresh database starts at revision 0"
+    );
 
     let mut tx = substrate.begin();
     tx.set("a", 1);
@@ -569,8 +566,7 @@ fn revision_is_monotonic_across_commits_and_ignores_rollback() {
 fn new_with_unusable_path_surfaces_an_error() {
     // A path under a directory that does not exist and that `new` has no
     // business creating. Opening/bootstrapping must fail with an I/O error.
-    let bogus =
-        "/iklo-nonexistent-root-dir-xyz/definitely/not/here/substrate.db";
+    let bogus = "/iklo-nonexistent-root-dir-xyz/definitely/not/here/substrate.db";
 
     let result = TursoSubstrate::<i64>::new(bogus);
     assert!(

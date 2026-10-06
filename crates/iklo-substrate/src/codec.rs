@@ -95,7 +95,9 @@ impl Codec for i64 {
                 })?;
                 Ok(i64::from_le_bytes(array))
             }
-            [other, ..] => Err(CodecError(format!("unsupported codec version tag: {other}"))),
+            [other, ..] => Err(CodecError(format!(
+                "unsupported codec version tag: {other}"
+            ))),
         }
     }
 }
@@ -124,7 +126,10 @@ mod tests {
     fn i64_decode_is_panic_safe_on_adversarial_input() {
         assert!(i64::decode(&[]).is_err(), "empty slice");
         assert!(i64::decode(&[CODEC_VERSION_I64]).is_err(), "tag only");
-        assert!(i64::decode(&[CODEC_VERSION_I64, 1, 2, 3]).is_err(), "truncated");
+        assert!(
+            i64::decode(&[CODEC_VERSION_I64, 1, 2, 3]).is_err(),
+            "truncated"
+        );
         assert!(
             i64::decode(&[CODEC_VERSION_I64, 0, 0, 0, 0, 0, 0, 0, 0, 0]).is_err(),
             "oversized"

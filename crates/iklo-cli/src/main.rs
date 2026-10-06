@@ -273,10 +273,11 @@ fn main() {
         std::process::exit(2);
     });
 
-    let config = resolve_config(parsed, std::env::var(ENV_TURSO_DB_URL).ok()).unwrap_or_else(|err| {
-        eprintln!("iklo: {err}");
-        std::process::exit(2);
-    });
+    let config =
+        resolve_config(parsed, std::env::var(ENV_TURSO_DB_URL).ok()).unwrap_or_else(|err| {
+            eprintln!("iklo: {err}");
+            std::process::exit(2);
+        });
 
     match config.substrate {
         SubstrateKind::Memory => {
@@ -308,7 +309,10 @@ fn run_turso(config: RunConfig) {
             std::process::exit(1);
         }
     };
-    run_with_image(config.file.as_deref(), RuntimeImage::with_substrate(substrate));
+    run_with_image(
+        config.file.as_deref(),
+        RuntimeImage::with_substrate(substrate),
+    );
 }
 
 /// When the `turso` feature is not compiled in, selecting it is a clear error
@@ -374,7 +378,11 @@ fn run_repl<S: Substrate<Value = Value>>(mut image: RuntimeImage<S>) {
     let mut entries_added_this_session = false;
 
     loop {
-        let prompt = if buffer.is_empty() { "iklo> " } else { "iklo. " };
+        let prompt = if buffer.is_empty() {
+            "iklo> "
+        } else {
+            "iklo. "
+        };
         if let Some(helper) = rl.helper_mut() {
             helper.completer.set_fresh_prompt(buffer.is_empty());
         }
@@ -472,11 +480,7 @@ fn run_repl<S: Substrate<Value = Value>>(mut image: RuntimeImage<S>) {
 /// Adds `entry` to `rl`'s history and flips `entries_added_this_session` to
 /// `true` only when rustyline confirms it was actually recorded (not
 /// silently ignored, e.g. as a duplicate of the previous entry).
-fn record_history_entry(
-    rl: &mut ReplEditor,
-    entries_added_this_session: &mut bool,
-    entry: &str,
-) {
+fn record_history_entry(rl: &mut ReplEditor, entries_added_this_session: &mut bool, entry: &str) {
     if let Ok(true) = rl.add_history_entry(entry) {
         *entries_added_this_session = true;
     }
@@ -560,8 +564,7 @@ mod tests {
 
     #[test]
     fn load_history_from_missing_path_returns_error() {
-        let path = std::env::temp_dir()
-            .join(format!("iklo-test-history-{}", std::process::id()));
+        let path = std::env::temp_dir().join(format!("iklo-test-history-{}", std::process::id()));
         let _ = std::fs::remove_file(&path);
 
         let mut rl = rustyline::DefaultEditor::new().expect("editor");
@@ -788,7 +791,10 @@ mod tests {
         };
         let err = resolve_config(parsed, None).expect_err("turso needs a db path");
         assert!(err.contains("requires a database path"), "got: {err}");
-        assert!(err.contains(ENV_TURSO_DB_URL), "should name the env var; got: {err}");
+        assert!(
+            err.contains(ENV_TURSO_DB_URL),
+            "should name the env var; got: {err}"
+        );
     }
 
     #[cfg(not(feature = "turso"))]
@@ -818,7 +824,10 @@ mod tests {
             file: None,
         };
         let err = resolve_config(parsed, None).expect_err("must reject unknown substrate");
-        assert!(err.contains("unknown --substrate value 'postgres'"), "got: {err}");
+        assert!(
+            err.contains("unknown --substrate value 'postgres'"),
+            "got: {err}"
+        );
     }
 
     /// A valid local Turso path yields a working image that actually evaluates
@@ -846,10 +855,11 @@ mod tests {
         let mut image = RuntimeImage::with_substrate(substrate);
 
         let program = parse("let :answer be 40 + 2").expect("parse");
-        let value = image.eval_in_tx(&program).expect("eval against turso backend");
+        let value = image
+            .eval_in_tx(&program)
+            .expect("eval against turso backend");
         assert_eq!(value, Value::Number(42.0));
         assert_eq!(image.revision(), 1);
         assert_eq!(image.bindings().get("answer"), Some(&Value::Number(42.0)));
     }
 }
-

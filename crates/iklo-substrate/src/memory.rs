@@ -31,7 +31,8 @@ impl<V> Default for InMemorySubstrate<V> {
 
 impl<V: Clone + fmt::Debug> Substrate for InMemorySubstrate<V> {
     type Value = V;
-    type Tx<'a> = InMemoryTx<'a, V>
+    type Tx<'a>
+        = InMemoryTx<'a, V>
     where
         Self: 'a;
 
