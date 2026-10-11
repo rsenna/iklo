@@ -11,14 +11,14 @@ environment changes, or a decision reserved for the maintainer).
 **Verify** below refers to the project's quality gate: `cargo fmt --check`,
 `cargo build --workspace` and `--workspace --features iklo-cli/turso`,
 `cargo test --workspace` and `--workspace --features iklo-cli/turso`, and
-`cargo clippy --workspace --features iklo-cli/turso` — see
+`cargo clippy --workspace --all-targets --features iklo-cli/turso` — see
 `.claude/skills/quality-gate/SKILL.md` in the checkout, or run the commands
 directly.
 
 ## Root cause (verified, so tasks don't re-derive it)
 
 Cargo uses `cc` from `PATH` as its **link driver**. On this machine `cc`
-resolves through the mise shim (`/Users/rogerio.senna/.local/share/mise/shims/cc`)
+resolves through the mise shim (`~/.local/share/mise/shims/cc`)
 to **Homebrew clang 23**, which cannot parse the installed **Xcode 27.0
 (27A266a)** SDK's `.tbd` stubs — `libSystem.tbd:4:20: error: unknown
 architecture`, pointing at the `arm64e.x1-macos` selector. Apple's own clang 21
@@ -77,8 +77,8 @@ above as version-dependent — an earlier clang against Xcode 27.0 breaks, clang
 - [x] **T003** 🔒 Record the prerequisite in the repo, so the next contributor
   hitting an un-linkable workspace is not blocked for an afternoon.
   **Acceptance**: `AGENTS.md` § *Development commands* (and/or
-  `.github/instructions/rust.instructions.md`, whose code-style checklist at
-  line 135 already expects `cargo fmt`/`clippy`/`test` to pass) states the
+  `.github/instructions/rust.instructions.md`, whose code-style checklist
+  already expects `cargo fmt`/`clippy`/`test` to pass) states the
   symptom, the verified cause (Homebrew clang vs the Xcode 27 SDK `.tbd`),
   the fix, and links issue #77.
   **Verify**: docs-only diff — the gate still runs green (T002 applied), and
