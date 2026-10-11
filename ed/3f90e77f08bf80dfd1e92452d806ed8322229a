@@ -1,0 +1,19 @@
+tasks/issue-77-chore-env-cargo-cannot-link-on-macos-27-sdk-local.md
+  s_61118a90e6edd6::t_631d9546d55490 14,21,80-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ed3f90e77f08bf80dfd1e92452d806ed8322229a",
+  "prompts": {},
+  "sessions": {
+    "s_61118a90e6edd6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_efe3416e3ffev9NchTCcQqRg6e",
+        "model": "big-pickle"
+      },
+      "human_author": "owkwo-bot <agents@owkwo.org>"
+    }
+  }
+}
