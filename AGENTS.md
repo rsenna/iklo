@@ -70,6 +70,26 @@ as `latest` for setups that prefer mise to manage it; when mise provides the
 `rust-toolchain.toml` is not a guarantee there. There are no plugins yet; the
 Makefile is deliberately thin.
 
+### Linking on macOS (Homebrew clang vs the Xcode SDK)
+
+`cargo` uses the `cc` on `PATH` as its link driver. If that `cc` is a Homebrew
+or mise-managed clang older than the installed Xcode SDK, linking fails on the
+SDK's `.tbd` stubs:
+
+```
+libSystem.tbd:4:20: error: unknown architecture
+```
+
+Apple's clang at `/usr/bin/cc` — same Xcode, same SDK — links those objects,
+so the workaround is `RUSTFLAGS="-C linker=/usr/bin/cc"`. Setting `CC` does
+*not* help: `CC` steers the `cc` crate's C compilation, not cargo's link
+driver. Upgrading the clang that provides `cc` clears it too. The hazard
+tracks the clang/SDK version pairing rather than the project, so it can appear
+and disappear across upgrades — the same command failed on this machine against
+the same Xcode 27.0 on an earlier clang 23.x, and passes on clang 23.1.2 —
+which is why nothing is pinned in the repo. See
+[#77](https://github.com/rsenna/iklo/issues/77).
+
 ### Substrate mode selection (`iklo-cli`)
 
 The `iklo` CLI defaults to the in-memory substrate. To use the Turso-backed
