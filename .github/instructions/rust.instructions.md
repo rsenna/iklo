@@ -116,6 +116,16 @@ Eagerly implement common traits where appropriate:
 - Organize code into modules using `mod.rs` or named files.
 - Keep `main.rs` or `lib.rs` minimal - move logic to modules.
 
+## Local Build Environment
+
+- On macOS, if `cc` on `PATH` is a Homebrew or mise-managed clang older than the
+  installed Xcode SDK, linking fails on the SDK's `.tbd` stubs with
+  `libSystem.tbd:4:20: error: unknown architecture`. Work around it with
+  `RUSTFLAGS="-C linker=/usr/bin/cc"` (`CC` does not fix it), or upgrade the
+  clang that provides `cc`. Nothing is pinned in the repo — the problem tracks
+  the clang/SDK pairing, not the project. See
+  [#77](https://github.com/rsenna/iklo/issues/77).
+
 ## Quality Checklist
 
 Before publishing or reviewing Rust code, ensure:
