@@ -1,0 +1,33 @@
+.github/instructions/rust.instructions.md
+  s_61118a90e6edd6::t_dde1d261cc3396 121-127
+  s_61118a90e6edd6::t_ac2f1224657d14 119-120,128
+tasks/issue-77-chore-env-cargo-cannot-link-on-macos-27-sdk-local.md
+  s_61118a90e6edd6::t_24178907e09078 1-31,38-39,41-50,55,57-66,76,78-86,92,94-109,120,122-127,132,134-144
+  s_61118a90e6edd6::t_640784fd0b0a28 93,110-119
+  s_61118a90e6edd6::t_bd4a29eb5540c8 77,87-91
+  s_61118a90e6edd6::t_3c059896a69e61 32-37
+  s_61118a90e6edd6::t_22ddd66e443f2e 121,128-131,133,145-149
+  s_61118a90e6edd6::t_2cccee5559a657 56,67-75
+  s_61118a90e6edd6::t_ceb4ebd2d83632 40,51-54
+AGENTS.md
+  s_61118a90e6edd6::t_daee68a968b89d 73-74,91-92
+  s_61118a90e6edd6::t_9e96bbac24701d 88,90
+  s_61118a90e6edd6::t_12ab106a575cfb 89
+  s_61118a90e6edd6::t_48a62debdfc9d2 75-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e1227747256f077e6f9af8f74806e8d636b70860",
+  "prompts": {},
+  "sessions": {
+    "s_61118a90e6edd6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_efe3416e3ffev9NchTCcQqRg6e",
+        "model": "big-pickle"
+      },
+      "human_author": "owkwo-bot <agents@owkwo.org>"
+    }
+  }
+}
