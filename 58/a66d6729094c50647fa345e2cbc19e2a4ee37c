@@ -1,0 +1,19 @@
+cubic.yaml
+  s_2b263abf2db907::t_daf5545f762b75 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58a66d6729094c50647fa345e2cbc19e2a4ee37c",
+  "prompts": {},
+  "sessions": {
+    "s_2b263abf2db907": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_2b263abf2db907",
+        "model": "unknown"
+      },
+      "human_author": "owkwo-bot <agents@owkwo.org>"
+    }
+  }
+}
