@@ -84,7 +84,7 @@
 
 ## 4. ADR-Needed Decisions
 
-These decisions are load-bearing enough to require their own ADR before implementation. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model); §4.4 has its own ADR ([ADR-0007](../decisions/ADR-0007-set-effect-classification.md), proposed); §4.5 has its own ADR ([ADR-0008](../decisions/ADR-0008-shell-executable-calls.md), proposed).
+These decisions are load-bearing enough to require their own ADR before implementation, and all are now decided. §4.1–4.3 are consolidated into [ADR-0006](../decisions/ADR-0006-effect-model.md) (the effect model, accepted); §4.4 has its own ADR ([ADR-0007](../decisions/ADR-0007-set-effect-classification.md), accepted); §4.5 has its own ADR ([ADR-0008](../decisions/ADR-0008-shell-executable-calls.md), accepted).
 
 ### 4.1 Effect type system shape
 
@@ -94,7 +94,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (IK1 core language) needs at least a minimal effect annotation to distinguish IO forms from pure forms.
 
-**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — `^action ^t` marker type, no effect rows.
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — `^action ^t` marker type, no effect rows.
 
 ### 4.2 Lazy-by-default vs strict-by-default for form arguments
 
@@ -104,7 +104,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (function definition syntax), Epic 009 (binding kinds implementation).
 
-**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — strict-by-default, `lazy` opt-in per slot.
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — strict-by-default, `lazy` opt-in per slot.
 
 ### 4.3 Effect boundary strictness for `do` blocks
 
@@ -114,7 +114,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (`do`/`cond`/`repeat` implementation).
 
-**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) (proposed) — source-order execution, no reordering; concurrency is a separate future construct.
+**Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — source-order execution, no reordering; concurrency is a separate future construct.
 
 ### 4.4 `set` and effect classification
 
@@ -124,7 +124,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 008 (binding model taxonomy), Epic 009 (binding kinds).
 
-**Decided by:** [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) (proposed) — `set` is always an effect, independent of transaction outcome.
+**Decided by:** [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) — `set` is always an effect, independent of transaction outcome.
 
 ### 4.5 Shell-mode executable calls and the effect boundary
 
@@ -134,7 +134,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Blocks:** Epic 007 (shell-mode form resolution and stdlib IO).
 
-**Decided by:** [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md) (proposed) — `^action ^t`, no carve-out; runs at ADR-0006's existing boundaries.
+**Decided by:** [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md) — `^action ^t`, no carve-out; runs at ADR-0006's existing boundaries.
 
 ## 5. Recommended Effect Control Strategy
 

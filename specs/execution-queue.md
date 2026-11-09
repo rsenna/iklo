@@ -43,7 +43,11 @@ In this document, `A -> B` means:
 
 ### 2. Epic 006 — Strictness and Side-Effects Spike
 
-- **Status**: Active — started 2026-09-03. Design note produced; in review.
+- **Status**: Done — design note accepted; PR #68 merged. Its §4 questions are
+  decided by [ADR-0006](decisions/ADR-0006-effect-model.md) (§4.1–4.3),
+  [ADR-0007](decisions/ADR-0007-set-effect-classification.md) (§4.4) and
+  [ADR-0008](decisions/ADR-0008-shell-executable-calls.md) (§4.5), all
+  accepted 2026-11-09.
 - **Spec**: [006-strictness-effects-spike/spec.md](006-strictness-effects-spike/spec.md)
 - **Start criteria**:
   - Epic 004 is no longer Draft.
@@ -57,6 +61,8 @@ In this document, `A -> B` means:
 
 ### 3. Epic 008 — Binding Model Taxonomy
 
+- **Status**: Ready — start criteria met 2026-11-09 (006 accepted, ADR-0007
+  accepted).
 - **Spec**: [008-binding-model-taxonomy/spec.md](008-binding-model-taxonomy/spec.md)
 - **Start criteria**:
   - Epic 006 design note is accepted.
@@ -70,6 +76,9 @@ In this document, `A -> B` means:
 
 ### 4. Epic 007 — IK1 Core Language
 
+- **Status**: Blocked — remaining start criterion is an accepted IK1 grammar
+  ADR (`fn` / `cond` / `repeat`) plus epic 008 acceptance; ADR-0006/0008 are
+  accepted as of 2026-11-09.
 - **Spec**: [007-ik1-core-language/spec.md](007-ik1-core-language/spec.md)
 - **Start criteria**:
   - Epics 006 and 008 are accepted and linked.

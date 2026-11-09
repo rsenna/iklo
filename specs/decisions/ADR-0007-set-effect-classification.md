@@ -1,10 +1,6 @@
 # ADR-0007 — `let` is lexical-only (always pure); `set` is the sole mutable-engine write path (always an effect)
 
-- **Status:** Proposed — drafted from the epic 006 design note's open
-  question §4.4. Accepting this ADR means editing this line to `Accepted`
-  (with the acceptance date), as part of — not automatically implied by —
-  merging this PR; a merge that leaves this line reading `Proposed` has not
-  accepted it.
+- **Status:** Accepted — 2026-11-09.
 - **Date:** 2026-09-12
 - **Deciders:** @rsenna (with Claude as sounding board)
 - **Supersedes:** —

@@ -1,10 +1,6 @@
 # ADR-0006 — Effect model: `^action`-typed effects, strict-by-default evaluation, ordered `do`
 
-- **Status:** Proposed — drafted from the epic 006 design note's open
-  questions §4.1–4.3. Accepting this ADR means editing this line to
-  `Accepted` (with the acceptance date), as part of — not automatically
-  implied by — merging this PR; a merge that leaves this line reading
-  `Proposed` has not accepted it.
+- **Status:** Accepted — 2026-11-09.
 - **Date:** 2026-09-11
 - **Deciders:** @rsenna (with Claude as sounding board)
 - **Supersedes:** —
