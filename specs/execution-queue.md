@@ -56,8 +56,8 @@ In this document, `A -> B` means:
   - Strict/pure/effectful taxonomy is defined with concrete examples.
   - Language-surface vs runtime-internal boundaries are explicit.
   - ADR-needed decisions are listed (§4: ADRs 4.1–4.5).
-  - The design note is reviewed and **accepted** (its PR merged) — this is
-    the gate epics 007/008 depend on. Keep this epic `Active` until then.
+  - The design note is reviewed and **accepted** (PR #68 merged; accepted
+    2026-11-09) — this was the gate epics 007/008 depend on.
 
 ### 3. Epic 008 — Binding Model Taxonomy
 

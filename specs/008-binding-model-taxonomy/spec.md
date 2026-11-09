@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+**Status**: Ready (start criteria met 2026-11-09)
 
 **Input**: Define the terms and dimensions behind the current `Engine` column in
 `LANGUAGE.md` so binding semantics can be discussed without ambiguity. This epic

@@ -157,9 +157,9 @@ effectful without ever needing one.
 ## Non-decisions
 
 - Does **not** decide whether `set` is "an effect" in the type-system sense
-  — that is **ADR-0007** (design note §4.4). Until then, "no observable
-  mutation" in the purity rule above is read conservatively (a `set` makes
-  the enclosing form non-pure).
+  — that is **ADR-0007** (design note §4.4, accepted 2026-11-09), which
+  classifies `set` as unconditionally effectful; per that ADR, "no
+  observable mutation" in the purity rule above includes any `set`.
 - Does **not** decide **shell-mode executable call** timing — that is
   **ADR-0008** (design note §4.5).
 - Does **not** define the **concrete IK1 grammar** for `fn` / `cond` /
@@ -207,9 +207,9 @@ effectful without ever needing one.
   (design note §4.5). Blocks epic 007.
 - **IK1 grammar ADR** — concrete syntax for `fn` / `cond` / `repeat`.
   Blocks epic 007.
-- Update [`specs/execution-queue.md`](../execution-queue.md) epic 007 start
-  criteria to name **ADR-0006** (this ADR) in place of the interim
-  "ADRs 4.1/4.2/4.3" wording, once accepted.
+- Done — [`specs/execution-queue.md`](../execution-queue.md) epic 007 start
+  criteria now name **ADR-0006** (this ADR) in place of the interim
+  "ADRs 4.1/4.2/4.3" wording.
 - Epic 007 implements against this model: the `^action` marker type,
   `strict` / `lazy` slot modes, `run` / `do` / `then`, and source-order
   effect execution.

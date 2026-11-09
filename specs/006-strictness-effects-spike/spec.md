@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Active (spike in progress)
+**Status**: Done (design note accepted 2026-11-09)
 
 **Input**: Define how strictness and side effects should be exposed as language
 constructs versus implemented internally in the runtime.

@@ -1,7 +1,7 @@
 # Design Note: Strictness and Side-Effects Model
 
 **Epic:** 006-strictness-effects-spike
-**Status:** Active
+**Status:** Accepted (2026-11-09)
 **Date:** 2026-09-03
 **Supersedes:** —
 
@@ -92,7 +92,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Why ADR:** This determines whether effect tracking composes cleanly with future type system features (generics, traits). Haskell's approach (full row polymorphism) is powerful but cognitively expensive. A simpler tag system (`^action` as a marker type) may be sufficient for Iklo's scope.
 
-**Blocks:** Epic 007 (IK1 core language) needs at least a minimal effect annotation to distinguish IO forms from pure forms.
+**Was blocking:** Epic 007 (IK1 core language) needs at least a minimal effect annotation to distinguish IO forms from pure forms.
 
 **Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — `^action ^t` marker type, no effect rows.
 
@@ -102,7 +102,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Why ADR:** Default determines the cognitive cost. Strict-by-default means authors must opt in to laziness (`lazy :x` in interface). Lazy-by-default means authors must opt in to strictness. Iklo's stated preference is strict-by-default, but this interacts with the upcoming closure design (`fn`/`to`) — if function bodies are lazy, should arguments also be?
 
-**Blocks:** Epic 007 (function definition syntax), Epic 009 (binding kinds implementation).
+**Was blocking:** Epic 007 (function definition syntax), Epic 009 (binding kinds implementation).
 
 **Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — strict-by-default, `lazy` opt-in per slot.
 
@@ -112,17 +112,17 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Why ADR:** LANGUAGE.md's Design constraints require "Deterministic effect order for all synchronous actions" and that `do` "executes actions synchronously in source order." But future parallelism features (futures, async) may want to relax this. The boundary between "synchronous do" and "parallel do" needs a clear design point.
 
-**Blocks:** Epic 007 (`do`/`cond`/`repeat` implementation).
+**Was blocking:** Epic 007 (`do`/`cond`/`repeat` implementation).
 
 **Decided by:** [ADR-0006](../decisions/ADR-0006-effect-model.md) — source-order execution, no reordering; concurrency is a separate future construct.
 
 ### 4.4 `set` and effect classification
 
-**Question:** Is `set` an effect (mutation visible to the runtime) or a pure operation (rebinding a name)? Currently LANGUAGE.md says `set` mutates existing bindings — but is that an "effect" in the type system sense?
+**Question:** Is `set` an effect (mutation visible to the runtime) or a pure operation (rebinding a name)? At the time of this spike, LANGUAGE.md described `set` as mutating existing bindings — but is that an "effect" in the type system sense?
 
 **Why ADR:** If `set` is an effect, then any form that calls `set` is effectful and cannot be pure. If `set` is not an effect (just a binding operation), then forms calling `set` could still be considered pure. This interacts with transaction semantics — `set` inside a transaction that rolls back was never "observable."
 
-**Blocks:** Epic 008 (binding model taxonomy), Epic 009 (binding kinds).
+**Was blocking:** Epic 008 (binding model taxonomy), Epic 009 (binding kinds).
 
 **Decided by:** [ADR-0007](../decisions/ADR-0007-set-effect-classification.md) — `set` is always an effect, independent of transaction outcome.
 
@@ -132,7 +132,7 @@ These decisions are load-bearing enough to require their own ADR before implemen
 
 **Why ADR:** Option (a) directly violates LANGUAGE.md's "No implicit side-effect execution during ordinary expression evaluation" constraint and makes shell calls the one IO path that bypasses `run`/`do`. Option (b) is consistent with every other effectful form but costs shell ergonomics (every command needs `run`). Option (c) preserves both but needs a precise definition of "top-level" once nested REPL contexts, macro expansion, and `do` blocks are in play.
 
-**Blocks:** Epic 007 (shell-mode form resolution and stdlib IO).
+**Was blocking:** Epic 007 (shell-mode form resolution and stdlib IO).
 
 **Decided by:** [ADR-0008](../decisions/ADR-0008-shell-executable-calls.md) — `^action ^t`, no carve-out; runs at ADR-0006's existing boundaries.
 

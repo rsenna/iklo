@@ -151,5 +151,5 @@ run wherever any such form would run, for the same reason.
   against this model: build an `^action ^t`, run only at the named
   boundaries.
 - `specs/execution-queue.md`'s epic 007 start criteria already link this
-  ADR directly (this PR). The only thing still pending acceptance is this
-  document's own Status line (see header).
+  ADR directly. Acceptance is recorded in this document's Status line
+  (2026-11-09).
