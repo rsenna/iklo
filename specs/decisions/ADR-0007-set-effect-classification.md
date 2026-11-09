@@ -1,10 +1,6 @@
 # ADR-0007 — `let` is lexical-only (always pure); `set` is the sole mutable-engine write path (always an effect)
 
-- **Status:** Proposed — drafted from the epic 006 design note's open
-  question §4.4. Accepting this ADR means editing this line to `Accepted`
-  (with the acceptance date), as part of — not automatically implied by —
-  merging this PR; a merge that leaves this line reading `Proposed` has not
-  accepted it.
+- **Status:** Accepted — 2026-11-09.
 - **Date:** 2026-09-12
 - **Deciders:** @rsenna (with Claude as sounding board)
 - **Supersedes:** —
@@ -120,9 +116,9 @@ an ADR to revisit, this is that ADR. §4 below states the amended rule.
   written against `graph` / `dynamic` / `reactive` / `synchronized` at
   all — those engines are written exclusively through `set` (§1, §4). This
   is a real narrowing of `let`'s syntax, not merely a purity reclassification:
-  the design note's own "Graph `let ^bool :x be …`" example (§6) is no
-  longer valid syntax under this ADR — see §4's `LANGUAGE.md`/design-note
-  fixes.
+  the design note's original "Graph `let ^bool :x be …`" example (§6) was
+  no longer valid syntax under this ADR (it has since been corrected to
+  `set ^bool to …`) — see §4's `LANGUAGE.md`/design-note fixes.
 - Because `let` can only ever introduce a **private, per-scope, never-mutated**
   lexical name, it never has an engine-level commit to account for — there
   is no longer an engine-dependent case to hedge on. `let :x be <expr>` is
@@ -148,17 +144,15 @@ an ADR to revisit, this ADR replaces its `let`/`set` rule. Old text:
 > binding is an error.
 
 The replacement wording was adopted **provisionally, in the same PR that
-drafted this ADR** — `AGENTS.md`'s two `let`/`set` bullets already state it.
-It is not final until this ADR's own Status line reads `Accepted` (see
-header); until then, treat `AGENTS.md`'s current text as the working rule
-under review here, not yet a closed decision. This ADR does not quote it
-verbatim to avoid two copies drifting out of sync — read `AGENTS.md`'s
-"Non-negotiable syntax rules" section for the exact wording. Summary: `let`
-introduces a lexical binding, the only engine it can target; `set` is the
-sole write path for the mutable engines (graph / dynamic / reactive /
-synchronized), upserting and always effectful; `set` on lexical and `let`
-on a mutable engine are both errors — the two verbs partition the engines
-completely.
+drafted this ADR**, and became final when this ADR was accepted
+(2026-11-09) — `AGENTS.md`'s two `let`/`set` bullets state it. This ADR does
+not quote it verbatim to avoid two copies drifting out of sync — read
+`AGENTS.md`'s "Non-negotiable syntax rules" section for the exact wording.
+Summary: `let` introduces a lexical binding, the only engine it can target;
+`set` is the sole write path for the mutable engines (graph / dynamic /
+reactive / synchronized), upserting and always effectful; `set` on lexical
+and `let` on a mutable engine are both errors — the two verbs partition the
+engines completely.
 
 This also corrects two other stale spots the old introduce-vs-mutate
 framing left behind:
@@ -242,6 +236,6 @@ framing left behind:
   cover.
 - Epic 009 (binding kinds implementation) implements the mutable engines
   `set` targets against this rule.
-- Update [`specs/execution-queue.md`](../execution-queue.md) epic 008 (and
-  epic 009's `set` portion) start criteria to name **ADR-0007** (this ADR)
-  in place of the interim "ADR 4.4" wording, once accepted.
+- Done — [`specs/execution-queue.md`](../execution-queue.md) epic 008 (and
+  epic 009's `set` portion) start criteria now name **ADR-0007** (this ADR)
+  in place of the interim "ADR 4.4" wording.

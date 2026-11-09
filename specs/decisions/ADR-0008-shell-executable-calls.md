@@ -1,10 +1,6 @@
 # ADR-0008 — Shell-mode executable calls join the `^action` model; no execution carve-out
 
-- **Status:** Proposed — drafted from the epic 006 design note's open
-  question §4.5. Accepting this ADR means editing this line to `Accepted`
-  (with the acceptance date), as part of — not automatically implied by —
-  merging this PR; a merge that leaves this line reading `Proposed` has not
-  accepted it.
+- **Status:** Accepted — 2026-11-09.
 - **Date:** 2026-09-12
 - **Deciders:** @rsenna (with Claude as sounding board)
 - **Supersedes:** —
@@ -155,5 +151,5 @@ run wherever any such form would run, for the same reason.
   against this model: build an `^action ^t`, run only at the named
   boundaries.
 - `specs/execution-queue.md`'s epic 007 start criteria already link this
-  ADR directly (this PR). The only thing still pending acceptance is this
-  document's own Status line (see header).
+  ADR directly. Acceptance is recorded in this document's Status line
+  (2026-11-09).

@@ -4,7 +4,7 @@
 
 **Created**: 2026-07-21
 
-**Status**: Draft (Queued; activates after epic 004 leaves Draft)
+**Status**: Blocked (needs accepted IK1 grammar ADR; epic 006 accepted 2026-11-09)
 
 **Input**: Build a minimum but reasonably complete language layer ("IK1") with
 standard-library IO, function definitions, conditionals, loops, and a coherent
